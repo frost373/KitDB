@@ -132,3 +132,6 @@ fabric.properties
 ### TortoiseGit template
 # Project-level settings
 /.tgitconfig
+pom.xml
+store/pom.xml
+store/src/
