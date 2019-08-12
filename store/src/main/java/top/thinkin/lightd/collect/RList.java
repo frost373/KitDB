@@ -237,8 +237,11 @@ public class RList implements RCollection {
             db.release();
         }
     }
+    public synchronized void addAll(List<byte[]> vs) throws Exception {
+        addAllMayTTL(vs,-1);
+    }
 
-    public synchronized void addAll(List<byte[]> vs, int ttl) throws Exception {
+    public synchronized void addAllMayTTL(List<byte[]> vs, int ttl) throws Exception {
         db.start();
         try {
             byte[] k_v = db.rocksDB().get(this.key_b);
@@ -357,6 +360,17 @@ public class RList implements RCollection {
         MetaV metaV = getMetaV();
         ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), i);
         return db.rocksDB().get(valueK.convertValueBytes().toBytes());
+    }
+
+
+    public List<byte[]> get(long ...is) throws Exception {
+        MetaV metaV = getMetaV();
+        List<byte[]> list = new ArrayList<>(is.length);
+        for (long i:is){
+            ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(),i);
+            list.add(db.rocksDB().get(valueK.convertValueBytes().toBytes()));
+        }
+        return list;
     }
 
 
