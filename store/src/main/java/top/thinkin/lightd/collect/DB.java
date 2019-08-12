@@ -3,6 +3,8 @@ package top.thinkin.lightd.collect;
 import cn.hutool.core.lang.Assert;
 import cn.hutool.core.util.ArrayUtil;
 import org.rocksdb.*;
+import top.thinkin.lightd.exception.DAssert;
+import top.thinkin.lightd.exception.ErrorType;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -57,7 +59,7 @@ public class DB {
     }
 
 
-    protected  void start(){
+    public   void start(){
         if(ATOM_HANDLER.get()==null){
             ATOM_HANDLER.set(new AtomHandler(0,0));
         }else{
@@ -65,7 +67,7 @@ public class DB {
         }
     }
 
-    protected  void commit() throws Exception {
+    public  void commit() throws Exception {
         AtomHandler atomHandler=  ATOM_HANDLER.get();
         Assert.notNull(atomHandler,"AtomHandler is null");
         if(atomHandler.getCount()>0){
@@ -74,6 +76,7 @@ public class DB {
         }
         try (final WriteBatch batch = new WriteBatch()){
             List<DBLog> logs =  atomHandler.getLogs();
+
             for (DBLog log:logs){
                 switch(log.getType()){
                     case DELETE :
@@ -87,6 +90,7 @@ public class DB {
                         break;
                 }
             }
+
             rocksDB.write(writeOptions, batch);
         } catch (Exception e) {
             throw e;
@@ -95,7 +99,7 @@ public class DB {
         }
     }
 
-    protected  void release(){
+    public  void release(){
         if(ATOM_HANDLER.get()!=null){
             ATOM_HANDLER.remove();
         }
@@ -175,7 +179,7 @@ public class DB {
     }
 
 
-    public synchronized RList getList(String key) {
+    public synchronized RList getList(String key){
         Object list =map.get(RList.HEAD+key);
         if(list == null){
             list = new RList(this,key);
@@ -186,6 +190,7 @@ public class DB {
 
 
     public synchronized ZSet getZSet(String key) {
+        //DAssert.isTrue(ErrorType.contains(key), ErrorType.RETAIN_KEY,"");
         Object zset =map.get(ZSet.HEAD+key);
         if(zset == null){
             zset = new ZSet(this,key);
@@ -193,6 +198,4 @@ public class DB {
         }
         return (ZSet) zset;
     }
-
-
 }

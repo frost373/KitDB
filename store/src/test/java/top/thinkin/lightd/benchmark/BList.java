@@ -12,35 +12,54 @@ import java.util.List;
 public class BList {
 
     public static void main(String[] args) throws Exception {
-        int k = 100;
-        java.util.List<byte[]> arrayList = new ArrayList<>();
-        for (int i = 0; i < k; i++) {
-            arrayList.add((i+"test").getBytes());
-        }
-
 
         RocksDB.loadLibrary();
         DB db =  DB.build("D:\\temp\\db");
         RList list =   db.getList("benchmarkList");
-        list.addAll(arrayList);
 
 
-        try {
-            long startTime = System.currentTimeMillis(); //获取开始时间
+        int k = 1000*10000;
+        List<byte[]> arrayList = new ArrayList<>();
+        for (int i = 0; i < k; i++) {
+            arrayList.add((i+"test").getBytes());
+        }
 
-            //blpop(list);
-            //range(list);
-            //iterator(list);
-            long endTime = System.currentTimeMillis(); //获取结束时间
-            System.out.println("程序运行时间：" + (endTime - startTime) + "ms"); //输出程序运行时间
-        } finally {
-            list.delete();
-            db.close();
+        for (int j=0;j<100;j++) {
+            addAll(list,arrayList);
+
+           System.out.println(new String(list.get(0)));
+            try {
+                long startTime = System.currentTimeMillis(); //获取开始时间
+
+                //blpop(list);
+                //range(list);
+                //iterator(list);
+                delete(list);
+                long endTime = System.currentTimeMillis(); //获取结束时间
+                System.out.println("程序运行时间：" + (endTime - startTime) + "ms"); //输出程序运行时间
+            } finally {
+                //list.delete();
+                //db.close();
+            }
         }
 
     }
 
+    private static void delete(RList list) throws Exception {
+        list.delete();
+    }
 
+
+    private static void addAll(RList list,List<byte[]> arrayList) throws Exception {
+        long startTime = System.currentTimeMillis(); //获取开始时间
+        FList<byte[]> fList = new FList(arrayList);
+        List<List<byte[]>> lists =  fList.split(10*10000);
+        for (List<byte[]> bytes:lists){
+            list.addAll(bytes);
+        }
+        long endTime = System.currentTimeMillis(); //获取结束时间
+        System.out.println("程序运行时间：" + (endTime - startTime) + "ms"); //输出程序运行时间
+    }
 
     private static void range(RList list) throws Exception {
         for(int i = 0; i < 1000; i++){

@@ -70,13 +70,13 @@ public class RList implements RCollection {
         }
     }
 
-    public synchronized void ttl(int timestamp) throws Exception {
+    public synchronized void ttl(int ttl) throws Exception {
         db.start();
         try {
             MetaV metaV = getMetaV();
-            metaV.setTimestamp(timestamp);
+            metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
             db.put(key_b, metaV.convertMetaBytes().toBytes());
-            db.ttlZset().add(metaV.convertMetaBytes().toBytes(), timestamp);
+            db.ttlZset().add(metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
             db.commit();
         } finally {
             db.release();
@@ -98,7 +98,7 @@ public class RList implements RCollection {
 
     public int getTtl() throws Exception {
         MetaV metaV = getMetaV();
-        return metaV.getTimestamp();
+        return (int) (System.currentTimeMillis() / 1000 - metaV.getTimestamp());
     }
 
     public static synchronized void delete(byte[] key_b, byte[] k_v, DB db) throws Exception {
@@ -146,7 +146,7 @@ public class RList implements RCollection {
         try {
             MetaV metaV = getMetaV();
             MetaVD metaVD = metaV.convertMetaBytes();
-            db.put(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()), metaVD.toBytes());
+            //db.put(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()), metaVD.toBytes());
             db.delete(key_b);
             delete(key_b, db, metaV);
             db.commit();
@@ -238,7 +238,7 @@ public class RList implements RCollection {
         }
     }
 
-    public synchronized void addAll(List<byte[]> vs) throws Exception {
+    public synchronized void addAll(List<byte[]> vs, int ttl) throws Exception {
         db.start();
         try {
             byte[] k_v = db.rocksDB().get(this.key_b);
@@ -259,7 +259,11 @@ public class RList implements RCollection {
                 //写入Meta
                 db.put(key_b, metaV.convertMetaBytes().toBytes());
             } else {
-                metaV = new MetaV(0, 0, -1, -1, db.versionSequence().getSequence());
+
+                if (ttl != -1) {
+                    ttl = (int) (System.currentTimeMillis() / 1000 + ttl);
+                }
+                metaV = new MetaV(0, 0, -1, ttl, db.versionSequence().getSequence());
                 //写入Value
                 for (byte[] v : vs) {
                     metaV.size = metaV.size + 1;
@@ -269,11 +273,14 @@ public class RList implements RCollection {
                     }
                     ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.right);
                     db.put(valueK.convertValueBytes().toBytes(), v);
-
                 }
                 //写入Meta
                 db.put(key_b, metaV.convertMetaBytes().toBytes());
             }
+            if (ttl != -1) {
+                db.ttlZset().add(metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
+            }
+
             db.commit();
         } finally {
             db.release();
@@ -298,10 +305,10 @@ public class RList implements RCollection {
      * 如果新建则设置设置TTL。如果已存在则不设置
      *
      * @param v
-     * @param timestamp
+     * @param ttl
      * @throws RocksDBException
      */
-    public synchronized void addMayTTL(byte[] v, int timestamp) throws Exception {
+    public synchronized void addMayTTL(byte[] v, int ttl) throws Exception {
         db.start();
         try {
             byte[] k_v = db.rocksDB().get(this.key_b);
@@ -319,7 +326,10 @@ public class RList implements RCollection {
                 //写入Meta
                 db.put(key_b, metaV.convertMetaBytes().toBytes());
             } else {
-                metaV = new MetaV(1, 0, 0, timestamp, db.versionSequence().getSequence());
+                if (ttl != -1) {
+                    ttl = (int) (System.currentTimeMillis() / 1000 + ttl);
+                }
+                metaV = new MetaV(1, 0, 0, ttl, db.versionSequence().getSequence());
                 ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.right);
                 //写入Value
                 db.put(valueK.convertValueBytes().toBytes(), v);
@@ -329,10 +339,8 @@ public class RList implements RCollection {
 
             }
 
-            if (timestamp != -1) {
-                db.put(key_b, metaV.convertMetaBytes().toBytes());
-
-                db.ttlZset().add(metaV.convertMetaBytes().toBytes(), timestamp);
+            if (ttl != -1) {
+                db.ttlZset().add(metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
             }
 
             db.commit();
