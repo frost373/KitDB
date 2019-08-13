@@ -4,8 +4,6 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 
 public interface RCollection {
-
-
     /**
      * 删除，数据会被同步清除
      * @throws Exception
@@ -35,8 +33,7 @@ public interface RCollection {
      * @return
      * @throws Exception
      */
-    void ttl(int timestamp) throws Exception;
-
+    void ttl(int ttl) throws Exception;
 
     boolean isExist() throws RocksDBException;
     int size() throws Exception;
