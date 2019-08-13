@@ -7,25 +7,16 @@ import lombok.NoArgsConstructor;
 import lombok.extern.java.Log;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
-import org.rocksdb.WriteBatch;
 
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 
 @Log
-public class ZSet implements RCollection {
-    private byte[] key_b;
+public class ZSet extends RBase implements RCollection {
     public static String HEAD = "Z";
-
     public static byte[] HEAD_B = HEAD.getBytes();
-
     public static byte[] HEAD_SCORE_B = "z".getBytes();
-
     public static byte[] HEAD_V_B = "a".getBytes();
-    private DB db;
-
-    private static Charset charset = Charset.forName("UTF-8");
 
 
     public synchronized void add(byte[] v, long score) throws Exception {
@@ -309,7 +300,43 @@ public class ZSet implements RCollection {
         return metaV;
     }
 
+    public static synchronized void delete(byte[] key_b, byte[] k_v, DB db) throws Exception {
+        db.start();
+        try {
+            MetaD metaD = MetaD.build(k_v);
+            delete(key_b, db, metaD);
+            db.commit();
+        } finally {
+            db.release();
+        }
+    }
+
+    private static void delete(byte[] key_b, DB db, MetaD metaD) {
+        MetaV metaV = metaD.convertMetaV();
+        db.delete(key_b);
+        SData sData = new SData(key_b.length, key_b, metaV.getVersion(), null);
+        deleteHead(sData.getHead(), db);
+        ZData zData = new ZData(sData.getMapKeySize(), sData.getMapKey(), sData.getVersion(), 0, null);
+        deleteHead(zData.getHead(), db);
+        db.delete(ArrayKits.addAll("D".getBytes(charset), key_b, metaD.getVersion()));
+    }
+
+
     @Override
+    public synchronized void delete() throws Exception {
+        try {
+            db.start();
+            MetaV metaV = getMetaV();
+            delete(key_b, db, metaV.convertMetaBytes());
+        } finally {
+            db.release();
+        }
+    }
+
+
+
+
+    /*@Override
     public synchronized void delete() throws Exception {
         MetaV metaV = getMetaV();
         MetaD metaVD = metaV.convertMetaBytes();
@@ -348,7 +375,7 @@ public class ZSet implements RCollection {
         }
         db.rocksDB().write(db.writeOptions(), batch);
         db.rocksDB().delete(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()));
-    }
+    }*/
 
     @Override
     public synchronized void deleteFast() throws Exception {
@@ -367,27 +394,38 @@ public class ZSet implements RCollection {
     @Override
     public synchronized int getTtl() throws Exception {
         MetaV metaV = getMetaV();
+        if (metaV.getTimestamp() == -1) {
+            return -1;
+        }
         return (int) (System.currentTimeMillis() / 1000 - metaV.getTimestamp());
     }
 
     @Override
     public synchronized void delTtl() throws Exception {
-        MetaV metaV = getMetaV();
-        metaV.setTimestamp(-1);
-        db.start();
-        db.put(key_b, metaV.convertMetaBytes().toBytes());
-        db.ttlZset().remove(metaV.convertMetaBytes().toBytes());
-        db.commit();
+        try {
+            MetaV metaV = getMetaV();
+            metaV.setTimestamp(-1);
+            db.start();
+            db.put(key_b, metaV.convertMetaBytes().toBytes());
+            db.ttlZset().remove(metaV.convertMetaBytes().toBytes());
+            db.commit();
+        } finally {
+            db.release();
+        }
     }
 
     @Override
     public void ttl(int ttl) throws Exception {
-        MetaV metaV = getMetaV();
-        db.start();
-        metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
-        db.put(key_b, metaV.convertMetaBytes().toBytes());
-        db.ttlZset().add(metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
-        db.commit();
+        try {
+            MetaV metaV = getMetaV();
+            db.start();
+            metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
+            db.put(key_b, metaV.convertMetaBytes().toBytes());
+            db.ttlZset().add(metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
+            db.commit();
+        } finally {
+            db.release();
+        }
 
     }
 

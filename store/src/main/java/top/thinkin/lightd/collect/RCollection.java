@@ -4,6 +4,8 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 
 public interface RCollection {
+
+
     /**
      * 删除，数据会被同步清除
      * @throws Exception
@@ -42,4 +44,6 @@ public interface RCollection {
 
     }
     Entry getEntry(RocksIterator iterator);
+
+
 }

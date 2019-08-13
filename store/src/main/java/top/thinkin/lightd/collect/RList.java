@@ -8,21 +8,17 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.exception.NonExistException;
 
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * A List
  */
-public class RList implements RCollection {
-    private byte[] key_b;
+public class RList extends RBase implements RCollection {
 
     public final static String HEAD = "L";
     public final static String HEAD_VALUE = "l";
 
-    private DB db;
-    private static Charset charset = Charset.forName("UTF-8");
 
     public RList(DB db, String key) {
         this.key_b = (HEAD + key).getBytes(charset);
@@ -98,6 +94,9 @@ public class RList implements RCollection {
 
     public int getTtl() throws Exception {
         MetaV metaV = getMetaV();
+        if (metaV.getTimestamp() == -1) {
+            return -1;
+        }
         return (int) (System.currentTimeMillis() / 1000 - metaV.getTimestamp());
     }
 
@@ -115,28 +114,12 @@ public class RList implements RCollection {
     private static void delete(byte[] key_b, DB db, MetaV metaV) throws Exception {
         ValueK valueK_seek = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.left);
         MetaVD metaVD = metaV.convertMetaBytes();
-        final RocksIterator iterator = db.rocksDB().newIterator();
         ValueKD valueKD = valueK_seek.convertValueBytes();
         byte[] heads = valueKD.toHeadBytes();
-        iterator.seek(valueKD.toBytes());
 
-        byte[] start;
-        byte[] end;
 
-        if (iterator.isValid()) {
-           start = iterator.key();
-            iterator.prev();
-            if (BytesUtil.checkHead(heads, start)){
-                iterator.seekToLast();
-                end = iterator.key();
-                if (BytesUtil.checkHead(heads, end)){
-                    db.deleteRange(start,end);
-                    db.delete(end);
-                }else{
-                    db.delete(start);
-                }
-            }
-        }
+        deleteHead(heads, db);
+
         byte[] key = ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion());
         db.delete(key);
     }

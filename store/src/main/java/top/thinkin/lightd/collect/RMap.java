@@ -4,18 +4,40 @@ import cn.hutool.core.util.ArrayUtil;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
 
-import java.nio.charset.Charset;
 import java.util.*;
 
-public class RMap {
-    private byte[] key_b;
+public class RMap extends RBase implements RCollection {
     public final static String HEAD = "M";
     public final static byte[] HEAD_B = HEAD.getBytes();
     public final static byte[] HEAD_KEY_B = "m".getBytes();
-    private final static Charset charset = Charset.forName("UTF-8");
 
-    private DB db;
+    public RMap(DB db, String key) {
+        this.key_b = (HEAD + key).getBytes(charset);
+        this.db = db;
+    }
+
+
+    public static synchronized void delete(byte[] key_b, byte[] k_v, DB db) throws Exception {
+        db.start();
+        try {
+            MetaD metaD = MetaD.build(k_v);
+            delete(key_b, db, metaD);
+            db.commit();
+        } finally {
+            db.release();
+        }
+    }
+
+    private static void delete(byte[] key_b, DB db, MetaD metaD) {
+        Meta metaV = metaD.convertMetaV();
+        db.delete(key_b);
+        Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), null);
+        deleteHead(vkey.getHead(), db);
+        db.delete(ArrayKits.addAll("D".getBytes(charset), key_b, metaD.getVersion()));
+    }
 
     public synchronized void putMayTTL(int ttl, Entry... entries) throws Exception {
         db.start();
@@ -115,6 +137,88 @@ public class RMap {
             throw new Exception("List do not exist");
         }
         return metaV;
+    }
+
+    @Override
+    public void delete() throws Exception {
+        try {
+            db.start();
+            Meta metaV = getMeta();
+            delete(key_b, db, metaV.convertMetaBytes());
+        } finally {
+            db.release();
+        }
+
+    }
+
+    @Override
+    public void deleteFast() throws Exception {
+        db.start();
+        try {
+            Meta metaV = getMeta();
+            MetaD metaVD = metaV.convertMetaBytes();
+            db.put(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()), metaVD.toBytes());
+            db.delete(key_b);
+            db.commit();
+        } finally {
+            db.release();
+        }
+    }
+
+    @Override
+    public int getTtl() throws Exception {
+        Meta metaV = getMeta();
+        if (metaV.getTimestamp() == -1) {
+            return -1;
+        }
+        return (int) (System.currentTimeMillis() / 1000 - metaV.getTimestamp());
+    }
+
+    @Override
+    public void delTtl() throws Exception {
+        db.start();
+        try {
+            Meta metaV = getMeta();
+            metaV.setTimestamp(-1);
+            db.put(key_b, metaV.convertMetaBytes().toBytes());
+            db.ttlZset().remove(metaV.convertMetaBytes().toBytes());
+            db.commit();
+        } finally {
+            db.release();
+        }
+    }
+
+    @Override
+    public void ttl(int ttl) throws Exception {
+        try {
+            Meta metaV = getMeta();
+            db.start();
+            metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
+            db.put(key_b, metaV.convertMetaBytes().toBytes());
+            db.ttlZset().add(metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
+            db.commit();
+        } finally {
+            db.release();
+        }
+
+    }
+
+    @Override
+    public boolean isExist() throws RocksDBException {
+        byte[] k_v = db.rocksDB().get(this.key_b);
+        Meta meta = addCheck(k_v);
+        return meta != null;
+    }
+
+    @Override
+    public int size() throws Exception {
+        Meta metaV = getMeta();
+        return metaV.getSize();
+    }
+
+    @Override
+    public RCollection.Entry getEntry(RocksIterator iterator) {
+        return null;
     }
 
 

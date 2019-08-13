@@ -3,8 +3,6 @@ package top.thinkin.lightd.collect;
 import cn.hutool.core.lang.Assert;
 import cn.hutool.core.util.ArrayUtil;
 import org.rocksdb.*;
-import top.thinkin.lightd.exception.DAssert;
-import top.thinkin.lightd.exception.ErrorType;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -136,6 +134,11 @@ public class DB {
                 if("L".getBytes()[0] == rel_key_bs[0]){
                     RList.delete(rel_key_bs,value,this);
                 }
+
+                if ("Z".getBytes()[0] == rel_key_bs[0]) {
+                    ZSet.delete(rel_key_bs, value, this);
+                }
+
             }
         } catch (final Exception e) {
             e.printStackTrace();
