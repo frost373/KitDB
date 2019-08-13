@@ -18,30 +18,30 @@ public class BList {
         RList list =   db.getList("benchmarkList");
 
 
-        int k = 1000*10000;
+        int k = 100 * 10000;
         List<byte[]> arrayList = new ArrayList<>();
         for (int i = 0; i < k; i++) {
             arrayList.add((i+"test").getBytes());
         }
 
-        for (int j=0;j<100;j++) {
-            addAll(list,arrayList);
+        addAll(list, arrayList);
 
-           System.out.println(new String(list.get(0)));
-            try {
-                long startTime = System.currentTimeMillis(); //获取开始时间
+        System.out.println(new String(list.get(0)));
+        try {
+            long startTime = System.currentTimeMillis(); //获取开始时间
 
-                //blpop(list);
-                //range(list);
-                //iterator(list);
-                delete(list);
-                long endTime = System.currentTimeMillis(); //获取结束时间
-                System.out.println("程序运行时间：" + (endTime - startTime) + "ms"); //输出程序运行时间
-            } finally {
-                //list.delete();
-                //db.close();
-            }
+            //blpop(list);
+            //range(list);
+            //iterator(list);
+            //delete(list);
+            get(list);
+            long endTime = System.currentTimeMillis(); //获取结束时间
+            System.out.println("程序运行时间：" + (endTime - startTime) + "ms"); //输出程序运行时间
+        } finally {
+            list.delete();
+            db.close();
         }
+
 
     }
 
@@ -67,6 +67,27 @@ public class BList {
 
         }
     }
+
+    private static void get(RList list) throws Exception {
+        for (int i = 0; i < 100 * 10000; i++) {
+            list.get(i);
+        }
+    }
+
+
+    private static void getAll(RList list) throws Exception {
+        long[] ints = new long[10001];
+        int j = 0;
+        for (int i = 0; i < 100 * 10000; i++) {
+            ints[j] = i;
+            if (i % 10000 == 0) {
+                list.get(ints);
+                j = 0;
+            }
+            j++;
+        }
+    }
+
 
     private static void iterator(RList list) throws Exception {
         RIterator<RList> iterator =  list.iterator();

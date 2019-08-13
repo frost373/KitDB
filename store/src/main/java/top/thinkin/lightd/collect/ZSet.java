@@ -67,13 +67,13 @@ public class ZSet implements RCollection {
     }
 
 
-    private void setEntry(MetaV metaV, Entry[] entrys) throws Exception {
+    private void setEntry(MetaV metaV, Entry[] entrys) {
         for (Entry entry : entrys) {
             metaV.size = metaV.size + 1;
             SData sData = new SData(key_b.length, key_b, metaV.getVersion(), entry.value);
             ZData zData = new ZData(key_b.length, key_b, metaV.getVersion(), entry.score, entry.value);
             db.put(sData.convertBytes().toBytes(), ArrayKits.longToBytes(entry.score));
-            db.put(zData.convertBytes().toBytes(), "test".getBytes());
+            db.put(zData.convertBytes().toBytes(), "".getBytes());
         }
     }
 

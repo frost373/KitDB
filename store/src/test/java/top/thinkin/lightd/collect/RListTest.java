@@ -29,7 +29,7 @@ public class RListTest {
 
     }
 
-    @Test
+    //@Test
     public void add() throws Exception {
         long startTime = System.currentTimeMillis(); //获取开始时间
 
@@ -43,7 +43,7 @@ public class RListTest {
 
     }
 
-    @Test
+    //@Test
     public void ttl() throws Exception {
         RList list =   db.getList("ttl");
         for (int i = 0; i < 100000; i++) {
@@ -56,7 +56,7 @@ public class RListTest {
     }
 
 
-    @Test
+    // @Test
     public void pop() throws Exception {
         int k = 100*10000;
         List<byte[]> arrayList = new ArrayList<>();
@@ -84,7 +84,7 @@ public class RListTest {
         System.out.println("程序运行时间：" + (endTime - startTime) + "ms"); //输出程序运行时间
     }
 
-    @Test
+    //@Test
     public void range() throws Exception {
         List<byte[]> arrayList = new ArrayList<>();
 
@@ -110,11 +110,15 @@ public class RListTest {
         list.delete();
     }
 
-    //@Test
+    @Test
     public void get() throws Exception {
         long startTime = System.currentTimeMillis(); //获取开始时间
         RList list =   db.getList("get");
-        for (int i = 0; i < 1000000; i++) {
+        for (int i = 0; i < 100 * 10000; i++) {
+            list.get(i);
+            Assert.assertArrayEquals((i + "test").getBytes(), list.get(i));
+        }
+        for (int i = 0; i < 100 * 10000; i++) {
             list.get(i);
             Assert.assertArrayEquals((i+"test").getBytes(),list.get(i));
         }
