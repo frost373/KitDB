@@ -8,4 +8,5 @@ public interface ReservedWords {
         String TTL = "sys:TTL";
         Collection<String> ALL = Arrays.asList(TTL);
     }
+
 }

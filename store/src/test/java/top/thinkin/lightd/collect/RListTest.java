@@ -24,46 +24,48 @@ public class RListTest {
     public void init() throws RocksDBException {
         if(db == null){
             RocksDB.loadLibrary();
-            db =  DB.build("D:\\temp\\db");
+            db = DB.build("D:\\temp\\db", false);
         }
-
     }
 
-    //@Test
+    @Test
     public void add() throws Exception {
-        long startTime = System.currentTimeMillis(); //获取开始时间
-
         RList list =   db.getList("add");
-
-        for (int i = 0; i < 1000000; i++) {
-            list.add((i+"test").getBytes());
+        try {
+            for (int i = 0; i < 1000000; i++) {
+                list.add((i + "test").getBytes());
+            }
+            Assert.assertTrue(list.size() == 1000000);
+        } finally {
+            list.delete();
         }
-        long endTime = System.currentTimeMillis(); //获取结束时间
-        System.out.println("程序运行时间：" + (endTime - startTime) + "ms"); //输出程序运行时间
-
     }
 
-    //@Test
+    @Test
     public void ttl() throws Exception {
         RList list =   db.getList("ttl");
-        for (int i = 0; i < 100000; i++) {
-            list.add((i+"test").getBytes());
+        try {
+            for (int i = 0; i < 100000; i++) {
+                list.add((i + "test").getBytes());
+            }
+            list.ttl(10);
+            Thread.sleep(2 * 1000);
+            Assert.assertTrue(list.isExist());
+            Thread.sleep((9 * 1000));
+            Assert.assertTrue(!list.isExist());
+        } finally {
+            db.clear();
         }
-        list.deleteFast();
-
-        Thread.sleep(1000*600);
-
     }
 
 
-    // @Test
+    @Test
     public void pop() throws Exception {
         int k = 100*10000;
         List<byte[]> arrayList = new ArrayList<>();
         for (int i = 0; i < k; i++) {
             arrayList.add((i+"test").getBytes());
         }
-        long startTime = System.currentTimeMillis(); //获取开始时间
         RList list =   db.getList("pop");
         list.addAll(arrayList);
         try {
@@ -80,51 +82,43 @@ public class RListTest {
         } finally {
             list.delete();
         }
-        long endTime = System.currentTimeMillis(); //获取结束时间
-        System.out.println("程序运行时间：" + (endTime - startTime) + "ms"); //输出程序运行时间
     }
 
-    //@Test
+    @Test
     public void range() throws Exception {
-        List<byte[]> arrayList = new ArrayList<>();
-
-        for (int i = 0; i < 1000000; i++) {
-            arrayList.add((i+"test").getBytes());
-        }
-        RList list =   db.getList("range");
-
-        list.addAll(arrayList);
-        long startTime = System.currentTimeMillis(); //获取开始时间
-
-
-        //for(int i = 0; i < 10000; i++){
-            List<byte[]> listrange =  list.range(50,100);
-            for (byte[] v:listrange){
-                System.out.println(new String(v));
+        RList list = db.getList("range");
+        try {
+            List<byte[]> arrayList = new ArrayList<>();
+            for (int i = 0; i < 1000000; i++) {
+                arrayList.add((i + "test").getBytes());
             }
-        //}
-
-
-        long endTime = System.currentTimeMillis(); //获取结束时间
-        System.out.println("程序运行时间：" + (endTime - startTime) + "ms"); //输出程序运行时间
-        list.delete();
+            list.addAll(arrayList);
+            List<byte[]> listrange =  list.range(50,100);
+            int i = 50;
+            for (byte[] v:listrange){
+                Assert.assertArrayEquals((i + "test").getBytes(), v);
+                i++;
+            }
+        } finally {
+            list.delete();
+        }
     }
 
     @Test
     public void get() throws Exception {
-        long startTime = System.currentTimeMillis(); //获取开始时间
         RList list =   db.getList("get");
-        for (int i = 0; i < 100 * 10000; i++) {
-            list.get(i);
-            Assert.assertArrayEquals((i + "test").getBytes(), list.get(i));
+        try {
+            List<byte[]> arrayList = new ArrayList<>();
+            for (int i = 0; i < 1000000; i++) {
+                arrayList.add((i + "test").getBytes());
+            }
+            list.addAll(arrayList);
+            for (int i = 0; i < 100 * 10000; i++) {
+                list.get(i);
+                Assert.assertArrayEquals((i + "test").getBytes(), list.get(i));
+            }
+        } finally {
+            list.delete();
         }
-        for (int i = 0; i < 100 * 10000; i++) {
-            list.get(i);
-            Assert.assertArrayEquals((i+"test").getBytes(),list.get(i));
-        }
-        long endTime = System.currentTimeMillis(); //获取结束时间
-
-        System.out.println("程序运行时间：" + (endTime - startTime) + "ms"); //输出程序运行时间
-        list.delete();
     }
 }

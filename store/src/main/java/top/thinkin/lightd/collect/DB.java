@@ -1,6 +1,5 @@
 package top.thinkin.lightd.collect;
 
-import cn.hutool.core.lang.Assert;
 import cn.hutool.core.util.ArrayUtil;
 import org.rocksdb.*;
 
@@ -16,7 +15,7 @@ public class DB {
     private RocksDB rocksDB;
     private boolean openTransaction = false;
 
-    private  VersionSequence versionSequence;
+    public VersionSequence versionSequence;
     private  ZSet ttlZset;
     private final static  byte[] DEL_HEAD = "D".getBytes();
     private  WriteOptions writeOptions;
@@ -29,23 +28,7 @@ public class DB {
         RocksDB.loadLibrary();
     }
 
-    protected  void put(byte[] key,byte[] value){
-        AtomHandler atomHandler=  ATOM_HANDLER.get();
-        Assert.notNull(atomHandler,"AtomHandler is null");
-        atomHandler.getLogs().add(DBLog.update(key,value));
-    }
 
-    protected   void delete(byte[] key){
-        AtomHandler atomHandler=  ATOM_HANDLER.get();
-        Assert.notNull(atomHandler,"AtomHandler is null");
-        atomHandler.getLogs().add(DBLog.delete(key));
-    }
-
-    protected   void deleteRange(byte[] start,byte[] end){
-        AtomHandler atomHandler=  ATOM_HANDLER.get();
-        Assert.notNull(atomHandler,"AtomHandler is null");
-        atomHandler.getLogs().add(DBLog.deleteRange(start,end));
-    }
 
     public   void close(){
         if(stp!=null){
@@ -53,53 +36,6 @@ public class DB {
         }
         if(rocksDB!=null){
             rocksDB.close();
-        }
-    }
-
-
-    public   void start(){
-        if(ATOM_HANDLER.get()==null){
-            ATOM_HANDLER.set(new AtomHandler(0,0));
-        }else{
-            ATOM_HANDLER.get().addCount();
-        }
-    }
-
-    public  void commit() throws Exception {
-        AtomHandler atomHandler=  ATOM_HANDLER.get();
-        Assert.notNull(atomHandler,"AtomHandler is null");
-        if(atomHandler.getCount()>0){
-            atomHandler.subCount();
-            return;
-        }
-        try (final WriteBatch batch = new WriteBatch()){
-            List<DBLog> logs =  atomHandler.getLogs();
-
-            for (DBLog log:logs){
-                switch(log.getType()){
-                    case DELETE :
-                        batch.delete(log.getKey());
-                        break;
-                    case UPDATE :
-                        batch.put(log.getKey(),log.getValue());
-                        break;
-                    case DELETE_RANGE:
-                        batch.deleteRange(log.getStart(),log.getEnd());
-                        break;
-                }
-            }
-
-            rocksDB.write(writeOptions, batch);
-        } catch (Exception e) {
-            throw e;
-        } finally {
-            ATOM_HANDLER.remove();
-        }
-    }
-
-    public  void release(){
-        if(ATOM_HANDLER.get()!=null){
-            ATOM_HANDLER.remove();
         }
     }
 
@@ -119,11 +55,11 @@ public class DB {
         return this.writeOptions;
     }
 
-    protected void clear(){
+    public synchronized void clear() {
         try (RocksIterator iterator = this.rocksDB.newIterator()) {
             iterator.seek(DEL_HEAD);
             while (iterator.isValid()) {
-                Thread.sleep(1000);
+                //Thread.sleep(1000);
                 byte[] key_bs = iterator.key();
                 if(DEL_HEAD[0] != key_bs[0]){
                     break;
@@ -131,11 +67,11 @@ public class DB {
                 byte[] value =  iterator.value();
                 iterator.next();
                 byte[] rel_key_bs =  ArrayUtil.sub(key_bs,1,key_bs.length-4);
-                if("L".getBytes()[0] == rel_key_bs[0]){
+                if (RList.HEAD_B[0] == rel_key_bs[0]) {
                     RList.delete(rel_key_bs,value,this);
                 }
 
-                if ("Z".getBytes()[0] == rel_key_bs[0]) {
+                if (ZSet.HEAD_B[0] == rel_key_bs[0]) {
                     ZSet.delete(rel_key_bs, value, this);
                 }
 
@@ -144,6 +80,23 @@ public class DB {
             e.printStackTrace();
         }
     }
+
+
+    public synchronized void checkTTL() throws Exception {
+        List<ZSet.Entry> outTimeKeys = ttlZset.range(System.currentTimeMillis() / 1000, Integer.MAX_VALUE);
+        for (ZSet.Entry outTimeKey : outTimeKeys) {
+            byte[] key_bs = outTimeKey.value;
+            if (RList.HEAD_B[0] == key_bs[0]) {
+                RList.deleteFast(key_bs, this);
+            }
+
+            if (ZSet.HEAD_B[0] == key_bs[0]) {
+                ZSet.deleteFast(key_bs, this);
+            }
+
+        }
+    }
+
 
     public synchronized static DB buildTransactionDB(String dir) throws RocksDBException {
         DB db = new DB();
@@ -158,26 +111,26 @@ public class DB {
         db.versionSequence = new VersionSequence(db.rocksDB);
         db.ttlZset = db.getZSet(ReservedWords.ZSET_KEYS.TTL);
         db.writeOptions = new WriteOptions();
-
         stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
+
         return db;
     }
 
     public synchronized static DB build(String dir) throws RocksDBException {
+        return build(dir, true);
+    }
+
+    public synchronized static DB build(String dir, boolean autoclear) throws RocksDBException {
         DB db = new DB();
         Options options = new Options();
         options.setCreateIfMissing(true);
-       /* OptimisticTransactionDB txnDb =
-                OptimisticTransactionDB.open(options, dir);*/
-        //TransactionDBOptions transactionDBOptions = new TransactionDBOptions();
-       // TransactionDB rocksDB =   TransactionDB.open(options,transactionDBOptions,dir);
-
         db.rocksDB  = RocksDB.open(options, dir);
         db.versionSequence = new VersionSequence(db.rocksDB);
         db.ttlZset = db.getZSet(ReservedWords.ZSET_KEYS.TTL);
         db.writeOptions = new WriteOptions();
-
-        stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
+        if (autoclear) {
+            stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
+        }
         return db;
     }
 
@@ -191,9 +144,17 @@ public class DB {
         return (RList) list;
     }
 
+    public synchronized Sequence getSequence(String key) {
+        Object s = map.get(Sequence.HEAD + key);
+        if (s == null) {
+            s = new Sequence(this, key.getBytes());
+            map.put(Sequence.HEAD + key, s);
+        }
+        return (Sequence) s;
+    }
+
 
     public synchronized ZSet getZSet(String key) {
-        //DAssert.isTrue(ErrorType.contains(key), ErrorType.RETAIN_KEY,"");
         Object zset =map.get(ZSet.HEAD+key);
         if(zset == null){
             zset = new ZSet(this,key);

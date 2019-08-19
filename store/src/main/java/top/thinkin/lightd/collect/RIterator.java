@@ -2,7 +2,7 @@ package top.thinkin.lightd.collect;
 
 import org.rocksdb.RocksIterator;
 
-public class RIterator<R extends RCollection> {
+public class RIterator<R extends RCollection> implements AutoCloseable {
     private final RocksIterator iterator;
     private final RCollection rCollection;
     private final byte[] seekHead;
@@ -33,5 +33,12 @@ public class RIterator<R extends RCollection> {
 
     public byte[] getSeek() {
         return seekHead;
+    }
+
+    @Override
+    public void close() throws Exception {
+        if (iterator != null) {
+            iterator.close();
+        }
     }
 }

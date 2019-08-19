@@ -30,13 +30,15 @@ public class BList {
         try {
             long startTime = System.currentTimeMillis(); //获取开始时间
 
-            //blpop(list);
+            blpop(list);
             //range(list);
             //iterator(list);
-            delete(list);
+            //delete(list);
             //get(list);
             long endTime = System.currentTimeMillis(); //获取结束时间
             System.out.println("程序运行时间：" + (endTime - startTime) + "ms"); //输出程序运行时间
+            System.out.println("benchmark" + ((100.00 * 10000) / (endTime - startTime)) * 1000 + "per second"); //输出程序运行时间
+
         } finally {
             list.delete();
             db.close();
@@ -99,7 +101,7 @@ public class BList {
 
     private static void blpop(RList list) throws Exception {
         while (true){
-            java.util.List<byte[]> pops = list.blpop(1000);
+            java.util.List<byte[]> pops = list.blpop(1);
             if(CollectionUtil.isEmpty(pops)) break;
         }
     }

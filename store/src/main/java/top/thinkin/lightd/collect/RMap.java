@@ -1,3 +1,4 @@
+/*
 package top.thinkin.lightd.collect;
 
 import cn.hutool.core.util.ArrayUtil;
@@ -14,7 +15,8 @@ public class RMap extends RBase implements RCollection {
     public final static byte[] HEAD_B = HEAD.getBytes();
     public final static byte[] HEAD_KEY_B = "m".getBytes();
 
-    public RMap(DB db, String key) {
+    */
+/*public RMap(DB db, String key) {
         this.key_b = (HEAD + key).getBytes(charset);
         this.db = db;
     }
@@ -51,7 +53,7 @@ public class RMap extends RBase implements RCollection {
                 if (ttl != -1) {
                     ttl = (int) (System.currentTimeMillis() / 1000 + ttl);
                 }
-                metaV = new Meta(0, ttl, db.versionSequence().getSequence());
+                metaV = new Meta(0, ttl, db.versionSequence().incr());
                 setEntry(metaV, entries);
                 db.put(key_b, metaV.convertMetaBytes().toBytes());
             }
@@ -332,6 +334,8 @@ public class RMap extends RBase implements RCollection {
             key.setKey(this.key);
             return key;
         }
-    }
+    }*//*
+
 
 }
+*/

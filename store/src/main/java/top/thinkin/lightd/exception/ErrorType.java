@@ -1,11 +1,12 @@
 package top.thinkin.lightd.exception;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public enum ErrorType {
 
-    RETAIN_KEY(0, "RETAIN_KEY");
+    RETAIN_KEY(0, "RETAIN_KEY"), DATA_LOCK(1, "DATA_LOCK");
 
     private final String type;
     static final Set<String> ALL;

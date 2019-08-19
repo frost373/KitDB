@@ -32,28 +32,28 @@ public class ZSet extends RBase implements RCollection {
     }
 
     public synchronized void addMayTTL(int ttl, Entry... entrys) throws Exception {
-        db.start();
+        start();
         try {
             byte[] k_v = db.rocksDB().get(this.key_b);
             MetaV metaV = addCheck(k_v);
             if (metaV != null) {
                 setEntry(metaV, entrys);
-                db.put(this.key_b, metaV.convertMetaBytes().toBytes());
+                put(this.key_b, metaV.convertMetaBytes().toBytes());
             } else {
                 if (ttl != -1) {
                     ttl = (int) (System.currentTimeMillis() / 1000 + ttl);
                 }
-                metaV = new MetaV(0, ttl, db.versionSequence().getSequence());
+                metaV = new MetaV(0, ttl, db.versionSequence().incr());
                 setEntry(metaV, entrys);
-                db.put(key_b, metaV.convertMetaBytes().toBytes());
+                put(key_b, metaV.convertMetaBytes().toBytes());
             }
             if (metaV.getTimestamp() != -1) {
                 db.ttlZset().add(metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
             }
 
-            db.commit();
+            commit();
         } finally {
-            db.release();
+            release();
         }
     }
 
@@ -63,8 +63,8 @@ public class ZSet extends RBase implements RCollection {
             metaV.size = metaV.size + 1;
             SData sData = new SData(key_b.length, key_b, metaV.getVersion(), entry.value);
             ZData zData = new ZData(key_b.length, key_b, metaV.getVersion(), entry.score, entry.value);
-            db.put(sData.convertBytes().toBytes(), ArrayKits.longToBytes(entry.score));
-            db.put(zData.convertBytes().toBytes(), "".getBytes());
+            put(sData.convertBytes().toBytes(), ArrayKits.longToBytes(entry.score));
+            put(zData.convertBytes().toBytes(), "".getBytes());
         }
     }
 
@@ -83,23 +83,21 @@ public class ZSet extends RBase implements RCollection {
 
         byte[] seek = zData.getSeek();
         byte[] head = zData.getHead();
-        final RocksIterator iterator = db.rocksDB().newIterator();
-        iterator.seek(seek);
-        long index = 0;
-        while (iterator.isValid() && index <= end) {
-            byte[] key_bs = iterator.key();
-            if (!BytesUtil.checkHead(head, key_bs)) break;
-
-            ZData key = ZDataD.build(key_bs).convertValue();
-            index = key.getScore();
-            if (index > end) {
-                break;
+        try (final RocksIterator iterator = db.rocksDB().newIterator()) {
+            iterator.seek(seek);
+            long index = 0;
+            while (iterator.isValid() && index <= end) {
+                byte[] key_bs = iterator.key();
+                if (!BytesUtil.checkHead(head, key_bs)) break;
+                ZData key = ZDataD.build(key_bs).convertValue();
+                index = key.getScore();
+                if (index > end) {
+                    break;
+                }
+                entries.add(new Entry(index, key.value));
+                iterator.next();
             }
-            entries.add(new Entry(index, key.value));
-            iterator.next();
         }
-
-
         return entries;
     }
 
@@ -130,43 +128,43 @@ public class ZSet extends RBase implements RCollection {
         byte[] head = zData.getHead();
 
         List<byte[]> dels = new ArrayList<>();
-        final RocksIterator iterator = db.rocksDB().newIterator();
-        iterator.seek(seek);
-        long index = 0;
-        while (iterator.isValid() && index <= end) {
-            byte[] key_bs = iterator.key();
-            if (!BytesUtil.checkHead(head, key_bs)) break;
-            ZDataD zDataD = ZDataD.build(key_bs);
-            ZData key = zDataD.convertValue();
-            index = key.getScore();
-            if (index > end) {
-                break;
+        try (final RocksIterator iterator = db.rocksDB().newIterator()) {
+            iterator.seek(seek);
+            long index = 0;
+            while (iterator.isValid() && index <= end) {
+                byte[] key_bs = iterator.key();
+                if (!BytesUtil.checkHead(head, key_bs)) break;
+                ZDataD zDataD = ZDataD.build(key_bs);
+                ZData key = zDataD.convertValue();
+                index = key.getScore();
+                if (index > end) {
+                    break;
+                }
+                entries.add(new Entry(index, key.value));
+
+                //DEL
+                metaV.setSize(metaV.getSize() - 1);
+                dels.add(zDataD.toBytes());
+                SDataD sDataD = new SDataD(zDataD.getMapKeySize(), key_b, zDataD.getVersion(), zDataD.getValue());
+                dels.add(sDataD.toBytes());
+
+                iterator.next();
             }
-            entries.add(new Entry(index, key.value));
-
-            //DEL
-            metaV.setSize(metaV.getSize() - 1);
-            dels.add(zDataD.toBytes());
-            SDataD sDataD = new SDataD(zDataD.getMapKeySize(), key_b, zDataD.getVersion(), zDataD.getValue());
-            dels.add(sDataD.toBytes());
-
-            iterator.next();
         }
-
-        db.start();
+        start();
         try {
             removeDo(metaV, dels);
-            db.commit();
+            commit();
         } finally {
-            db.release();
+            release();
         }
         return entries;
     }
 
     private void removeDo(MetaV metaV, List<byte[]> dels) throws RocksDBException {
-        db.put(key_b, metaV.convertMetaBytes().toBytes());
+        put(key_b, metaV.convertMetaBytes().toBytes());
         for (byte[] del : dels) {
-            db.delete(del);
+            delete(del);
         }
     }
 
@@ -179,7 +177,7 @@ public class ZSet extends RBase implements RCollection {
      * @throws Exception
      */
     private synchronized void incrby(int increment, byte[]... vs) throws Exception {
-        db.start();
+        start();
         try {
             MetaV metaV = getMetaV();
             for (byte[] v : vs) {
@@ -190,13 +188,13 @@ public class ZSet extends RBase implements RCollection {
                     int score = ArrayKits.bytesToInt(scoreD, 0) + increment;
                     scoreD = ArrayKits.intToBytes(score);
                     ZDataD zDataD = new ZDataD(sDataD.getMapKeySize(), sDataD.getMapKey(), sDataD.getVersion(), scoreD, sDataD.getValue());
-                    db.put(sData.convertBytes().toBytes(), scoreD);
-                    db.put(zDataD.toBytes(), null);
+                    put(sData.convertBytes().toBytes(), scoreD);
+                    put(zDataD.toBytes(), null);
                 }
             }
-            db.commit();
+            commit();
         } finally {
-            db.release();
+            release();
         }
     }
 
@@ -221,12 +219,12 @@ public class ZSet extends RBase implements RCollection {
                 metaV.setSize(metaV.getSize() - 1);
             }
         }
-        db.start();
+        start();
         try {
             removeDo(metaV, dels);
-            db.commit();
+            commit();
         } catch (Exception e) {
-            db.release();
+            release();
         }
     }
 
@@ -287,7 +285,8 @@ public class ZSet extends RBase implements RCollection {
         return metaV;
     }
 
-    private MetaV getMetaV() throws Exception {
+    @Override
+    protected MetaV getMetaV() throws Exception {
         byte[] k_v = this.db.rocksDB().get(key_b);
         if (k_v == null) {
             throw new Exception("List do not exist");
@@ -301,94 +300,45 @@ public class ZSet extends RBase implements RCollection {
     }
 
     public static synchronized void delete(byte[] key_b, byte[] k_v, DB db) throws Exception {
-        db.start();
+        ZSet rBase = new ZSet(db, "DEL");
+
+        rBase.start();
         try {
             MetaD metaD = MetaD.build(k_v);
-            delete(key_b, db, metaD);
-            db.commit();
+            delete(key_b, rBase, metaD);
+            rBase.commit();
         } finally {
-            db.release();
+            rBase.release();
         }
     }
 
-    private static void delete(byte[] key_b, DB db, MetaD metaD) {
+    private static void delete(byte[] key_b, RBase rBase, MetaD metaD) {
         MetaV metaV = metaD.convertMetaV();
-        db.delete(key_b);
+        rBase.delete(key_b);
         SData sData = new SData(key_b.length, key_b, metaV.getVersion(), null);
-        deleteHead(sData.getHead(), db);
+        deleteHead(sData.getHead(), rBase);
         ZData zData = new ZData(sData.getMapKeySize(), sData.getMapKey(), sData.getVersion(), 0, null);
-        deleteHead(zData.getHead(), db);
-        db.delete(ArrayKits.addAll("D".getBytes(charset), key_b, metaD.getVersion()));
+        deleteHead(zData.getHead(), rBase);
+        rBase.delete(ArrayKits.addAll("D".getBytes(charset), key_b, metaD.getVersion()));
     }
 
 
     @Override
     public synchronized void delete() throws Exception {
         try {
-            db.start();
+            start();
             MetaV metaV = getMetaV();
-            delete(key_b, db, metaV.convertMetaBytes());
+            delete(key_b, this, metaV.convertMetaBytes());
         } finally {
-            db.release();
+            release();
         }
     }
 
-
-
-
-    /*@Override
-    public synchronized void delete() throws Exception {
-        MetaV metaV = getMetaV();
-        MetaD metaVD = metaV.convertMetaBytes();
-        db.rocksDB().put(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()), metaVD.toBytes());
-        db.rocksDB().delete(key_b);
-
-        List<byte[]> delete_keys = new ArrayList<>();
-        SData sData = new SData(key_b.length, key_b, metaV.getVersion(), null);
-        byte[] head = sData.getHead();
-
-        try (final RocksIterator iterator = this.db.rocksDB().newIterator()) {
-            iterator.seek(head);
-
-            while (iterator.isValid()) {
-                byte[] key = iterator.key();
-                if (!BytesUtil.checkHead(head, key)) break;
-                SDataD sDataD = SDataD.build(key);
-                delete_keys.add(key);
-                ZDataD zDataD = new ZDataD(sDataD.getMapKeySize(), sDataD.getMapKey(), sDataD.getVersion(), iterator.key(), sDataD.getValue());
-                delete_keys.add(zDataD.toBytes());
-                iterator.next();
-
-                if (delete_keys.size() >= 100000) {
-                    final WriteBatch batch = new WriteBatch();
-                    for (byte[] delete_key : delete_keys) {
-                        batch.delete(delete_key);
-                    }
-                    db.rocksDB().write(db.writeOptions(), batch);
-                    delete_keys.clear();
-                }
-            }
-        }
-        final WriteBatch batch = new WriteBatch();
-        for (byte[] delete_key : delete_keys) {
-            batch.delete(delete_key);
-        }
-        db.rocksDB().write(db.writeOptions(), batch);
-        db.rocksDB().delete(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()));
-    }*/
 
     @Override
     public synchronized void deleteFast() throws Exception {
-        db.start();
-        try {
-            MetaV metaV = getMetaV();
-            MetaD metaVD = metaV.convertMetaBytes();
-            db.put(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()), metaVD.toBytes());
-            db.delete(key_b);
-            db.commit();
-        } finally {
-            db.release();
-        }
+        MetaV metaV = getMetaV();
+        deleteFast(this.key_b, this, metaV);
     }
 
     @Override
@@ -405,12 +355,12 @@ public class ZSet extends RBase implements RCollection {
         try {
             MetaV metaV = getMetaV();
             metaV.setTimestamp(-1);
-            db.start();
-            db.put(key_b, metaV.convertMetaBytes().toBytes());
+            start();
+            put(key_b, metaV.convertMetaBytes().toBytes());
             db.ttlZset().remove(metaV.convertMetaBytes().toBytes());
-            db.commit();
+            commit();
         } finally {
-            db.release();
+            release();
         }
     }
 
@@ -418,13 +368,13 @@ public class ZSet extends RBase implements RCollection {
     public void ttl(int ttl) throws Exception {
         try {
             MetaV metaV = getMetaV();
-            db.start();
+            start();
             metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
-            db.put(key_b, metaV.convertMetaBytes().toBytes());
+            put(key_b, metaV.convertMetaBytes().toBytes());
             db.ttlZset().add(metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
-            db.commit();
+            commit();
         } finally {
-            db.release();
+            release();
         }
 
     }
@@ -464,7 +414,7 @@ public class ZSet extends RBase implements RCollection {
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
-    public static class MetaV {
+    public static class MetaV extends MetaAbs {
         private int size;
         private int timestamp;
         private int version;
@@ -482,7 +432,7 @@ public class ZSet extends RBase implements RCollection {
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
-    public static class MetaD {
+    public static class MetaD extends MetaDAbs {
         private byte[] size;
         private byte[] timestamp;
         private byte[] version;
