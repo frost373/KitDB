@@ -2,16 +2,14 @@ package top.thinkin.lightd.benchmark;
 
 import cn.hutool.core.collection.CollectionUtil;
 import org.rocksdb.RocksDB;
-import top.thinkin.lightd.collect.DB;
-import top.thinkin.lightd.collect.RList;
-import top.thinkin.lightd.collect.Sequence;
+import top.thinkin.lightd.collect.*;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class Benchmark {
+public class BenchmarkWithRedis {
     static int availProcessors = Runtime.getRuntime().availableProcessors();
     static ExecutorService executorService = Executors.newFixedThreadPool(availProcessors);
 
@@ -38,19 +36,32 @@ public class Benchmark {
             }
         });
 
+
         RList LPUSHs = db.getList("LPUSH_LIST");
         retry("LPUSH", 100, w_times -> add(LPUSHs, w_times));
         LPUSHs.delete();
+
 
         RList LPOP_LIST = db.getList("LPOP_LIST");
         addAll(LPOP_LIST, 100);
         retry("LPOP", 100, w_times -> blpop(LPOP_LIST));
         LPOP_LIST.delete();
 
+
         RList LRANGE_500 = db.getList("LRANGE_500_LIST");
         addAll(LRANGE_500, 100);
         retry("LRANGE_500", 100, 100000, w_times -> range(LRANGE_500, 100000));
         LRANGE_500.delete();
+
+
+        RMap MSET_MAP = db.getRMap("MSET_MAP");
+        retry("MSET", 100, w_times -> {
+            int k = w_times * 10000;
+            for (int i = 0; i < k; i++) {
+                MSET_MAP.set(ArrayKits.intToBytes(i), ArrayKits.intToBytes(i));
+            }
+        });
+        MSET_MAP.delete();
 
     }
 
@@ -91,13 +102,11 @@ public class Benchmark {
     }
 
     private static void addAll(RList list, int w_times) throws Exception {
-
         int k = w_times * 10000;
         List<byte[]> arrayList = new ArrayList<>();
         for (int i = 0; i < k; i++) {
             arrayList.add((i + "t").getBytes());
         }
-
         FList<byte[]> fList = new FList(arrayList);
         List<List<byte[]>> lists = fList.split(10000);
         for (List<byte[]> bytes : lists) {

@@ -162,4 +162,14 @@ public class DB {
         }
         return (ZSet) zset;
     }
+
+
+    public synchronized RMap getRMap(String key) {
+        Object rmap = map.get(RMap.HEAD + key);
+        if (rmap == null) {
+            rmap = new RMap(this, key);
+            map.put(RMap.HEAD + key, rmap);
+        }
+        return (RMap) rmap;
+    }
 }

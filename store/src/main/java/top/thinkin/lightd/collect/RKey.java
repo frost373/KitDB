@@ -22,15 +22,15 @@ public class RKey {
         db.start();
         byte[] key_b =  ArrayKits.addAll(HEAD_B,key.getBytes(charset));
 
-        db.put(key_b,value);
+        db.putDB(key_b,value);
         db.commit();
     }
 
     public void setTTL(String key,byte[] value,int ttl) throws Exception {
         db.start();
         byte[] key_b =  ArrayKits.addAll(HEAD_B,key.getBytes(charset));
-        db.put(ArrayKits.addAll(HEAD_B,key.getBytes(charset)),value);
-        db.put(ArrayKits.addAll(HEAD_TTL,key.getBytes(charset)),value);
+        db.putDB(ArrayKits.addAll(HEAD_B,key.getBytes(charset)),value);
+        db.putDB(ArrayKits.addAll(HEAD_TTL,key.getBytes(charset)),value);
         db.ttlZset().add(key_b,System.currentTimeMillis()/1000+ttl);
         db.commit();
     }
@@ -39,7 +39,7 @@ public class RKey {
     public void ttl(String key,int ttl) throws Exception {
         db.start();
         byte[] key_b =  ArrayKits.addAll(HEAD_B,key.getBytes(charset));
-        //db.put(ArrayKits.addAll(HEAD_B,key.getBytes(charset)),value);
+        //db.putDB(ArrayKits.addAll(HEAD_B,key.getBytes(charset)),value);
         db.ttlZset().add(key_b,System.currentTimeMillis()/1000+ttl);
         db.commit();
     }
@@ -51,7 +51,7 @@ public class RKey {
     public void del(String key) throws Exception {
         db.start();
         byte[] key_b =  ArrayKits.addAll(HEAD_B,key.getBytes(charset));
-        db.delete(key_b);
+        db.deleteDB(key_b);
         db.commit();
     }
 

@@ -33,7 +33,7 @@ public class BList {
             blpop(list);
             //range(list);
             //iterator(list);
-            //delete(list);
+            //deleteDB(list);
             //get(list);
             long endTime = System.currentTimeMillis(); //获取结束时间
             System.out.println("程序运行时间：" + (endTime - startTime) + "ms"); //输出程序运行时间

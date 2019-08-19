@@ -46,18 +46,18 @@ public abstract class RBase {
     }
 
     public synchronized void deleteFast() throws Exception {
-        MetaAbs metaV = getMetaV();
+        MetaAbs metaV = getMeta();
         deleteFast(this.key_b, this, metaV);
     }
 
-    protected abstract <T extends MetaAbs> T getMetaV() throws Exception;
+    protected abstract <T extends MetaAbs> T getMeta() throws Exception;
 
     protected static void deleteFast(byte[] key_b, RBase rBase, MetaAbs metaV) throws Exception {
         rBase.start();
         try {
             MetaDAbs metaVD = metaV.convertMetaBytes();
-            rBase.put(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()), metaVD.toBytes());
-            rBase.delete(key_b);
+            rBase.putDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()), metaVD.toBytes());
+            rBase.deleteDB(key_b);
             rBase.commit();
         } finally {
             rBase.release();
@@ -65,16 +65,16 @@ public abstract class RBase {
     }
 
 
-    protected void put(byte[] key, byte[] value) {
+    protected void putDB(byte[] key, byte[] value) {
         logs.add(DBLog.update(key, value));
     }
 
 
-    protected void delete(byte[] key) {
+    protected void deleteDB(byte[] key) {
         logs.add(DBLog.delete(key));
     }
 
-    protected void deleteRange(byte[] start, byte[] end) {
+    protected void deleteRangeDB(byte[] start, byte[] end) {
         logs.add(DBLog.deleteRange(start, end));
     }
 
@@ -90,10 +90,10 @@ public abstract class RBase {
                     iterator.seekToLast();
                     end = iterator.key();
                     if (BytesUtil.checkHead(head, end)) {
-                        rBase.deleteRange(start, end);
-                        rBase.delete(end);
+                        rBase.deleteRangeDB(start, end);
+                        rBase.deleteDB(end);
                     } else {
-                        rBase.delete(start);
+                        rBase.deleteDB(start);
                     }
                 }
             }

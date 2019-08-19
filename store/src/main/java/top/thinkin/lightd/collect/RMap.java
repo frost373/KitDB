@@ -1,4 +1,3 @@
-/*
 package top.thinkin.lightd.collect;
 
 import cn.hutool.core.util.ArrayUtil;
@@ -12,77 +11,88 @@ import java.util.*;
 
 public class RMap extends RBase implements RCollection {
     public final static String HEAD = "M";
-    public final static byte[] HEAD_B = HEAD.getBytes();
+    public static byte[] HEAD_B = HEAD.getBytes();
     public final static byte[] HEAD_KEY_B = "m".getBytes();
 
-    */
-/*public RMap(DB db, String key) {
-        this.key_b = (HEAD + key).getBytes(charset);
+    public RMap(DB db, String key) {
+        this.key_b = ArrayKits.addAll(HEAD_B, key.getBytes(charset));
         this.db = db;
     }
 
+    private Meta addCheck(byte[] k_v) throws RocksDBException {
+        Meta metaV = null;
+        if (k_v != null) {
+            MetaD metaVD = MetaD.build(k_v);
+            metaV = metaVD.convertMeta();
+            long nowTime = System.currentTimeMillis() / 1000;
+            if (metaV.getTimestamp() != -1 && nowTime > metaV.getTimestamp()) {
+                metaV = null;
+                db.rocksDB().put(ArrayKits.addAll("D".getBytes(), key_b, metaVD.getVersion()), metaVD.toBytes());
+            }
+        }
+        return metaV;
+    }
 
-    public static synchronized void delete(byte[] key_b, byte[] k_v, DB db) throws Exception {
-        db.start();
-        try {
-            MetaD metaD = MetaD.build(k_v);
-            delete(key_b, db, metaD);
-            db.commit();
-        } finally {
-            db.release();
+
+    private void setEntry(Meta metaV, Entry[] entrys) {
+        for (Entry entry : entrys) {
+            metaV.size = metaV.size + 1;
+            Key key = new Key(key_b.length, key_b, metaV.getVersion(), entry.key);
+            putDB(key.convertBytes().toBytes(), entry.value);
         }
     }
 
-    private static void delete(byte[] key_b, DB db, MetaD metaD) {
-        Meta metaV = metaD.convertMetaV();
-        db.delete(key_b);
-        Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), null);
-        deleteHead(vkey.getHead(), db);
-        db.delete(ArrayKits.addAll("D".getBytes(charset), key_b, metaD.getVersion()));
+    public synchronized void set(byte[] key, byte[] value) throws Exception {
+        start();
+        try {
+            byte[] k_v = db.rocksDB().get(this.key_b);
+            Meta metaV = addCheck(k_v);
+            if (metaV != null) {
+                metaV.size = metaV.size + 1;
+                Key key_ = new Key(key_b.length, key_b, metaV.getVersion(), key);
+                putDB(key_.convertBytes().toBytes(), value);
+                putDB(this.key_b, metaV.convertMetaBytes().toBytes());
+            } else {
+
+                metaV = new Meta(0, -1, db.versionSequence().incr());
+                metaV.size = metaV.size + 1;
+                Key key_ = new Key(key_b.length, key_b, metaV.getVersion(), key);
+                putDB(key_.convertBytes().toBytes(), value);
+                putDB(key_b, metaV.convertMetaBytes().toBytes());
+            }
+            commit();
+        } finally {
+            release();
+        }
     }
 
+
     public synchronized void putMayTTL(int ttl, Entry... entries) throws Exception {
-        db.start();
+        start();
         try {
             byte[] k_v = db.rocksDB().get(this.key_b);
             Meta metaV = addCheck(k_v);
             if (metaV != null) {
                 setEntry(metaV, entries);
-                db.put(this.key_b, metaV.convertMetaBytes().toBytes());
+                putDB(this.key_b, metaV.convertMetaBytes().toBytes());
             } else {
                 if (ttl != -1) {
                     ttl = (int) (System.currentTimeMillis() / 1000 + ttl);
                 }
                 metaV = new Meta(0, ttl, db.versionSequence().incr());
                 setEntry(metaV, entries);
-                db.put(key_b, metaV.convertMetaBytes().toBytes());
+                putDB(key_b, metaV.convertMetaBytes().toBytes());
             }
 
             if (metaV.getTimestamp() != -1) {
                 db.ttlZset().add(metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
             }
-            db.commit();
+            commit();
         } finally {
-            db.release();
+            release();
         }
     }
 
-
-    public synchronized void remove(byte[]... keys) throws Exception {
-        try {
-            db.start();
-            Meta metaV = getMeta();
-            for (byte[] key : keys) {
-                Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), key);
-                db.delete(vkey.convertBytes().toBytes());
-                metaV.size = metaV.size + 1;
-            }
-            db.put(this.key_b, metaV.convertMetaBytes().toBytes());
-            db.commit();
-        } finally {
-            db.release();
-        }
-    }
 
     public Map<byte[], byte[]> get(byte[]... keys) throws Exception {
         Meta metaV = getMeta();
@@ -104,36 +114,12 @@ public class RMap extends RBase implements RCollection {
     }
 
 
-    private void setEntry(Meta metaV, Entry[] entrys) {
-        for (Entry entry : entrys) {
-            metaV.size = metaV.size + 1;
-            Key key = new Key(key_b.length, key_b, metaV.getVersion(), entry.key);
-            db.put(key.convertBytes().toBytes(), entry.value);
-        }
-    }
-
-
-    private Meta addCheck(byte[] k_v) {
-        Meta metaV = null;
-        if (k_v != null) {
-            MetaD metaVD = MetaD.build(k_v);
-            metaV = metaVD.convertMetaV();
-            long nowTime = System.currentTimeMillis() / 1000;
-            if (metaV.getTimestamp() != -1 && nowTime > metaV.getTimestamp()) {
-                metaV = null;
-                db.put(ArrayKits.addAll("D".getBytes(), key_b, metaVD.getVersion()), metaVD.toBytes());
-            }
-        }
-        return metaV;
-    }
-
-
-    private Meta getMeta() throws Exception {
+    protected Meta getMeta() throws Exception {
         byte[] k_v = this.db.rocksDB().get(key_b);
         if (k_v == null) {
             throw new Exception("List do not exist");
         }
-        Meta metaV = MetaD.build(k_v).convertMetaV();
+        Meta metaV = MetaD.build(k_v).convertMeta();
         long nowTime = System.currentTimeMillis();
         if (metaV.getTimestamp() != -1 && nowTime > metaV.getTimestamp()) {
             throw new Exception("List do not exist");
@@ -141,52 +127,93 @@ public class RMap extends RBase implements RCollection {
         return metaV;
     }
 
+
+    public synchronized void remove(byte[]... keys) throws Exception {
+        try {
+            start();
+            Meta metaV = getMeta();
+            for (byte[] key : keys) {
+                Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), key);
+                deleteDB(vkey.convertBytes().toBytes());
+                metaV.size = metaV.size + 1;
+            }
+            putDB(this.key_b, metaV.convertMetaBytes().toBytes());
+            commit();
+        } finally {
+            release();
+        }
+    }
+
+    public static synchronized void delete(byte[] key_b, byte[] k_v, DB db) throws Exception {
+        RList rBase = new RList(db, "DEL");
+        rBase.start();
+        try {
+            Meta meta = MetaD.build(k_v).convertMeta();
+            delete(key_b, rBase, meta);
+            rBase.commit();
+        } finally {
+            rBase.release();
+        }
+    }
+
+
+    private static void delete(byte[] key_b, RBase rBase, Meta meta) {
+        MetaD metaD = meta.convertMetaBytes();
+        rBase.deleteDB(key_b);
+        Key vkey = new Key(key_b.length, key_b, meta.getVersion(), null);
+        deleteHead(vkey.getHead(), rBase);
+        rBase.deleteDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaD.getVersion()));
+    }
+
     @Override
     public void delete() throws Exception {
         try {
-            db.start();
-            Meta metaV = getMeta();
-            delete(key_b, db, metaV.convertMetaBytes());
+            start();
+            Meta meta = getMeta();
+            delete(key_b, this, meta);
         } finally {
-            db.release();
+            release();
         }
-
     }
+
 
     @Override
-    public void deleteFast() throws Exception {
-        db.start();
-        try {
-            Meta metaV = getMeta();
-            MetaD metaVD = metaV.convertMetaBytes();
-            db.put(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()), metaVD.toBytes());
-            db.delete(key_b);
-            db.commit();
-        } finally {
-            db.release();
-        }
+    public synchronized void deleteFast() throws Exception {
+        Meta metaV = getMeta();
+        deleteFast(this.key_b, this, metaV);
     }
+
+    public static synchronized void deleteFast(byte[] key_b, DB db) throws Exception {
+        RMap rBase = new RMap(db, "DEL");
+        byte[] k_v = db.rocksDB().get(key_b);
+        if (k_v == null) {
+            return;
+        }
+        Meta metaV = MetaD.build(k_v).convertMeta();
+        deleteFast(key_b, rBase, metaV);
+    }
+
 
     @Override
     public int getTtl() throws Exception {
-        Meta metaV = getMeta();
-        if (metaV.getTimestamp() == -1) {
+        Meta meta = getMeta();
+        if (meta.getTimestamp() == -1) {
             return -1;
         }
-        return (int) (System.currentTimeMillis() / 1000 - metaV.getTimestamp());
+        return (int) (System.currentTimeMillis() / 1000 - meta.getTimestamp());
     }
 
     @Override
     public void delTtl() throws Exception {
-        db.start();
         try {
             Meta metaV = getMeta();
             metaV.setTimestamp(-1);
-            db.put(key_b, metaV.convertMetaBytes().toBytes());
+            start();
+            putDB(key_b, metaV.convertMetaBytes().toBytes());
             db.ttlZset().remove(metaV.convertMetaBytes().toBytes());
-            db.commit();
+            commit();
         } finally {
-            db.release();
+            release();
         }
     }
 
@@ -194,15 +221,14 @@ public class RMap extends RBase implements RCollection {
     public void ttl(int ttl) throws Exception {
         try {
             Meta metaV = getMeta();
-            db.start();
+            start();
             metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
-            db.put(key_b, metaV.convertMetaBytes().toBytes());
+            putDB(key_b, metaV.convertMetaBytes().toBytes());
             db.ttlZset().add(metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
-            db.commit();
+            commit();
         } finally {
-            db.release();
+            release();
         }
-
     }
 
     @Override
@@ -219,10 +245,9 @@ public class RMap extends RBase implements RCollection {
     }
 
     @Override
-    public RCollection.Entry getEntry(RocksIterator iterator) {
+    public Entry getEntry(RocksIterator iterator) {
         return null;
     }
-
 
     @Data
     @AllArgsConstructor
@@ -235,7 +260,7 @@ public class RMap extends RBase implements RCollection {
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
-    public static class Meta{
+    public static class Meta extends MetaAbs {
         private int size;
         private int timestamp;
         private int version;
@@ -253,7 +278,7 @@ public class RMap extends RBase implements RCollection {
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
-    public static class MetaD {
+    public static class MetaD extends MetaDAbs {
         private byte[] size;
         private byte[] timestamp;
         private byte[] version;
@@ -271,7 +296,7 @@ public class RMap extends RBase implements RCollection {
             return value;
         }
 
-        public Meta convertMetaV() {
+        public Meta convertMeta() {
             Meta meta = new Meta();
             meta.setSize(ArrayKits.bytesToInt(this.size, 0));
             meta.setTimestamp(ArrayKits.bytesToInt(this.timestamp, 0));
@@ -279,6 +304,7 @@ public class RMap extends RBase implements RCollection {
             return meta;
         }
     }
+
 
     @Data
     @AllArgsConstructor
@@ -304,6 +330,7 @@ public class RMap extends RBase implements RCollection {
             return value;
         }
     }
+
 
     @Data
     public static class KeyD {
@@ -334,8 +361,5 @@ public class RMap extends RBase implements RCollection {
             key.setKey(this.key);
             return key;
         }
-    }*//*
-
-
+    }
 }
-*/
