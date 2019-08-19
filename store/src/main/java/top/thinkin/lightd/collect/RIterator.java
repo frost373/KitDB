@@ -36,7 +36,7 @@ public class RIterator<R extends RCollection> implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (iterator != null) {
             iterator.close();
         }
