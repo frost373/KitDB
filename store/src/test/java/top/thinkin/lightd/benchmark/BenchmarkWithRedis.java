@@ -1,6 +1,7 @@
 package top.thinkin.lightd.benchmark;
 
 import cn.hutool.core.collection.CollectionUtil;
+import org.junit.Assert;
 import org.rocksdb.RocksDB;
 import top.thinkin.lightd.collect.*;
 
@@ -27,7 +28,10 @@ public class BenchmarkWithRedis {
     }
 
     private static void bc(DB db) throws Exception {
-
+        RKv SET = db.getrKv();
+        retry("SET", 100, 1000000, w_times -> set(SET, 1000000));
+        retry("GET", 100, 1000000, w_times -> get(SET, 1000000));
+        retry("GETNOTTL", 100, 1000000, w_times -> getNoTTL(SET, 1000000));
 
         retry("INCR", 100, w_times -> {
             Sequence sequence = db.getSequence("test");
@@ -40,7 +44,6 @@ public class BenchmarkWithRedis {
         RList LPUSHs = db.getList("LPUSH_LIST");
         retry("LPUSH", 100, w_times -> add(LPUSHs, w_times));
         LPUSHs.delete();
-
 
         RList LPOP_LIST = db.getList("LPOP_LIST");
         addAll(LPOP_LIST, 100);
@@ -72,6 +75,63 @@ public class BenchmarkWithRedis {
                 for (int i = 0; i < size / availProcessors; i++) {
                     try {
                         list.range(0, 450);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                return "";
+            });
+        }
+        joinFuture.join();
+    }
+
+
+    private static void set(RKv rKv, int size) {
+        JoinFuture<String> joinFuture = JoinFuture.build(executorService, String.class);
+        for (int j = 0; j < availProcessors; j++) {
+            int finalJ = j;
+            joinFuture.add(args -> {
+                for (int i = 0; i < size / availProcessors; i++) {
+                    try {
+                        rKv.set(finalJ + ":" + i, ("test" + i).getBytes());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                return "";
+            });
+        }
+        joinFuture.join();
+    }
+
+    private static void get(RKv rKv, int size) {
+        JoinFuture<String> joinFuture = JoinFuture.build(executorService, String.class);
+        for (int j = 0; j < availProcessors; j++) {
+            int finalJ = j;
+            joinFuture.add(args -> {
+                for (int i = 0; i < size / availProcessors; i++) {
+                    try {
+                        byte[] bytes = rKv.get(finalJ + ":" + i);
+                        Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                return "";
+            });
+        }
+        joinFuture.join();
+    }
+
+    private static void getNoTTL(RKv rKv, int size) {
+        JoinFuture<String> joinFuture = JoinFuture.build(executorService, String.class);
+        for (int j = 0; j < availProcessors; j++) {
+            int finalJ = j;
+            joinFuture.add(args -> {
+                for (int i = 0; i < size / availProcessors; i++) {
+                    try {
+                        byte[] bytes = rKv.getNoTTL(finalJ + ":" + i);
+                        Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
                     } catch (Exception e) {
                         e.printStackTrace();
                     }

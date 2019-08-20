@@ -11,16 +11,22 @@ public abstract class RBase {
     protected byte[] key_b;
     protected DB db;
     protected static Charset charset = Charset.forName("UTF-8");
-    private List<DBLog> logs = new ArrayList<>();
-
+    //private List<DBLog> logs = new ArrayList<>();
+    private ThreadLocal<List<DBLog>> threadLogs = new ThreadLocal<>();
 
     public void start() {
+        List<DBLog> logs = threadLogs.get();
+        if (logs == null) {
+            logs = new ArrayList<>();
+            threadLogs.set(logs);
+        }
         logs.clear();
     }
 
     public void commit() throws Exception {
+        List<DBLog> logs = threadLogs.get();
         try (final WriteBatch batch = new WriteBatch()) {
-            for (DBLog log : this.logs) {
+            for (DBLog log : logs) {
                 switch (log.getType()) {
                     case DELETE:
                         batch.delete(log.getKey());
@@ -42,22 +48,24 @@ public abstract class RBase {
     }
 
     public void release() {
-        logs.clear();
+        List<DBLog> logs = threadLogs.get();
+        if (logs != null) {
+            logs.clear();
+        }
     }
 
-
-
-
     protected void putDB(byte[] key, byte[] value) {
+        List<DBLog> logs = threadLogs.get();
         logs.add(DBLog.update(key, value));
     }
 
-
     protected void deleteDB(byte[] key) {
+        List<DBLog> logs = threadLogs.get();
         logs.add(DBLog.delete(key));
     }
 
     protected void deleteRangeDB(byte[] start, byte[] end) {
+        List<DBLog> logs = threadLogs.get();
         logs.add(DBLog.deleteRange(start, end));
     }
 

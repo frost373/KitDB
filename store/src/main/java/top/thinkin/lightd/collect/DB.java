@@ -17,6 +17,7 @@ public class DB {
 
     public VersionSequence versionSequence;
     private  ZSet ttlZset;
+    private RKv rKv;
     private final static  byte[] DEL_HEAD = "D".getBytes();
     private  WriteOptions writeOptions;
 
@@ -127,6 +128,8 @@ public class DB {
         db.rocksDB  = RocksDB.open(options, dir);
         db.versionSequence = new VersionSequence(db.rocksDB);
         db.ttlZset = db.getZSet(ReservedWords.ZSET_KEYS.TTL);
+
+        db.rKv = new RKv(db);
         db.writeOptions = new WriteOptions();
         if (autoclear) {
             stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
@@ -171,5 +174,9 @@ public class DB {
             map.put(RMap.HEAD + key, rmap);
         }
         return (RMap) rmap;
+    }
+
+    public RKv getrKv() {
+        return rKv;
     }
 }
