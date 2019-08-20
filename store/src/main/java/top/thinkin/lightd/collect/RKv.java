@@ -16,62 +16,78 @@ public class RKv extends RBase {
         this.db = db;
     }
 
-    public void set(String key, byte[] value) throws Exception {
-        start();
-        byte[] key_b = ArrayKits.addAll(HEAD_B, key.getBytes(charset));
-        putDB(key_b, value);
-        commit();
+    public void set(byte[] key, byte[] value) throws Exception {
+        try {
+            start();
+            byte[] key_b = ArrayKits.addAll(HEAD_B, key);
+            putDB(key_b, value);
+            commit();
+        } finally {
+            release();
+        }
     }
 
-    public void setTTL(String key, byte[] value, int ttl) throws Exception {
-        start();
-        byte[] key_b = ArrayKits.addAll(HEAD_B, key.getBytes(charset));
-        putDB(ArrayKits.addAll(HEAD_B, key.getBytes(charset)), value);
-        int time = (int) (System.currentTimeMillis() / 1000 + ttl);
-        putDB(ArrayKits.addAll(HEAD_TTL, key.getBytes(charset)), ArrayKits.intToBytes(time));
-        db.ttlZset().add(key_b, time);
-        commit();
+    public void setTTL(byte[] key, byte[] value, int ttl) throws Exception {
+        try {
+            start();
+            byte[] key_b = ArrayKits.addAll(HEAD_B, key);
+            putDB(ArrayKits.addAll(HEAD_B, key), value);
+            int time = (int) (System.currentTimeMillis() / 1000 + ttl);
+            putDB(ArrayKits.addAll(HEAD_TTL, key), ArrayKits.intToBytes(time));
+            db.ttlZset().add(key_b, time);
+            commit();
+        } finally {
+            release();
+        }
     }
 
 
-    public void ttl(String key, int ttl) throws Exception {
-        start();
-        byte[] key_b = ArrayKits.addAll(HEAD_B, key.getBytes(charset));
-        db.ttlZset().add(key_b, System.currentTimeMillis() / 1000 + ttl);
-        commit();
+    public void ttl(byte[] key, int ttl) throws Exception {
+        try {
+            start();
+            byte[] key_b = ArrayKits.addAll(HEAD_B, key);
+            db.ttlZset().add(key_b, System.currentTimeMillis() / 1000 + ttl);
+            commit();
+        } finally {
+            release();
+        }
     }
 
-    public byte[] get(String key) throws RocksDBException {
-        byte[] value_bs = db.rocksDB().get(ArrayKits.addAll(HEAD_TTL, key.getBytes(charset)));
+    public byte[] get(byte[] key) throws RocksDBException {
+        byte[] value_bs = db.rocksDB().get(ArrayKits.addAll(HEAD_TTL, key));
         if (value_bs != null) {
             int time = ArrayKits.bytesToInt(value_bs, 0);
             if ((System.currentTimeMillis() / 1000) - time <= 0) {
                 return null;
             }
         }
-        return db.rocksDB().get(ArrayKits.addAll(HEAD_B, key.getBytes(charset)));
+        return db.rocksDB().get(ArrayKits.addAll(HEAD_B, key));
     }
 
-    public byte[] getNoTTL(String key) throws RocksDBException {
-        return db.rocksDB().get(ArrayKits.addAll(HEAD_B, key.getBytes(charset)));
+    public byte[] getNoTTL(byte[] key) throws RocksDBException {
+        return db.rocksDB().get(ArrayKits.addAll(HEAD_B, key));
     }
 
-    public void del(String key) throws Exception {
-        start();
-        deleteDB(ArrayKits.addAll(HEAD_B, key.getBytes(charset)));
-        deleteDB(ArrayKits.addAll(HEAD_TTL, key.getBytes(charset)));
-        commit();
+    public void del(byte[] key) throws Exception {
+        try {
+            start();
+            deleteDB(ArrayKits.addAll(HEAD_B, key));
+            deleteDB(ArrayKits.addAll(HEAD_TTL, key));
+            commit();
+        } finally {
+            release();
+        }
     }
 
-    public void delPrefix(String key_) {
+    public void delPrefix(byte[] key_) {
 
     }
 
-    public void getPrefix(String key_) {
+    public void getPrefix(byte[] key_) {
 
     }
 
-    public List<byte[]> keys(String key_) {
+    public List<byte[]> keys(byte[] key_) {
 
         return null;
     }

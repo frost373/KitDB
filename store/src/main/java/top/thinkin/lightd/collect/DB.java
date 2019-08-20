@@ -60,7 +60,6 @@ public class DB {
         try (RocksIterator iterator = this.rocksDB.newIterator()) {
             iterator.seek(DEL_HEAD);
             while (iterator.isValid()) {
-                //Thread.sleep(1000);
                 byte[] key_bs = iterator.key();
                 if(DEL_HEAD[0] != key_bs[0]){
                     break;
@@ -83,18 +82,22 @@ public class DB {
     }
 
 
-    public synchronized void checkTTL() throws Exception {
-        List<ZSet.Entry> outTimeKeys = ttlZset.range(System.currentTimeMillis() / 1000, Integer.MAX_VALUE);
-        for (ZSet.Entry outTimeKey : outTimeKeys) {
-            byte[] key_bs = outTimeKey.getValue();
-            if (RList.HEAD_B[0] == key_bs[0]) {
-                RList.deleteFast(key_bs, this);
-            }
+    public synchronized void checkTTL() {
+        try {
+            List<ZSet.Entry> outTimeKeys = ttlZset.range(System.currentTimeMillis() / 1000, Integer.MAX_VALUE);
+            for (ZSet.Entry outTimeKey : outTimeKeys) {
+                byte[] key_bs = outTimeKey.getValue();
+                if (RList.HEAD_B[0] == key_bs[0]) {
+                    RList.deleteFast(key_bs, this);
+                }
 
-            if (ZSet.HEAD_B[0] == key_bs[0]) {
-                ZSet.deleteFast(key_bs, this);
-            }
+                if (ZSet.HEAD_B[0] == key_bs[0]) {
+                    ZSet.deleteFast(key_bs, this);
+                }
 
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -111,8 +114,11 @@ public class DB {
         db.openTransaction = true;
         db.versionSequence = new VersionSequence(db.rocksDB);
         db.ttlZset = db.getZSet(ReservedWords.ZSET_KEYS.TTL);
+        db.rKv = new RKv(db);
+
         db.writeOptions = new WriteOptions();
         stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
+        stp.scheduleWithFixedDelay(db::checkTTL, 2, 2, TimeUnit.SECONDS);
 
         return db;
     }
@@ -134,6 +140,7 @@ public class DB {
         if (autoclear) {
             stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
         }
+        stp.scheduleWithFixedDelay(db::checkTTL, 2, 2, TimeUnit.SECONDS);
         return db;
     }
 
