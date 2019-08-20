@@ -7,10 +7,7 @@ import org.junit.Test;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 
-import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.Assert.*;
 @Log4j
 public class ZSetTest {
 
@@ -45,7 +42,7 @@ public class ZSetTest {
             e.printStackTrace();
         }finally {
             if(zSet!=null){
-                //zSet.delete();
+                //zSet.deleteDB();
             }
         }
 
@@ -99,7 +96,7 @@ public class ZSetTest {
                 Assert.assertTrue(list.size()>0);
                 int j=i*100;
                 for (ZSet.Entry entry:list){
-                    Assert.assertEquals(entry.score,j++);
+                    Assert.assertEquals(entry.getScore(), j++);
                 }
             }
             List<ZSet.Entry> list =   zSet.range(100,Integer.MAX_VALUE);

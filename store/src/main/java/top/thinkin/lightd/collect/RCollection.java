@@ -3,44 +3,63 @@ package top.thinkin.lightd.collect;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 
-public interface RCollection {
+public abstract class RCollection extends RBase {
+
+    public synchronized void deleteFast() throws Exception {
+        MetaAbs metaV = getMeta();
+        deleteFast(this.key_b, this, metaV);
+    }
+
+    protected abstract <T extends MetaAbs> T getMeta() throws Exception;
+
+    protected static void deleteFast(byte[] key_b, RBase rBase, MetaAbs metaV) throws Exception {
+        rBase.start();
+        try {
+            MetaDAbs metaVD = metaV.convertMetaBytes();
+            rBase.putDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()), metaVD.toBytes());
+            rBase.deleteDB(key_b);
+            rBase.commit();
+        } finally {
+            rBase.release();
+        }
+    }
+
+
+
     /**
      * 删除，数据会被同步清除
      * @throws Exception
      */
-    void delete() throws Exception;
-
-    /**
-     * 快速删除,数据未被同步清理，但不影响新数据的创建和查询
-     * @throws Exception
-     */
-    void  deleteFast() throws Exception;
+    abstract void delete() throws Exception;
 
     /**
      * 获取过期时间戳(秒)
      * @return
      * @throws Exception
      */
-    int getTtl() throws Exception;
+    abstract int getTtl() throws Exception;
     /**
      * 删除过期时间
      * @return
      * @throws Exception
      */
-    void delTtl() throws Exception;
+    abstract void delTtl() throws Exception;
     /**
      * 设置新的过期时间戳(秒)
      * @return
      * @throws Exception
      */
-    void ttl(int ttl) throws Exception;
+    abstract void ttl(int ttl) throws Exception;
 
-    boolean isExist() throws RocksDBException;
-    int size() throws Exception;
-    class Entry  {
+    abstract boolean isExist() throws RocksDBException;
+
+    abstract int size() throws Exception;
+
+    public static class Entry {
 
     }
-    Entry getEntry(RocksIterator iterator);
+
+    abstract Entry getEntry(RocksIterator iterator);
 
 
 }

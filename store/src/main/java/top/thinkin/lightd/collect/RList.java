@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * A List
  */
-public class RList extends RBase implements RCollection {
+public class RList extends RCollection {
 
     public final static String HEAD = "L";
     public final static String HEAD_VALUE = "l";
@@ -372,8 +372,8 @@ public class RList extends RBase implements RCollection {
     @Data
     @AllArgsConstructor
     public class Entry extends RCollection.Entry {
-        public long index;
-        public byte[] value;
+        private long index;
+        private byte[] value;
     }
 
 

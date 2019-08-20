@@ -85,7 +85,7 @@ public class DB {
     public synchronized void checkTTL() throws Exception {
         List<ZSet.Entry> outTimeKeys = ttlZset.range(System.currentTimeMillis() / 1000, Integer.MAX_VALUE);
         for (ZSet.Entry outTimeKey : outTimeKeys) {
-            byte[] key_bs = outTimeKey.value;
+            byte[] key_bs = outTimeKey.getValue();
             if (RList.HEAD_B[0] == key_bs[0]) {
                 RList.deleteFast(key_bs, this);
             }

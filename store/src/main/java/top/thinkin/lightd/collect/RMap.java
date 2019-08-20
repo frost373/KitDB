@@ -9,7 +9,7 @@ import org.rocksdb.RocksIterator;
 
 import java.util.*;
 
-public class RMap extends RBase implements RCollection {
+public class RMap extends RCollection {
     public final static String HEAD = "M";
     public static byte[] HEAD_B = HEAD.getBytes();
     public final static byte[] HEAD_KEY_B = "m".getBytes();
@@ -252,8 +252,8 @@ public class RMap extends RBase implements RCollection {
     @Data
     @AllArgsConstructor
     public static class Entry extends RCollection.Entry {
-        public byte[] key;
-        public byte[] value;
+        private byte[] key;
+        private byte[] value;
     }
 
 

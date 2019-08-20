@@ -45,24 +45,7 @@ public abstract class RBase {
         logs.clear();
     }
 
-    public synchronized void deleteFast() throws Exception {
-        MetaAbs metaV = getMeta();
-        deleteFast(this.key_b, this, metaV);
-    }
 
-    protected abstract <T extends MetaAbs> T getMeta() throws Exception;
-
-    protected static void deleteFast(byte[] key_b, RBase rBase, MetaAbs metaV) throws Exception {
-        rBase.start();
-        try {
-            MetaDAbs metaVD = metaV.convertMetaBytes();
-            rBase.putDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()), metaVD.toBytes());
-            rBase.deleteDB(key_b);
-            rBase.commit();
-        } finally {
-            rBase.release();
-        }
-    }
 
 
     protected void putDB(byte[] key, byte[] value) {

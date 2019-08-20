@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 
-public class RSet  implements  RCollection{
+public class RSet extends RCollection {
 
 
     @Override
@@ -17,6 +17,11 @@ public class RSet  implements  RCollection{
     @Override
     public void deleteFast() throws Exception {
 
+    }
+
+    @Override
+    protected <T extends MetaAbs> T getMeta() throws Exception {
+        return null;
     }
 
     @Override

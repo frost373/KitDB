@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Log
-public class ZSet extends RBase implements RCollection {
+public class ZSet extends RCollection {
     public static String HEAD = "Z";
     public static byte[] HEAD_B = HEAD.getBytes();
     public static byte[] HEAD_SCORE_B = "z".getBytes();
@@ -418,8 +418,8 @@ public class ZSet extends RBase implements RCollection {
     @Data
     @AllArgsConstructor
     public static class Entry extends RCollection.Entry {
-        public long score;
-        public byte[] value;
+        private long score;
+        private byte[] value;
     }
 
 

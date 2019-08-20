@@ -40,7 +40,7 @@ public class RKey {
         db.start();
         byte[] key_b =  ArrayKits.addAll(HEAD_B,key.getBytes(charset));
         //db.putDB(ArrayKits.addAll(HEAD_B,key.getBytes(charset)),value);
-        db.ttlZset().add(key_b,System.currentTimeMillis()/1000+ttl);
+        db.ttlZset().add(key_b,System.crruentTimeMillis()/1000+ttl);
         db.commit();
     }
 
