@@ -65,7 +65,7 @@ public class BenchmarkWithRedis {
             }
         });
         MSET_MAP.delete();
-
+        db.writeSnapshot();
     }
 
     private static void range(RList list, int size) {
@@ -93,7 +93,7 @@ public class BenchmarkWithRedis {
             joinFuture.add(args -> {
                 for (int i = 0; i < size / availProcessors; i++) {
                     try {
-                        rKv.set(finalJ + ":" + i, ("test" + i).getBytes());
+                        rKv.set((finalJ + ":" + i).getBytes(), ("test" + i).getBytes());
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -111,7 +111,7 @@ public class BenchmarkWithRedis {
             joinFuture.add(args -> {
                 for (int i = 0; i < size / availProcessors; i++) {
                     try {
-                        byte[] bytes = rKv.get(finalJ + ":" + i);
+                        byte[] bytes = rKv.get((finalJ + ":" + i).getBytes());
                         Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -130,7 +130,7 @@ public class BenchmarkWithRedis {
             joinFuture.add(args -> {
                 for (int i = 0; i < size / availProcessors; i++) {
                     try {
-                        byte[] bytes = rKv.getNoTTL(finalJ + ":" + i);
+                        byte[] bytes = rKv.getNoTTL((finalJ + ":" + i).getBytes());
                         Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
                     } catch (Exception e) {
                         e.printStackTrace();

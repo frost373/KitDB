@@ -3,6 +3,7 @@ package top.thinkin.lightd.collect;
 import cn.hutool.core.util.ArrayUtil;
 import org.rocksdb.*;
 
+import java.io.File;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -17,6 +18,8 @@ public class DB {
 
     public VersionSequence versionSequence;
     private  ZSet ttlZset;
+
+    private RList binLog;
     private RKv rKv;
     private final static  byte[] DEL_HEAD = "D".getBytes();
     private  WriteOptions writeOptions;
@@ -30,7 +33,6 @@ public class DB {
     }
 
 
-
     public   void close(){
         if(stp!=null){
             stp.shutdown();
@@ -39,7 +41,6 @@ public class DB {
             rocksDB.close();
         }
     }
-
 
     protected   RocksDB rocksDB(){
         return this.rocksDB;
@@ -52,6 +53,7 @@ public class DB {
     protected  VersionSequence versionSequence(){
         return this.versionSequence;
     }
+
     protected  WriteOptions writeOptions(){
         return this.writeOptions;
     }
@@ -102,6 +104,18 @@ public class DB {
     }
 
 
+    public synchronized void writeSnapshot() throws RocksDBException {
+        try (final Checkpoint checkpoint = Checkpoint.create(this.rocksDB)) {
+            final File tempFile = new File("D:\\temp\\sp");
+            if (tempFile.exists()) {
+                tempFile.delete();
+            }
+            checkpoint.createCheckpoint("D:\\temp\\sp");
+        } finally {
+
+        }
+    }
+
     public synchronized static DB buildTransactionDB(String dir) throws RocksDBException {
         DB db = new DB();
         Options options = new Options();
@@ -114,11 +128,13 @@ public class DB {
         db.openTransaction = true;
         db.versionSequence = new VersionSequence(db.rocksDB);
         db.ttlZset = db.getZSet(ReservedWords.ZSET_KEYS.TTL);
+        db.binLog = db.getList(ReservedWords.LIST_KEYS.BINLOG);
+
         db.rKv = new RKv(db);
 
         db.writeOptions = new WriteOptions();
         stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
-        stp.scheduleWithFixedDelay(db::checkTTL, 2, 2, TimeUnit.SECONDS);
+        //stp.scheduleWithFixedDelay(db::checkTTL, 2, 2, TimeUnit.SECONDS);
 
         return db;
     }
@@ -134,13 +150,14 @@ public class DB {
         db.rocksDB  = RocksDB.open(options, dir);
         db.versionSequence = new VersionSequence(db.rocksDB);
         db.ttlZset = db.getZSet(ReservedWords.ZSET_KEYS.TTL);
+        db.binLog = db.getList(ReservedWords.LIST_KEYS.BINLOG);
 
         db.rKv = new RKv(db);
         db.writeOptions = new WriteOptions();
         if (autoclear) {
             stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
         }
-        stp.scheduleWithFixedDelay(db::checkTTL, 2, 2, TimeUnit.SECONDS);
+        //stp.scheduleWithFixedDelay(db::checkTTL, 2, 2, TimeUnit.SECONDS);
         return db;
     }
 
@@ -185,5 +202,9 @@ public class DB {
 
     public RKv getrKv() {
         return rKv;
+    }
+
+    public RList getBinLog() {
+        return binLog;
     }
 }

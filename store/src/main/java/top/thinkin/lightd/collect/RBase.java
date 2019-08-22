@@ -10,9 +10,20 @@ import java.util.List;
 public abstract class RBase {
     protected byte[] key_b;
     protected DB db;
+
+    protected final boolean isLog;
+
     protected static Charset charset = Charset.forName("UTF-8");
     //private List<DBLog> logs = new ArrayList<>();
     private ThreadLocal<List<DBLog>> threadLogs = new ThreadLocal<>();
+
+    public RBase(boolean isLog) {
+        this.isLog = isLog;
+    }
+
+    public RBase() {
+        this.isLog = false;
+    }
 
     public void start() {
         List<DBLog> logs = threadLogs.get();
@@ -40,6 +51,8 @@ public abstract class RBase {
                 }
             }
             db.rocksDB().write(db.writeOptions(), batch);
+            //db.getBinLog().addAll( logs.stream().map(DBLog::toBytes).collect(Collectors.toList()));
+
         } catch (Exception e) {
             throw e;
         } finally {

@@ -9,4 +9,10 @@ public interface ReservedWords {
         Collection<String> ALL = Arrays.asList(TTL);
     }
 
+
+    interface LIST_KEYS {
+        String BINLOG = "sys:BINLOG";
+        Collection<String> ALL = Arrays.asList(BINLOG);
+    }
+
 }
