@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
+
 public class SegmentLock {
     private final List<ReentrantLock> buckets = new ArrayList<>();
     private final int size;

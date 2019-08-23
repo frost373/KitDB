@@ -12,7 +12,7 @@ public class RKv extends RBase {
     public final static byte[] HEAD_TTL = "T".getBytes();
 
     public final static byte[] HEAD_B = HEAD.getBytes();
-    private SegmentLock lock = new SegmentLock(32);
+    private SegmentLock lock = new SegmentLock(64);
     public RKv(DB db) {
         this.db = db;
     }
