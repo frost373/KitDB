@@ -6,10 +6,10 @@ import lombok.Data;
 import java.io.Serializable;
 
 @Data
-public class DBLog implements Serializable {
+public class DBCommand implements Serializable {
     private static final long serialVersionUID = -1L;
 
-    private DBLogType type;
+    private DBCommandType type;
 
     private  byte[] key;
     private  byte[] value;
@@ -17,27 +17,27 @@ public class DBLog implements Serializable {
     private  byte[] start;
     private  byte[] end;
 
-    public static DBLog update(byte[] key,byte[] value){
-        DBLog dbLog = new DBLog();
-        dbLog.key = key;
-        dbLog.value = value;
-        dbLog.type = DBLogType.UPDATE;
-        return dbLog;
+    public static DBCommand update(byte[] key, byte[] value) {
+        DBCommand dbCommand = new DBCommand();
+        dbCommand.key = key;
+        dbCommand.value = value;
+        dbCommand.type = DBCommandType.UPDATE;
+        return dbCommand;
     }
 
-    public static DBLog delete(byte[] key) {
-        DBLog dbLog = new DBLog();
-        dbLog.key = key;
-        dbLog.type = DBLogType.DELETE;
-        return dbLog;
+    public static DBCommand delete(byte[] key) {
+        DBCommand dbCommand = new DBCommand();
+        dbCommand.key = key;
+        dbCommand.type = DBCommandType.DELETE;
+        return dbCommand;
     }
 
-    public static DBLog deleteRange(byte[] start,byte[] end){
-        DBLog dbLog = new DBLog();
-        dbLog.start = start;
-        dbLog.end = end;
-        dbLog.type = DBLogType.DELETE_RANGE;
-        return dbLog;
+    public static DBCommand deleteRange(byte[] start, byte[] end) {
+        DBCommand dbCommand = new DBCommand();
+        dbCommand.start = start;
+        dbCommand.end = end;
+        dbCommand.type = DBCommandType.DELETE_RANGE;
+        return dbCommand;
     }
 
 
@@ -62,12 +62,12 @@ public class DBLog implements Serializable {
     }
 
 
-    public static DBLog toLog(byte[] bytes) {
+    public static DBCommand toLog(byte[] bytes) {
 
         int type = ArrayKits.bytesToInt(ArrayUtil.sub(bytes, 0, 3), 0);
         switch (type) {
             case 0: //DELETE
-                return DBLog.delete(ArrayUtil.sub(bytes, 4, bytes.length - 1));
+                return DBCommand.delete(ArrayUtil.sub(bytes, 4, bytes.length - 1));
             case 1: //UPDATE
                 return buildUpdate(bytes);
             case 2: //DELETE_RANGE
@@ -77,21 +77,26 @@ public class DBLog implements Serializable {
         return null;
     }
 
-    private static DBLog buildDeleteRange(byte[] bytes) {
+    private static DBCommand buildDeleteRange(byte[] bytes) {
         int start_length = ArrayKits.bytesToInt(ArrayUtil.sub(bytes, 4, 7), 0);
         int postion = 8;
         byte[] start = ArrayUtil.sub(bytes, postion, postion = (postion + start_length - 1));
         int end_length = ArrayKits.bytesToInt(ArrayUtil.sub(bytes, postion = postion + 1, postion + 3), 0);
         byte[] end = ArrayUtil.sub(bytes, postion, (postion + end_length - 1));
-        return DBLog.deleteRange(start, end);
+        return DBCommand.deleteRange(start, end);
     }
 
-    private static DBLog buildUpdate(byte[] bytes) {
+    private static DBCommand buildUpdate(byte[] bytes) {
         int key_length = ArrayKits.bytesToInt(ArrayUtil.sub(bytes, 4, 7), 0);
         int postion = 8;
         byte[] key = ArrayUtil.sub(bytes, postion, postion = (postion + key_length - 1));
         int value_length = ArrayKits.bytesToInt(ArrayUtil.sub(bytes, postion = postion + 1, postion + 3), 0);
-        byte[] value = ArrayUtil.sub(bytes, postion, (postion + key_length - 1));
-        return DBLog.update(key, value);
+        byte[] value = ArrayUtil.sub(bytes, postion, (postion + value_length - 1));
+        return DBCommand.update(key, value);
+    }
+
+
+    public void readLogs() {
+
     }
 }

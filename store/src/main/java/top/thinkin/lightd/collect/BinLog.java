@@ -1,10 +1,11 @@
 package top.thinkin.lightd.collect;
 
-import org.rocksdb.RocksDB;
-import org.rocksdb.RocksDBException;
-import org.rocksdb.WriteBatch;
-import org.rocksdb.WriteOptions;
+import cn.hutool.core.util.ArrayUtil;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import org.rocksdb.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -30,11 +31,11 @@ public class BinLog {
         return indexs;
     }
 
-    public long index() throws RocksDBException {
+    public long index() {
         return index.get();
     }
 
-    public long oldestIndex() throws RocksDBException {
+    public long oldestIndex() {
         return oldestIndex;
     }
 
@@ -48,13 +49,62 @@ public class BinLog {
         }
     }
 
-
-    public List<byte[]> logs(long index, int limit) {
-        return null;
+    public synchronized void clear(int num) throws RocksDBException {
+        byte[] start_b = ArrayKits.addAll(Long_Key, ArrayKits.longToBytes(oldestIndex));
+        byte[] end_b = ArrayKits.addAll(Long_Key, ArrayKits.longToBytes(oldestIndex + num + 1));
+        rocksDB.deleteRange(start_b, end_b);
     }
 
-    public BinLog() {
 
+    public synchronized void clearBefore(int index) throws RocksDBException {
+        byte[] start_b = ArrayKits.addAll(Long_Key, ArrayKits.longToBytes(oldestIndex));
+        byte[] end_b = ArrayKits.addAll(Long_Key, ArrayKits.longToBytes(index));
+        rocksDB.deleteRange(start_b, end_b);
+    }
+
+
+    public List<Entry> logs(long start, int limit) {
+        List<Entry> entries = new ArrayList<>();
+        try (final RocksIterator iterator = rocksDB.newIterator()) {
+            byte[] start_b = ArrayKits.addAll(Long_Key, ArrayKits.longToBytes(start));
+            iterator.seek(start_b);
+            for (int i = 0; iterator.isValid() && i < limit; i++) {
+                byte[] key = iterator.key();
+                if (!BytesUtil.checkHead(Long_Key, key)) break;
+                long index = ArrayKits.bytesToLong(ArrayUtil.sub(key, Long_Key.length, key.length - 1));
+                Entry entry = new Entry(index, iterator.value());
+                entries.add(entry);
+            }
+        }
+        return entries;
+    }
+
+
+    @Data
+    @AllArgsConstructor
+    public static class Entry extends RCollection.Entry {
+        private long index;
+        private byte[] value;
+    }
+
+    public BinLog(RocksDB rocksDB) {
+        this.rocksDB = rocksDB;
+        try (final RocksIterator iterator = rocksDB.newIterator()) {
+            iterator.seek(Long_Key);
+            if (iterator.isValid()) {
+                byte[] start_b = iterator.key();
+                if (BytesUtil.checkHead(Long_Key, start_b)) {
+                    iterator.seekToLast();
+                    byte[] end_b = iterator.key();
+                    long start = ArrayKits.bytesToLong(ArrayUtil.sub(start_b, Long_Key.length, start_b.length));
+                    long end = ArrayKits.bytesToLong(ArrayUtil.sub(end_b, Long_Key.length, end_b.length));
+                    oldestIndex = start;
+                    index.set(end);
+                }
+            } else {
+                oldestIndex = 0;
+            }
+        }
     }
 
 }

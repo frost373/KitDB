@@ -60,7 +60,7 @@ public class ZSetTest {
                 ZSet.Entry entry = new ZSet.Entry(i,("add"+i).getBytes());
                 entrys[i] = entry;
             }
-            zSet.add(-1,entrys);
+            zSet.add(entrys);
         }catch (Exception e) {
             e.printStackTrace();
         } finally {
@@ -89,7 +89,7 @@ public class ZSetTest {
                 ZSet.Entry entry = new ZSet.Entry(i,("range"+i).getBytes());
                 entrys[i] = entry;
             }
-            zSet.add(-1,entrys);
+            zSet.add(entrys);
 
             for (int i = 0; i < 100; i++) {
                 List<ZSet.Entry> list =   zSet.range(i*100,(i+1)*100);
@@ -130,7 +130,7 @@ public class ZSetTest {
                 ZSet.Entry entry = new ZSet.Entry(i,("add"+i).getBytes());
                 entrys[i] = entry;
             }
-            zSet.add(-1,entrys);
+            zSet.add(entrys);
             Assert.assertTrue(zSet.range(100,100).size()==1);
             Assert.assertTrue(zSet.range(900,900).size()==1);
 

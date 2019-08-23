@@ -23,8 +23,8 @@ public class ZSet extends RCollection {
         addMayTTL(-1, new Entry(score, v));
     }
 
-    public synchronized void add(int ttl, Entry... entrys) throws Exception {
-        addMayTTL(ttl, entrys);
+    public synchronized void add(Entry... entrys) throws Exception {
+        addMayTTL(-1, entrys);
     }
 
     public synchronized void addMayTTL(int ttl, byte[] v, long score) throws Exception {

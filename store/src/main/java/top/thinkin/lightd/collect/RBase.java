@@ -14,8 +14,8 @@ public abstract class RBase {
     protected final boolean isLog;
 
     protected static Charset charset = Charset.forName("UTF-8");
-    //private List<DBLog> logs = new ArrayList<>();
-    private ThreadLocal<List<DBLog>> threadLogs = new ThreadLocal<>();
+    //private List<DBCommand> logs = new ArrayList<>();
+    private ThreadLocal<List<DBCommand>> threadLogs = new ThreadLocal<>();
 
     public RBase(boolean isLog) {
         this.isLog = isLog;
@@ -26,7 +26,7 @@ public abstract class RBase {
     }
 
     public void start() {
-        List<DBLog> logs = threadLogs.get();
+        List<DBCommand> logs = threadLogs.get();
         if (logs == null) {
             logs = new ArrayList<>();
             threadLogs.set(logs);
@@ -35,9 +35,9 @@ public abstract class RBase {
     }
 
     public void commit() throws Exception {
-        List<DBLog> logs = threadLogs.get();
+        List<DBCommand> logs = threadLogs.get();
         try (final WriteBatch batch = new WriteBatch()) {
-            for (DBLog log : logs) {
+            for (DBCommand log : logs) {
                 switch (log.getType()) {
                     case DELETE:
                         batch.delete(log.getKey());
@@ -51,8 +51,7 @@ public abstract class RBase {
                 }
             }
             db.rocksDB().write(db.writeOptions(), batch);
-            //db.getBinLog().addAll( logs.stream().map(DBLog::toBytes).collect(Collectors.toList()));
-
+            //db.getBinLog().addLog( logs.stream().map(DBCommand::toBytes).collect(Collectors.toList()));
         } catch (Exception e) {
             throw e;
         } finally {
@@ -61,25 +60,25 @@ public abstract class RBase {
     }
 
     public void release() {
-        List<DBLog> logs = threadLogs.get();
+        List<DBCommand> logs = threadLogs.get();
         if (logs != null) {
             logs.clear();
         }
     }
 
     protected void putDB(byte[] key, byte[] value) {
-        List<DBLog> logs = threadLogs.get();
-        logs.add(DBLog.update(key, value));
+        List<DBCommand> logs = threadLogs.get();
+        logs.add(DBCommand.update(key, value));
     }
 
     protected void deleteDB(byte[] key) {
-        List<DBLog> logs = threadLogs.get();
-        logs.add(DBLog.delete(key));
+        List<DBCommand> logs = threadLogs.get();
+        logs.add(DBCommand.delete(key));
     }
 
     protected void deleteRangeDB(byte[] start, byte[] end) {
-        List<DBLog> logs = threadLogs.get();
-        logs.add(DBLog.deleteRange(start, end));
+        List<DBCommand> logs = threadLogs.get();
+        logs.add(DBCommand.deleteRange(start, end));
     }
 
     protected static void deleteHead(byte[] head, RBase rBase) {

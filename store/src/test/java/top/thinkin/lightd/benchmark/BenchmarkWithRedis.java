@@ -3,7 +3,10 @@ package top.thinkin.lightd.benchmark;
 import cn.hutool.core.collection.CollectionUtil;
 import org.junit.Assert;
 import org.rocksdb.RocksDB;
-import top.thinkin.lightd.collect.*;
+import top.thinkin.lightd.collect.DB;
+import top.thinkin.lightd.collect.RKv;
+import top.thinkin.lightd.collect.RList;
+import top.thinkin.lightd.collect.Sequence;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,7 +20,7 @@ public class BenchmarkWithRedis {
     public static void main(String[] args) throws Exception {
         RocksDB.loadLibrary();
         DB db = DB.build("D:\\temp\\db");
-        for (int i = 0; i < 100000; i++) {
+        for (int i = 0; i < 100; i++) {
             bc(db);
         }
 
@@ -56,16 +59,17 @@ public class BenchmarkWithRedis {
         retry("LRANGE_500", 100, 100000, w_times -> range(LRANGE_500, 100000));
         LRANGE_500.delete();
 
+        retry("MSET", 100, 1000000, w_times -> mset(SET, 1000000));
 
-        RMap MSET_MAP = db.getRMap("MSET_MAP");
+      /*  RMap MSET_MAP = db.getRMap("MSET_MAP");
         retry("MSET", 100, w_times -> {
             int k = w_times * 10000;
             for (int i = 0; i < k; i++) {
                 MSET_MAP.set(ArrayKits.intToBytes(i), ArrayKits.intToBytes(i));
             }
         });
-        MSET_MAP.delete();
-        db.writeSnapshot();
+        MSET_MAP.delete();*/
+        //db.writeSnapshot();
     }
 
     private static void range(RList list, int size) {
@@ -85,6 +89,32 @@ public class BenchmarkWithRedis {
         joinFuture.join();
     }
 
+
+    private static void mset(RKv rKv, int size) {
+        JoinFuture<String> joinFuture = JoinFuture.build(executorService, String.class);
+        for (int j = 0; j < availProcessors; j++) {
+            int finalJ = j;
+            joinFuture.add(args -> {
+                int num = 0;
+                for (int i = 0; i < size / availProcessors; i++) {
+                    num++;
+                    List<RKv.Entry> list = new ArrayList<>();
+                    list.add(new RKv.Entry((finalJ + ":" + i).getBytes(), ("test" + i).getBytes()));
+                    if (num == 10) {
+                        try {
+                            rKv.set(list);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                        num = 0;
+                    }
+
+                }
+                return "";
+            });
+        }
+        joinFuture.join();
+    }
 
     private static void set(RKv rKv, int size) {
         JoinFuture<String> joinFuture = JoinFuture.build(executorService, String.class);

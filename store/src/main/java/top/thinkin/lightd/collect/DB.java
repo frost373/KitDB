@@ -19,11 +19,12 @@ public class DB {
     public VersionSequence versionSequence;
     private  ZSet ttlZset;
 
-    private RList binLog;
     private RKv rKv;
     private final static  byte[] DEL_HEAD = "D".getBytes();
     private  WriteOptions writeOptions;
 
+    private RocksDB binLogDB;
+    private BinLog binLog;
     static ScheduledThreadPoolExecutor stp =new ScheduledThreadPoolExecutor(3);
 
     public final ConcurrentHashMap map = new ConcurrentHashMap();
@@ -39,6 +40,10 @@ public class DB {
         }
         if(rocksDB!=null){
             rocksDB.close();
+        }
+
+        if (binLogDB != null) {
+            binLogDB.close();
         }
     }
 
@@ -128,7 +133,6 @@ public class DB {
         db.openTransaction = true;
         db.versionSequence = new VersionSequence(db.rocksDB);
         db.ttlZset = db.getZSet(ReservedWords.ZSET_KEYS.TTL);
-        db.binLog = db.getList(ReservedWords.LIST_KEYS.BINLOG);
 
         db.rKv = new RKv(db);
 
@@ -150,13 +154,16 @@ public class DB {
         db.rocksDB  = RocksDB.open(options, dir);
         db.versionSequence = new VersionSequence(db.rocksDB);
         db.ttlZset = db.getZSet(ReservedWords.ZSET_KEYS.TTL);
-        db.binLog = db.getList(ReservedWords.LIST_KEYS.BINLOG);
 
         db.rKv = new RKv(db);
         db.writeOptions = new WriteOptions();
         if (autoclear) {
             stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
         }
+        db.binLogDB = RocksDB.open(options, "D:\\temp\\logs");
+
+        db.binLog = new BinLog(db.binLogDB);
+
         //stp.scheduleWithFixedDelay(db::checkTTL, 2, 2, TimeUnit.SECONDS);
         return db;
     }
@@ -204,7 +211,7 @@ public class DB {
         return rKv;
     }
 
-    public RList getBinLog() {
+    public BinLog getBinLog() {
         return binLog;
     }
 }
