@@ -42,24 +42,39 @@ public class RMap extends RCollection {
         }
     }
 
-    public synchronized void set(byte[] key, byte[] value) throws Exception {
+    public synchronized void put(byte[] key, byte[] value) throws Exception {
+        putTTL(key, value, -1);
+    }
+
+    public synchronized void putTTL(byte[] key, byte[] value, int ttl) throws Exception {
         start();
         try {
             byte[] k_v = db.rocksDB().get(this.key_b);
             Meta metaV = addCheck(k_v);
+
+            if (ttl != -1) {
+                ttl = (int) (System.currentTimeMillis() / 1000 + ttl);
+            }
+
             if (metaV != null) {
                 metaV.size = metaV.size + 1;
+                metaV.setTimestamp(ttl);
                 Key key_ = new Key(key_b.length, key_b, metaV.getVersion(), key);
                 putDB(key_.convertBytes().toBytes(), value);
                 putDB(this.key_b, metaV.convertMetaBytes().toBytes());
             } else {
 
-                metaV = new Meta(0, -1, db.versionSequence().incr());
+                metaV = new Meta(0, ttl, db.versionSequence().incr());
                 metaV.size = metaV.size + 1;
                 Key key_ = new Key(key_b.length, key_b, metaV.getVersion(), key);
                 putDB(key_.convertBytes().toBytes(), value);
                 putDB(key_b, metaV.convertMetaBytes().toBytes());
             }
+
+            if (metaV.getTimestamp() != -1) {
+                db.ttlZset().add(metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
+            }
+
             commit();
         } finally {
             release();
@@ -72,13 +87,17 @@ public class RMap extends RCollection {
         try {
             byte[] k_v = db.rocksDB().get(this.key_b);
             Meta metaV = addCheck(k_v);
+
+            if (ttl != -1) {
+                ttl = (int) (System.currentTimeMillis() / 1000 + ttl);
+            }
+
             if (metaV != null) {
                 setEntry(metaV, entries);
+                metaV.setTimestamp(ttl);
                 putDB(this.key_b, metaV.convertMetaBytes().toBytes());
             } else {
-                if (ttl != -1) {
-                    ttl = (int) (System.currentTimeMillis() / 1000 + ttl);
-                }
+
                 metaV = new Meta(0, ttl, db.versionSequence().incr());
                 setEntry(metaV, entries);
                 putDB(key_b, metaV.convertMetaBytes().toBytes());
@@ -111,6 +130,14 @@ public class RMap extends RCollection {
             map.put(keyd.convertValue().getKey(), entry.getValue());
         }
         return map;
+    }
+
+
+    public byte[] get(byte[] key) throws Exception {
+        Meta metaV = getMeta();
+        Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), key);
+        byte[] value = db.rocksDB().get(vkey.convertBytes().toBytes());
+        return value;
     }
 
 
