@@ -3,8 +3,8 @@ package top.thinkin.lightd.db;
 import cn.hutool.core.util.ArrayUtil;
 import org.rocksdb.*;
 import top.thinkin.lightd.base.BinLog;
-import top.thinkin.lightd.base.ReservedWords;
 import top.thinkin.lightd.base.VersionSequence;
+import top.thinkin.lightd.data.ReservedWords;
 
 import java.io.File;
 import java.util.List;

@@ -8,6 +8,7 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.MetaAbs;
 import top.thinkin.lightd.base.MetaDAbs;
+import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.kit.ArrayKits;
@@ -18,9 +19,9 @@ import java.util.List;
 
 public class RSet extends RCollection {
 
-    public static String HEAD = "S";
+    public static String HEAD = KeyEnum.SET.getKey();
     public static byte[] HEAD_B = HEAD.getBytes();
-    public static byte[] HEAD_V_B = "p".getBytes();
+    public static byte[] HEAD_V_B = KeyEnum.SET_V.getBytes();
     final RocksIterator iterator;
 
     public RSet(DB db, String key) {

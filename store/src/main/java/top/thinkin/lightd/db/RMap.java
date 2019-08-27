@@ -8,6 +8,7 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.MetaAbs;
 import top.thinkin.lightd.base.MetaDAbs;
+import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.kit.ArrayKits;
@@ -15,9 +16,9 @@ import top.thinkin.lightd.kit.ArrayKits;
 import java.util.*;
 
 public class RMap extends RCollection {
-    public final static String HEAD = "M";
+    public final static String HEAD = KeyEnum.MAP.getKey();
     public static byte[] HEAD_B = HEAD.getBytes();
-    public final static byte[] HEAD_KEY_B = "m".getBytes();
+    public final static byte[] HEAD_KEY_B = KeyEnum.MAP_KEY.getBytes();
 
     public RMap(DB db, String key) {
         this.key_b = ArrayKits.addAll(HEAD_B, key.getBytes(charset));

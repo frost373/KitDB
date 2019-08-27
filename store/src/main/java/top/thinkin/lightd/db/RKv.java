@@ -5,13 +5,14 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.rocksdb.RocksDBException;
 import top.thinkin.lightd.base.SegmentLock;
+import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.kit.ArrayKits;
 
 import java.util.List;
 
 public class RKv extends RBase {
-    public final static String HEAD = "K";
-    public final static byte[] HEAD_TTL = "T".getBytes();
+    public final static String HEAD = KeyEnum.KV_KEY.getKey();
+    public final static byte[] HEAD_TTL = KeyEnum.KV_TTL.getBytes();
 
     public final static byte[] HEAD_B = HEAD.getBytes();
     private SegmentLock lock = new SegmentLock(64);

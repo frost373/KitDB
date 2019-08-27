@@ -8,6 +8,7 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.MetaAbs;
 import top.thinkin.lightd.base.MetaDAbs;
+import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.NonExistException;
 import top.thinkin.lightd.kit.ArrayKits;
 import top.thinkin.lightd.kit.BytesUtil;
@@ -20,9 +21,9 @@ import java.util.List;
  */
 public class RList extends RCollection {
 
-    public final static String HEAD = "L";
-    public final static String HEAD_VALUE = "l";
-    public static byte[] HEAD_B = HEAD.getBytes();
+    public final static String HEAD = KeyEnum.LIST.getKey();
+    public final static byte[] HEAD_VALUE_B = KeyEnum.LIST_VALUE.getBytes();
+    public final static byte[] HEAD_B = HEAD.getBytes();
 
     public RList(DB db, String key) {
         this.key_b = ArrayKits.addAll(HEAD_B, key.getBytes(charset));
@@ -470,7 +471,7 @@ public class RList extends RCollection {
         }
 
         public byte[] toBytes() {
-            byte[] value = ArrayKits.addAll(HEAD.getBytes(charset), this.size, this.left, this.right, this.timestamp, this.version);
+            byte[] value = ArrayKits.addAll(HEAD_B, this.size, this.left, this.right, this.timestamp, this.version);
             return value;
         }
 
@@ -506,7 +507,7 @@ public class RList extends RCollection {
     @Data
     public static class ValueKD {
         public byte[] toBytes() {
-            byte[] key = ArrayKits.addAll(HEAD_VALUE.getBytes(charset), this.k_size, this.key, this.version, this.index);
+            byte[] key = ArrayKits.addAll(HEAD_VALUE_B, this.k_size, this.key, this.version, this.index);
             return key;
         }
 
@@ -515,7 +516,7 @@ public class RList extends RCollection {
         }
 
         public byte[] toHeadBytes() {
-            byte[] key = ArrayKits.addAll(HEAD_VALUE.getBytes(charset), this.k_size, this.key, this.version);
+            byte[] key = ArrayKits.addAll(HEAD_VALUE_B, this.k_size, this.key, this.version);
             return key;
         }
 

@@ -2,8 +2,14 @@ package top.thinkin.lightd.data;
 
 public enum KeyEnum {
 
-    RKv_KEY("K"),
-    RKv_TTL("T");
+    KV_KEY("K"), KV_TTL("T"),
+    LIST("L"), LIST_VALUE("l"),
+    MAP("M"), MAP_KEY("m"),
+    SET("S"), SET_V("p"),
+    SEQ("U"),
+    ZSET("Z"), ZSET_S("z"), ZSET_V("a");
+
+
 
     private final String key;
 
@@ -17,5 +23,7 @@ public enum KeyEnum {
         return key;
     }
 
-
+    public byte[] getBytes() {
+        return key.getBytes();
+    }
 }

@@ -9,6 +9,7 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.MetaAbs;
 import top.thinkin.lightd.base.MetaDAbs;
+import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.kit.ArrayKits;
@@ -19,10 +20,10 @@ import java.util.List;
 
 @Log
 public class ZSet extends RCollection {
-    public static String HEAD = "Z";
+    public static String HEAD = KeyEnum.ZSET.getKey();
     public static byte[] HEAD_B = HEAD.getBytes();
-    public static byte[] HEAD_SCORE_B = "z".getBytes();
-    public static byte[] HEAD_V_B = "a".getBytes();
+    public static byte[] HEAD_SCORE_B = KeyEnum.ZSET_S.getBytes();
+    public static byte[] HEAD_V_B = KeyEnum.ZSET_V.getBytes();
 
 
     public synchronized void add(byte[] v, long score) throws Exception {

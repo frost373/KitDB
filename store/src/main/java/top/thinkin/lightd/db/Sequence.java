@@ -1,10 +1,11 @@
 package top.thinkin.lightd.db;
 
 import org.rocksdb.RocksDBException;
+import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.kit.ArrayKits;
 
 public class Sequence {
-    public final static String HEAD = "U";
+    public final static String HEAD = KeyEnum.SEQ.getKey();
     private final static byte[] HEAD_B = HEAD.getBytes();
     private final byte[] key_b;
     private DB db;
