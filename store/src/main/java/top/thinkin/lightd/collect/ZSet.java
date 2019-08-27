@@ -7,6 +7,8 @@ import lombok.NoArgsConstructor;
 import lombok.extern.java.Log;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
+import top.thinkin.lightd.exception.DAssert;
+import top.thinkin.lightd.exception.ErrorType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +34,12 @@ public class ZSet extends RCollection {
     }
 
     public synchronized void addMayTTL(int ttl, Entry... entrys) throws Exception {
+        byte[][] bytess = new byte[entrys.length][];
+        for (int i = 0; i < entrys.length; i++) {
+            bytess[i] = entrys[i].value;
+        }
+        DAssert.isTrue(ArrayKits.noRepeate(bytess), ErrorType.REPEATED_KEY, "Repeated memebers");
+
         start();
         try {
             byte[] k_v = db.rocksDB().get(this.key_b);
@@ -58,12 +66,15 @@ public class ZSet extends RCollection {
     }
 
 
-    private void setEntry(MetaV metaV, Entry[] entrys) {
+    private void setEntry(MetaV metaV, Entry[] entrys) throws RocksDBException {
         for (Entry entry : entrys) {
-            metaV.size = metaV.size + 1;
             SData sData = new SData(key_b.length, key_b, metaV.getVersion(), entry.value);
             ZData zData = new ZData(key_b.length, key_b, metaV.getVersion(), entry.score, entry.value);
-            putDB(sData.convertBytes().toBytes(), ArrayKits.longToBytes(entry.score));
+            byte[] member = sData.convertBytes().toBytes();
+            if (db.rocksDB().get(member) == null) {
+                metaV.size = metaV.size + 1;
+            }
+            putDB(member, ArrayKits.longToBytes(entry.score));
             putDB(zData.convertBytes().toBytes(), "".getBytes());
         }
     }
@@ -101,6 +112,7 @@ public class ZSet extends RCollection {
         return entries;
     }
 
+    @Override
     public RIterator<ZSet> iterator() throws Exception {
         MetaV metaV = getMeta();
         SData sData = new SData(key_b.length, key_b, metaV.getVersion(), "".getBytes());
@@ -161,7 +173,7 @@ public class ZSet extends RCollection {
         return entries;
     }
 
-    private void removeDo(MetaV metaV, List<byte[]> dels) throws RocksDBException {
+    private void removeDo(MetaV metaV, List<byte[]> dels) {
         putDB(key_b, metaV.convertMetaBytes().toBytes());
         for (byte[] del : dels) {
             deleteDB(del);
@@ -274,7 +286,7 @@ public class ZSet extends RCollection {
     private MetaV addCheck(byte[] k_v) throws RocksDBException {
         MetaV metaV = null;
         if (k_v != null) {
-            MetaD metaD = ZSet.MetaD.build(k_v);
+            MetaD metaD = MetaD.build(k_v);
             metaV = metaD.convertMetaV();
             long nowTime = System.currentTimeMillis() / 1000;
             if (metaV.getTimestamp() != -1 && nowTime > metaV.getTimestamp()) {
@@ -329,6 +341,7 @@ public class ZSet extends RCollection {
             start();
             MetaV metaV = getMeta();
             delete(key_b, this, metaV.convertMetaBytes());
+            commit();
         } finally {
             release();
         }

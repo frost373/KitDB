@@ -6,6 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
+import top.thinkin.lightd.exception.DAssert;
+import top.thinkin.lightd.exception.ErrorType;
 
 import java.util.*;
 
@@ -83,6 +85,11 @@ public class RMap extends RCollection {
 
 
     public synchronized void putMayTTL(int ttl, Entry... entries) throws Exception {
+        byte[][] bytess = new byte[entries.length][];
+        for (int i = 0; i < entries.length; i++) {
+            bytess[i] = entries[i].value;
+        }
+        DAssert.isTrue(ArrayKits.noRepeate(bytess), ErrorType.REPEATED_KEY, "Repeated keys");
         start();
         try {
             byte[] k_v = db.rocksDB().get(this.key_b);
@@ -115,6 +122,10 @@ public class RMap extends RCollection {
 
     public Map<byte[], byte[]> get(byte[]... keys) throws Exception {
         Meta metaV = getMeta();
+        if (metaV == null) {
+            return new HashMap<>();
+        }
+
         Map<byte[], byte[]> map = new HashMap<>(keys.length);
         List<byte[]> keyList = new ArrayList<>();
         for (byte[] key : keys) {
@@ -135,6 +146,9 @@ public class RMap extends RCollection {
 
     public byte[] get(byte[] key) throws Exception {
         Meta metaV = getMeta();
+        if (metaV == null) {
+            return null;
+        }
         Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), key);
         byte[] value = db.rocksDB().get(vkey.convertBytes().toBytes());
         return value;
@@ -144,7 +158,7 @@ public class RMap extends RCollection {
     protected Meta getMeta() throws Exception {
         byte[] k_v = this.db.rocksDB().get(key_b);
         if (k_v == null) {
-            throw new Exception("List do not exist");
+            return null;
         }
         Meta metaV = MetaD.build(k_v).convertMeta();
         long nowTime = System.currentTimeMillis();
@@ -156,13 +170,21 @@ public class RMap extends RCollection {
 
 
     public synchronized void remove(byte[]... keys) throws Exception {
+        Meta metaV = getMeta();
+        if (metaV == null) {
+            return;
+        }
+
         try {
             start();
-            Meta metaV = getMeta();
             for (byte[] key : keys) {
                 Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), key);
-                deleteDB(vkey.convertBytes().toBytes());
-                metaV.size = metaV.size + 1;
+
+                byte[] value = db.rocksDB().get(vkey.convertBytes().toBytes());
+                if (value != null) {
+                    deleteDB(vkey.convertBytes().toBytes());
+                    metaV.size = metaV.size - 1;
+                }
             }
             putDB(this.key_b, metaV.convertMetaBytes().toBytes());
             commit();
@@ -194,9 +216,12 @@ public class RMap extends RCollection {
 
     @Override
     public void delete() throws Exception {
+        Meta meta = getMeta();
+        if (meta == null) {
+            return;
+        }
         try {
             start();
-            Meta meta = getMeta();
             delete(key_b, this, meta);
         } finally {
             release();
@@ -207,7 +232,15 @@ public class RMap extends RCollection {
     @Override
     public synchronized void deleteFast() throws Exception {
         Meta metaV = getMeta();
+        if (metaV == null) {
+            return;
+        }
         deleteFast(this.key_b, this, metaV);
+    }
+
+    @Override
+    <T extends RCollection> RIterator<T> iterator() throws Exception {
+        return null;
     }
 
     public static synchronized void deleteFast(byte[] key_b, DB db) throws Exception {
@@ -224,6 +257,9 @@ public class RMap extends RCollection {
     @Override
     public int getTtl() throws Exception {
         Meta meta = getMeta();
+        if (meta == null) {
+            return 0;
+        }
         if (meta.getTimestamp() == -1) {
             return -1;
         }
@@ -232,8 +268,11 @@ public class RMap extends RCollection {
 
     @Override
     public void delTtl() throws Exception {
+        Meta metaV = getMeta();
+        if (metaV == null) {
+            return;
+        }
         try {
-            Meta metaV = getMeta();
             metaV.setTimestamp(-1);
             start();
             putDB(key_b, metaV.convertMetaBytes().toBytes());
@@ -248,8 +287,13 @@ public class RMap extends RCollection {
     public void ttl(int ttl) throws Exception {
         try {
             Meta metaV = getMeta();
+            if (metaV == null) {
+                metaV = new Meta(0, -1, db.versionSequence().incr());
+            }
             start();
-            metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
+            if (ttl != -1) {
+                metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
+            }
             putDB(key_b, metaV.convertMetaBytes().toBytes());
             db.ttlZset().add(metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
             commit();
@@ -268,6 +312,9 @@ public class RMap extends RCollection {
     @Override
     public int size() throws Exception {
         Meta metaV = getMeta();
+        if (metaV == null) {
+            return 0;
+        }
         return metaV.getSize();
     }
 

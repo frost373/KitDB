@@ -1,7 +1,5 @@
 package top.thinkin.lightd.collect;
 
-import cn.hutool.core.util.ArrayUtil;
-
 import java.io.Serializable;
 import java.util.Comparator;
 
@@ -21,6 +19,7 @@ public class BytesUtil {
     }
 
     public static boolean checkHead(byte[] head,byte[] target){
+        if (head == null || target == null) return false;
         if(target.length<head.length) return false;
         return getDefaultByteArrayComparator().compare(head, 0, head.length,target,0,head.length)==0;
     }
@@ -46,6 +45,7 @@ public class BytesUtil {
         int compare(final byte[] buffer1, final int offset1, final int length1, final byte[] buffer2,
                     final int offset2, final int length2);
     }
+
 
     private static class LexicographicByteArrayComparator implements ByteArrayComparator {
 

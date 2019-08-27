@@ -26,6 +26,7 @@ public class RIterator<R extends RCollection> implements AutoCloseable {
 
 
     public R.Entry next(){
+        if (!iterator.isValid()) return null;
         R.Entry entry =  rCollection.getEntry(iterator);
         iterator.next();
         return entry;

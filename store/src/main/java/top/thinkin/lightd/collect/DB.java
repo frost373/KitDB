@@ -198,6 +198,16 @@ public class DB {
     }
 
 
+    public synchronized RSet getSet(String key) {
+        Object list = map.get(RList.HEAD + key);
+        if (list == null) {
+            list = new RSet(this, key);
+            map.put(RSet.HEAD + key, list);
+        }
+        return (RSet) list;
+    }
+
+
     public synchronized RMap getRMap(String key) {
         Object rmap = map.get(RMap.HEAD + key);
         if (rmap == null) {

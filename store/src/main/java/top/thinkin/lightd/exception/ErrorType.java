@@ -6,7 +6,7 @@ import java.util.stream.Collectors;
 
 public enum ErrorType {
 
-    RETAIN_KEY(0, "RETAIN_KEY"), DATA_LOCK(1, "DATA_LOCK");
+    RETAIN_KEY(0, "RETAIN_KEY"), DATA_LOCK(1, "DATA_LOCK"), REPEATED_KEY(2, "REPEATED_KEY");
 
     private final String type;
     static final Set<String> ALL;

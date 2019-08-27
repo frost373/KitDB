@@ -27,13 +27,16 @@ public class RList extends RCollection {
 
     public int size() throws Exception {
         MetaV metaV = getMeta();
+        if (metaV == null) {
+            return 0;
+        }
         return metaV.getSize();
     }
 
     protected MetaV getMeta() throws Exception {
 
         byte[] k_v = db.rocksDB().get(key_b);
-        if (k_v == null) throw new NonExistException("List");
+        if (k_v == null) return null;
 
         MetaV metaV = MetaVD.build(k_v).convertMeta();
         long nowTime = System.currentTimeMillis();
@@ -49,12 +52,16 @@ public class RList extends RCollection {
         return metaV != null;
     }
 
-
     public synchronized void ttl(int ttl) throws Exception {
         start();
         try {
             MetaV metaV = getMeta();
-            metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
+            if (metaV == null) {
+                metaV = new MetaV(0, 0, -1, -1, db.versionSequence().incr());
+            }
+            if (ttl != -1) {
+                metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
+            }
             putDB(key_b, metaV.convertMetaBytes().toBytes());
             db.ttlZset().add(metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
             commit();
@@ -64,9 +71,13 @@ public class RList extends RCollection {
     }
 
     public synchronized void delTtl() throws Exception {
+        MetaV metaV = getMeta();
+        if (metaV == null) {
+            return;
+        }
+
         start();
         try {
-            MetaV metaV = getMeta();
             metaV.setTimestamp(-1);
             putDB(key_b, metaV.convertMetaBytes().toBytes());
             db.ttlZset().remove(metaV.convertMetaBytes().toBytes());
@@ -78,6 +89,9 @@ public class RList extends RCollection {
 
     public int getTtl() throws Exception {
         MetaV metaV = getMeta();
+        if (metaV == null) {
+            return 0;
+        }
         if (metaV.getTimestamp() == -1) {
             return -1;
         }
@@ -118,9 +132,13 @@ public class RList extends RCollection {
     }
 
     public synchronized void delete() throws Exception {
-        start();
+        MetaV metaV = getMeta();
+        if (metaV == null) {
+            return;
+        }
+
         try {
-            MetaV metaV = getMeta();
+            start();
             deleteDB(key_b);
             delete(key_b, this, metaV);
             commit();
@@ -130,8 +148,12 @@ public class RList extends RCollection {
     }
 
     public List<byte[]> range(long start, long end) throws Exception {
-        MetaV metaV = getMeta();
         List<byte[]> list = new ArrayList<>();
+
+        MetaV metaV = getMeta();
+        if (metaV == null) {
+            return list;
+        }
         ValueK valueK_seek = new ValueK(key_b.length, key_b, metaV.getVersion(), start);
         try (final RocksIterator iterator = db.rocksDB().newIterator()) {
             ValueKD valueKD = valueK_seek.convertValueBytes();
@@ -154,6 +176,9 @@ public class RList extends RCollection {
 
     public RIterator<RList> iterator() throws Exception {
         MetaV metaV = getMeta();
+        if (metaV == null) {
+            return null;
+        }
         ValueK valueK_seek = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.left);
         RocksIterator iterator = db.rocksDB().newIterator();
         ValueKD valueKD = valueK_seek.convertValueBytes();
@@ -173,10 +198,13 @@ public class RList extends RCollection {
     }
 
     public synchronized List<byte[]> blpop(int num) throws Exception {
+        List<byte[]> list = new ArrayList<>();
+        MetaV metaV = getMeta();
+        if (metaV == null) {
+            return list;
+        }
         start();
         try (final RocksIterator iterator = db.rocksDB().newIterator()) {
-            MetaV metaV = getMeta();
-            List<byte[]> list = new ArrayList<>();
             final int maxCount = num > 0 ? num : Integer.MAX_VALUE;
             ValueK valueK_seek = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.left);
             List<byte[]> delete_keys = new ArrayList<>();
@@ -270,6 +298,9 @@ public class RList extends RCollection {
     @Override
     public synchronized void deleteFast() throws Exception {
         MetaV metaV = getMeta();
+        if (metaV == null) {
+            return;
+        }
         deleteFast(this.key_b, this, metaV);
     }
 
@@ -341,6 +372,9 @@ public class RList extends RCollection {
 
     public byte[] get(long i) throws Exception {
         MetaV metaV = getMeta();
+        if (metaV == null) {
+            return null;
+        }
         ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), i);
         return db.rocksDB().get(valueK.convertValueBytes().toBytes());
     }
@@ -348,7 +382,11 @@ public class RList extends RCollection {
 
     public List<byte[]> get(long... is) throws Exception {
         MetaV metaV = getMeta();
+        if (metaV == null) {
+            return new ArrayList<>();
+        }
         List<byte[]> list = new ArrayList<>(is.length);
+
         for (long i : is) {
             ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), i);
             list.add(db.rocksDB().get(valueK.convertValueBytes().toBytes()));
@@ -358,9 +396,12 @@ public class RList extends RCollection {
 
 
     public synchronized void remove(long i) throws Exception {
+        MetaV metaV = getMeta();
+        if (metaV == null) {
+            return;
+        }
         start();
         try {
-            MetaV metaV = getMeta();
             ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), i);
             deleteDB(valueK.convertValueBytes().toBytes());
             commit();

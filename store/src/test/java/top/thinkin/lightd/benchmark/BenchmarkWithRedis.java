@@ -3,10 +3,7 @@ package top.thinkin.lightd.benchmark;
 import cn.hutool.core.collection.CollectionUtil;
 import org.junit.Assert;
 import org.rocksdb.RocksDB;
-import top.thinkin.lightd.collect.DB;
-import top.thinkin.lightd.collect.RKv;
-import top.thinkin.lightd.collect.RList;
-import top.thinkin.lightd.collect.Sequence;
+import top.thinkin.lightd.collect.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +29,13 @@ public class BenchmarkWithRedis {
 
     private static void bc(DB db) throws Exception {
         RKv SET = db.getrKv();
+
+
+        RSet rSet = db.getSet("1");
+        retry("ZSET", 100, w_times -> sAdd(rSet, w_times));
+        retry("ZPOP", 100, w_times -> spop(rSet));
+        rSet.delete();
+
         retry("SET", 100, 1000000, w_times -> set(SET, 1000000));
         retry("GET", 100, 1000000, w_times -> get(SET, 1000000));
         retry("GETNOTTL", 100, 1000000, w_times -> getNoTTL(SET, 1000000));
@@ -47,6 +51,7 @@ public class BenchmarkWithRedis {
         RList LPUSHs = db.getList("LPUSH_LIST");
         retry("LPUSH", 100, w_times -> add(LPUSHs, w_times));
         LPUSHs.delete();
+
 
         RList LPOP_LIST = db.getList("LPOP_LIST");
         addAll(LPOP_LIST, 100);
@@ -172,11 +177,35 @@ public class BenchmarkWithRedis {
         joinFuture.join();
     }
 
+    private static void spop(RSet set) throws Exception {
+        while (true) {
+            java.util.List<byte[]> pops = set.pop(1000);
+            if (CollectionUtil.isEmpty(pops)) break;
+        }
 
+
+       /* try(RIterator<RSet> iterator = set.iterator()){
+            while (iterator.hasNext()){
+                RSet.Entry er =   (RSet.Entry)iterator.next();
+            }
+        }*/
+    }
     private static void blpop(RList list) throws Exception {
         while (true) {
             java.util.List<byte[]> pops = list.blpop(1);
             if (CollectionUtil.isEmpty(pops)) break;
+        }
+    }
+
+
+    private static void sAdd(RSet set, int w_times) throws Exception {
+        int k = w_times * 10000;
+        List<byte[]> arrayList = new ArrayList<>(w_times * 10000);
+        for (int i = 0; i < k; i++) {
+            arrayList.add(ArrayKits.intToBytes(i));
+        }
+        for (byte[] bytes : arrayList) {
+            set.add(bytes);
         }
     }
 

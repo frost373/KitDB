@@ -25,9 +25,12 @@ public abstract class RCollection extends RBase {
     }
 
 
+    abstract <T extends RCollection> RIterator<T> iterator() throws Exception;
+
 
     /**
      * 删除，数据会被同步清除
+     *
      * @throws Exception
      */
     abstract void delete() throws Exception;

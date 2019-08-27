@@ -2,6 +2,8 @@ package top.thinkin.lightd.collect;
 
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ArrayKits {
     public static byte[] newArray(Class<?> componentType, int newSize) {
@@ -64,5 +66,20 @@ public class ArrayKits {
                 | ((src[offset+2] & 0xFF)<<16)
                 | ((src[offset+3] & 0xFF)<<24);
         return value;
+    }
+
+
+    public static boolean noRepeate(byte[][] bytess) {
+        List<byte[]> temps = new ArrayList<>(bytess.length);
+
+        for (byte[] bytes : bytess) {
+            for (byte[] temp : temps) {
+                if (BytesUtil.compare(temp, bytes) == 0) {
+                    return false;
+                }
+            }
+            temps.add(bytes);
+        }
+        return true;
     }
 }
