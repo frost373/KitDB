@@ -1,4 +1,4 @@
-package top.thinkin.lightd.collect;
+package top.thinkin.lightd.base;
 
 public enum DBCommandType {
     DELETE(0, "删除"),

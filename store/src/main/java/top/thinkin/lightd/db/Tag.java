@@ -1,4 +1,4 @@
-package top.thinkin.lightd.collect;
+package top.thinkin.lightd.db;
 
 
 public class Tag {

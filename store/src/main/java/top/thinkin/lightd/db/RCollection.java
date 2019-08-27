@@ -1,7 +1,10 @@
-package top.thinkin.lightd.collect;
+package top.thinkin.lightd.db;
 
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
+import top.thinkin.lightd.base.MetaAbs;
+import top.thinkin.lightd.base.MetaDAbs;
+import top.thinkin.lightd.kit.ArrayKits;
 
 public abstract class RCollection extends RBase {
 

@@ -1,4 +1,4 @@
-package top.thinkin.lightd.collect;
+package top.thinkin.lightd.kit;
 
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;

@@ -1,4 +1,4 @@
-package top.thinkin.lightd.collect;
+package top.thinkin.lightd.kit;
 
 import java.io.Serializable;
 import java.util.Comparator;

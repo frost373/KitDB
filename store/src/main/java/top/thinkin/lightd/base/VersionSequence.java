@@ -1,7 +1,8 @@
-package top.thinkin.lightd.collect;
+package top.thinkin.lightd.base;
 
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import top.thinkin.lightd.kit.ArrayKits;
 
 
 public class VersionSequence {

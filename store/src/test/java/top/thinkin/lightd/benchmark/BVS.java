@@ -1,8 +1,8 @@
 package top.thinkin.lightd.benchmark;
 
 import org.rocksdb.RocksDB;
-import top.thinkin.lightd.collect.DB;
-import top.thinkin.lightd.collect.Sequence;
+import top.thinkin.lightd.db.DB;
+import top.thinkin.lightd.db.Sequence;
 
 public class BVS {
     public static void main(String[] args) throws Exception {

@@ -3,7 +3,8 @@ package top.thinkin.lightd.benchmark;
 import cn.hutool.core.collection.CollectionUtil;
 import org.junit.Assert;
 import org.rocksdb.RocksDB;
-import top.thinkin.lightd.collect.*;
+import top.thinkin.lightd.db.*;
+import top.thinkin.lightd.kit.ArrayKits;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -10,6 +10,8 @@ import org.junit.Test;
 import org.junit.runners.MethodSorters;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import top.thinkin.lightd.db.DB;
+import top.thinkin.lightd.db.RList;
 
 import java.util.ArrayList;
 import java.util.List;

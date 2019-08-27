@@ -1,9 +1,11 @@
 
-package top.thinkin.lightd.collect;
+package top.thinkin.lightd.db;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.rocksdb.RocksDBException;
+import top.thinkin.lightd.base.SegmentLock;
+import top.thinkin.lightd.kit.ArrayKits;
 
 import java.util.List;
 

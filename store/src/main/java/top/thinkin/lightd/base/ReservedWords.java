@@ -1,4 +1,4 @@
-package top.thinkin.lightd.collect;
+package top.thinkin.lightd.base;
 
 import java.util.Arrays;
 import java.util.Collection;

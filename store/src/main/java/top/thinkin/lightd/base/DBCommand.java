@@ -1,7 +1,8 @@
-package top.thinkin.lightd.collect;
+package top.thinkin.lightd.base;
 
 import cn.hutool.core.util.ArrayUtil;
 import lombok.Data;
+import top.thinkin.lightd.kit.ArrayKits;
 
 import java.io.Serializable;
 

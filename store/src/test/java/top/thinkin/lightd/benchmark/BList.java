@@ -2,9 +2,9 @@ package top.thinkin.lightd.benchmark;
 
 import cn.hutool.core.collection.CollectionUtil;
 import org.rocksdb.RocksDB;
-import top.thinkin.lightd.collect.DB;
-import top.thinkin.lightd.collect.RIterator;
-import top.thinkin.lightd.collect.RList;
+import top.thinkin.lightd.db.DB;
+import top.thinkin.lightd.db.RIterator;
+import top.thinkin.lightd.db.RList;
 
 import java.util.ArrayList;
 import java.util.List;

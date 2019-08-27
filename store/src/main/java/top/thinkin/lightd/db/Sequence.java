@@ -1,6 +1,7 @@
-package top.thinkin.lightd.collect;
+package top.thinkin.lightd.db;
 
 import org.rocksdb.RocksDBException;
+import top.thinkin.lightd.kit.ArrayKits;
 
 public class Sequence {
     public final static String HEAD = "U";

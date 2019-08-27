@@ -1,7 +1,10 @@
-package top.thinkin.lightd.collect;
+package top.thinkin.lightd.db;
 
 import cn.hutool.core.util.ArrayUtil;
 import org.rocksdb.*;
+import top.thinkin.lightd.base.BinLog;
+import top.thinkin.lightd.base.ReservedWords;
+import top.thinkin.lightd.base.VersionSequence;
 
 import java.io.File;
 import java.util.List;
@@ -11,21 +14,20 @@ import java.util.concurrent.TimeUnit;
 
 public class DB {
 
-    private ThreadLocal<AtomHandler> ATOM_HANDLER = new ThreadLocal<>();
 
     private RocksDB rocksDB;
     private boolean openTransaction = false;
 
     public VersionSequence versionSequence;
-    private  ZSet ttlZset;
+    private ZSet ttlZset;
 
     private RKv rKv;
-    private final static  byte[] DEL_HEAD = "D".getBytes();
-    private  WriteOptions writeOptions;
+    private final static byte[] DEL_HEAD = "D".getBytes();
+    private WriteOptions writeOptions;
 
     private RocksDB binLogDB;
     private BinLog binLog;
-    static ScheduledThreadPoolExecutor stp =new ScheduledThreadPoolExecutor(3);
+    static ScheduledThreadPoolExecutor stp = new ScheduledThreadPoolExecutor(3);
 
     public final ConcurrentHashMap map = new ConcurrentHashMap();
 
@@ -34,11 +36,11 @@ public class DB {
     }
 
 
-    public   void close(){
-        if(stp!=null){
+    public void close() {
+        if (stp != null) {
             stp.shutdown();
         }
-        if(rocksDB!=null){
+        if (rocksDB != null) {
             rocksDB.close();
         }
 
@@ -47,19 +49,19 @@ public class DB {
         }
     }
 
-    protected   RocksDB rocksDB(){
+    public RocksDB rocksDB() {
         return this.rocksDB;
     }
 
-    protected  ZSet ttlZset(){
+    public ZSet ttlZset() {
         return this.ttlZset;
     }
 
-    protected  VersionSequence versionSequence(){
+    public VersionSequence versionSequence() {
         return this.versionSequence;
     }
 
-    protected  WriteOptions writeOptions(){
+    protected WriteOptions writeOptions() {
         return this.writeOptions;
     }
 
@@ -68,14 +70,14 @@ public class DB {
             iterator.seek(DEL_HEAD);
             while (iterator.isValid()) {
                 byte[] key_bs = iterator.key();
-                if(DEL_HEAD[0] != key_bs[0]){
+                if (DEL_HEAD[0] != key_bs[0]) {
                     break;
                 }
-                byte[] value =  iterator.value();
+                byte[] value = iterator.value();
                 iterator.next();
-                byte[] rel_key_bs =  ArrayUtil.sub(key_bs,1,key_bs.length-4);
+                byte[] rel_key_bs = ArrayUtil.sub(key_bs, 1, key_bs.length - 4);
                 if (RList.HEAD_B[0] == rel_key_bs[0]) {
-                    RList.delete(rel_key_bs,value,this);
+                    RList.delete(rel_key_bs, value, this);
                 }
 
                 if (ZSet.HEAD_B[0] == rel_key_bs[0]) {
@@ -127,9 +129,9 @@ public class DB {
         options.setCreateIfMissing(true);
 
         TransactionDBOptions transactionDBOptions = new TransactionDBOptions();
-        TransactionDB rocksDB =   TransactionDB.open(options,transactionDBOptions,dir);
+        TransactionDB rocksDB = TransactionDB.open(options, transactionDBOptions, dir);
 
-        db.rocksDB  = rocksDB;
+        db.rocksDB = rocksDB;
         db.openTransaction = true;
         db.versionSequence = new VersionSequence(db.rocksDB);
         db.ttlZset = db.getZSet(ReservedWords.ZSET_KEYS.TTL);
@@ -151,7 +153,7 @@ public class DB {
         DB db = new DB();
         Options options = new Options();
         options.setCreateIfMissing(true);
-        db.rocksDB  = RocksDB.open(options, dir);
+        db.rocksDB = RocksDB.open(options, dir);
         db.versionSequence = new VersionSequence(db.rocksDB);
         db.ttlZset = db.getZSet(ReservedWords.ZSET_KEYS.TTL);
 
@@ -164,16 +166,17 @@ public class DB {
 
         db.binLog = new BinLog(db.binLogDB);
 
+
         //stp.scheduleWithFixedDelay(db::checkTTL, 2, 2, TimeUnit.SECONDS);
         return db;
     }
 
 
-    public synchronized RList getList(String key){
-        Object list =map.get(RList.HEAD+key);
-        if(list == null){
-            list = new RList(this,key);
-            map.put(RList.HEAD+key,list);
+    public synchronized RList getList(String key) {
+        Object list = map.get(RList.HEAD + key);
+        if (list == null) {
+            list = new RList(this, key);
+            map.put(RList.HEAD + key, list);
         }
         return (RList) list;
     }
@@ -189,10 +192,10 @@ public class DB {
 
 
     public synchronized ZSet getZSet(String key) {
-        Object zset =map.get(ZSet.HEAD+key);
-        if(zset == null){
-            zset = new ZSet(this,key);
-            map.put(ZSet.HEAD+key,zset);
+        Object zset = map.get(ZSet.HEAD + key);
+        if (zset == null) {
+            zset = new ZSet(this, key);
+            map.put(ZSet.HEAD + key, zset);
         }
         return (ZSet) zset;
     }

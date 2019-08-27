@@ -1,9 +1,12 @@
-package top.thinkin.lightd.collect;
+package top.thinkin.lightd.base;
 
 import cn.hutool.core.util.ArrayUtil;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.rocksdb.*;
+import top.thinkin.lightd.db.RCollection;
+import top.thinkin.lightd.kit.ArrayKits;
+import top.thinkin.lightd.kit.BytesUtil;
 
 import java.util.ArrayList;
 import java.util.List;

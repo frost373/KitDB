@@ -1,5 +1,5 @@
+import top.thinkin.lightd.base.SegmentLock;
 import top.thinkin.lightd.benchmark.JoinFuture;
-import top.thinkin.lightd.collect.SegmentLock;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;

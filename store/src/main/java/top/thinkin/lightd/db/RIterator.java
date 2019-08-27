@@ -1,6 +1,7 @@
-package top.thinkin.lightd.collect;
+package top.thinkin.lightd.db;
 
 import org.rocksdb.RocksIterator;
+import top.thinkin.lightd.kit.BytesUtil;
 
 public class RIterator<R extends RCollection> implements AutoCloseable {
     private final RocksIterator iterator;

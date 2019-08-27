@@ -1,7 +1,9 @@
-package top.thinkin.lightd.collect;
+package top.thinkin.lightd.db;
 
 import org.rocksdb.RocksIterator;
 import org.rocksdb.WriteBatch;
+import top.thinkin.lightd.base.DBCommand;
+import top.thinkin.lightd.kit.BytesUtil;
 
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -66,12 +68,12 @@ public abstract class RBase {
         }
     }
 
-    protected void putDB(byte[] key, byte[] value) {
+    public void putDB(byte[] key, byte[] value) {
         List<DBCommand> logs = threadLogs.get();
         logs.add(DBCommand.update(key, value));
     }
 
-    protected void deleteDB(byte[] key) {
+    public void deleteDB(byte[] key) {
         List<DBCommand> logs = threadLogs.get();
         logs.add(DBCommand.delete(key));
     }
