@@ -41,6 +41,13 @@ public class DAssert {
         }
     }
 
+
+    public static void notEmpty(Object[] val, ErrorType type, String errmsg) throws LightDException {
+        if (val == null || val.length == 0) {
+            throw new LightDException(type, errmsg);
+        }
+    }
+
     @SuppressWarnings("rawtypes")
     public static void isEmpty(Collection val, ErrorType type, String errmsg) throws LightDException {
         if (val != null && val.size() != 0) {

@@ -89,6 +89,7 @@ public class RMap extends RCollection {
 
 
     public synchronized void putMayTTL(int ttl, Entry... entries) throws Exception {
+        DAssert.notEmpty(entries, ErrorType.EMPTY, "entries is empty");
         byte[][] bytess = new byte[entries.length][];
         for (int i = 0; i < entries.length; i++) {
             bytess[i] = entries[i].value;
@@ -125,6 +126,7 @@ public class RMap extends RCollection {
 
 
     public Map<byte[], byte[]> get(byte[]... keys) throws Exception {
+        DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
         Meta metaV = getMeta();
         if (metaV == null) {
             return new HashMap<>();
@@ -174,6 +176,7 @@ public class RMap extends RCollection {
 
 
     public synchronized void remove(byte[]... keys) throws Exception {
+        DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
         Meta metaV = getMeta();
         if (metaV == null) {
             return;

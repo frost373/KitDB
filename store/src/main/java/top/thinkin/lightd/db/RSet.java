@@ -78,6 +78,8 @@ public class RSet extends RCollection {
      * @throws Exception
      */
     public synchronized void remove(byte[]... values) throws Exception {
+        DAssert.notEmpty(values, ErrorType.EMPTY, "values is empty");
+
         MetaV metaV = getMeta();
         List<byte[]> dels = new ArrayList<>();
         for (byte[] v : values) {
@@ -113,6 +115,7 @@ public class RSet extends RCollection {
      * @throws Exception
      */
     public synchronized void addMayTTL(int ttl, byte[]... values) throws Exception {
+        DAssert.notEmpty(values, ErrorType.EMPTY, "values is empty");
 
         DAssert.isTrue(ArrayKits.noRepeate(values), ErrorType.REPEATED_KEY, "Repeated memebers");
         start();

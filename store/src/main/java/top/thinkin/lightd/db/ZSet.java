@@ -39,6 +39,8 @@ public class ZSet extends RCollection {
     }
 
     public synchronized void addMayTTL(int ttl, Entry... entrys) throws Exception {
+        DAssert.notEmpty(entrys, ErrorType.EMPTY, "entrys is empty");
+
         byte[][] bytess = new byte[entrys.length][];
         for (int i = 0; i < entrys.length; i++) {
             bytess[i] = entrys[i].value;
@@ -194,6 +196,8 @@ public class ZSet extends RCollection {
      * @throws Exception
      */
     private synchronized void incrby(int increment, byte[]... vs) throws Exception {
+        DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
+
         start();
         try {
             MetaV metaV = getMeta();
@@ -222,7 +226,7 @@ public class ZSet extends RCollection {
      * @throws Exception
      */
     public synchronized void remove(byte[]... vs) throws Exception {
-
+        DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
         MetaV metaV = getMeta();
         List<byte[]> dels = new ArrayList<>();
         for (byte[] v : vs) {
@@ -253,6 +257,7 @@ public class ZSet extends RCollection {
      * @throws Exception
      */
     public List<Long> score(byte[]... vs) throws Exception {
+        DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
         MetaV metaV = getMeta();
         List<Long> scores = new ArrayList<>();
         for (byte[] v : vs) {
@@ -600,8 +605,6 @@ public class ZSet extends RCollection {
 
         public byte[] toBytes() {
             return ArrayKits.addAll(HEAD_SCORE_B, this.mapKeySize, this.mapKey, this.version, this.score, this.value);
-            /*return String.join("",new String(HEAD_SCORE_B), ArrayKits.bytesToInt(this.mapKeySize,0)+"", new String(this.mapKey)
-                    , ArrayKits.bytesToInt(this.mapKeySize,0)+"",ArrayKits.bytesToLong(this.score)+"", new String(this.value)).getBytes();*/
         }
 
         public static ZDataD build(byte[] bytes) {
