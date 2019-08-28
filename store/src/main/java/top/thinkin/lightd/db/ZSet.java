@@ -26,6 +26,12 @@ public class ZSet extends RCollection {
     public static byte[] HEAD_SCORE_B = KeyEnum.ZSET_S.getBytes();
     public static byte[] HEAD_V_B = KeyEnum.ZSET_V.getBytes();
 
+    protected ZSet(DB db) {
+        super(false, 128);
+
+        this.db = db;
+    }
+
 
     protected byte[] getKey(String key) {
         DAssert.notNull(key, ErrorType.NULL, "Key is null");
@@ -54,9 +60,10 @@ public class ZSet extends RCollection {
         }
         DAssert.isTrue(ArrayKits.noRepeate(bytess), ErrorType.REPEATED_KEY, "Repeated memebers");
 
+        lock.lock(key);
         start();
         try {
-            byte[] k_v = db.rocksDB().get(key_b);
+            byte[] k_v = get(key_b);
             MetaV metaV = addCheck(key_b, k_v);
             if (metaV != null) {
                 setEntry(key_b, metaV, entrys);
@@ -75,6 +82,7 @@ public class ZSet extends RCollection {
 
             commit();
         } finally {
+            lock.unlock(key);
             release();
         }
     }
@@ -85,7 +93,7 @@ public class ZSet extends RCollection {
             SData sData = new SData(key_b.length, key_b, metaV.getVersion(), entry.value);
             ZData zData = new ZData(key_b.length, key_b, metaV.getVersion(), entry.score, entry.value);
             byte[] member = sData.convertBytes().toBytes();
-            if (db.rocksDB().get(member) == null) {
+            if (get(member) == null) {
                 metaV.size = metaV.size + 1;
             }
             putDB(member, ArrayKits.longToBytes(entry.score));
@@ -110,7 +118,7 @@ public class ZSet extends RCollection {
 
         byte[] seek = zData.getSeek();
         byte[] head = zData.getHead();
-        try (final RocksIterator iterator = db.rocksDB().newIterator()) {
+        try (final RocksIterator iterator = newIterator()) {
             iterator.seek(seek);
             long index = 0;
             while (iterator.isValid() && index <= end) {
@@ -133,7 +141,7 @@ public class ZSet extends RCollection {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         SData sData = new SData(key_b.length, key_b, metaV.getVersion(), "".getBytes());
-        RocksIterator iterator = db.rocksDB().newIterator();
+        RocksIterator iterator = newIterator();
         iterator.seek(sData.getHead());
         RIterator<ZSet> rIterator = new RIterator<>(iterator, this, sData.getHead());
         return rIterator;
@@ -150,16 +158,16 @@ public class ZSet extends RCollection {
      */
     public synchronized List<Entry> rangeDel(String key, long start, long end) throws Exception {
         byte[] key_b = getKey(key);
-
+        lock.lock(key);
         List<Entry> entries = new ArrayList<>();
-        MetaV metaV = getMeta(key_b);
-        ZData zData = new ZData(key_b.length, key_b, metaV.getVersion(), start, "".getBytes());
+        try (final RocksIterator iterator = newIterator()) {
+            MetaV metaV = getMeta(key_b);
+            ZData zData = new ZData(key_b.length, key_b, metaV.getVersion(), start, "".getBytes());
 
-        byte[] seek = zData.getSeek();
-        byte[] head = zData.getHead();
+            byte[] seek = zData.getSeek();
+            byte[] head = zData.getHead();
 
-        List<byte[]> dels = new ArrayList<>();
-        try (final RocksIterator iterator = db.rocksDB().newIterator()) {
+            List<byte[]> dels = new ArrayList<>();
             iterator.seek(seek);
             long index = 0;
             while (iterator.isValid() && index <= end) {
@@ -172,28 +180,25 @@ public class ZSet extends RCollection {
                     break;
                 }
                 entries.add(new Entry(index, izData.value));
-
                 //DEL
                 metaV.setSize(metaV.getSize() - 1);
                 dels.add(zDataD.toBytes());
                 SDataD sDataD = new SDataD(zDataD.getMapKeySize(), key_b, zDataD.getVersion(), zDataD.getValue());
                 dels.add(sDataD.toBytes());
-
                 iterator.next();
             }
-        }
-        start();
-        try {
+            start();
             removeDo(key_b, metaV, dels);
+            putDB(key_b, metaV.convertMetaBytes().toBytes());
             commit();
         } finally {
+            lock.unlock(key);
             release();
         }
         return entries;
     }
 
     private void removeDo(byte[] key_b, MetaV metaV, List<byte[]> dels) {
-        putDB(key_b, metaV.convertMetaBytes().toBytes());
         for (byte[] del : dels) {
             deleteDB(del);
         }
@@ -210,14 +215,14 @@ public class ZSet extends RCollection {
     private synchronized void incrby(String key, int increment, byte[]... vs) throws Exception {
         DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
         byte[] key_b = getKey(key);
-
-        start();
+        lock.lock(key);
         try {
+            start();
             MetaV metaV = getMeta(key_b);
             for (byte[] v : vs) {
                 SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
                 SDataD sDataD = sData.convertBytes();
-                byte[] scoreD = db.rocksDB().get(sDataD.toBytes());
+                byte[] scoreD = get(sDataD.toBytes());
                 if (scoreD != null) {
                     int score = ArrayKits.bytesToInt(scoreD, 0) + increment;
                     scoreD = ArrayKits.intToBytes(score);
@@ -228,6 +233,7 @@ public class ZSet extends RCollection {
             }
             commit();
         } finally {
+            lock.unlock(key);
             release();
         }
     }
@@ -241,32 +247,35 @@ public class ZSet extends RCollection {
     public synchronized void remove(String key, byte[]... vs) throws Exception {
         DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
         byte[] key_b = getKey(key);
-
-        MetaV metaV = getMeta(key_b);
-        List<byte[]> dels = new ArrayList<>();
-        for (byte[] v : vs) {
-            SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
-            SDataD sDataD = sData.convertBytes();
-            byte[] scoreD = db.rocksDB().get(sDataD.toBytes());
-            if (scoreD != null) {
-                ZDataD zDataD = new ZDataD(sDataD.getMapKeySize(), sDataD.getMapKey(), sDataD.getVersion(), scoreD, sDataD.getValue());
-                dels.add(zDataD.toBytes());
-                dels.add(sDataD.toBytes());
-                metaV.setSize(metaV.getSize() - 1);
-            }
-        }
         start();
+        lock.lock(key);
         try {
+            MetaV metaV = getMeta(key_b);
+            List<byte[]> dels = new ArrayList<>();
+            for (byte[] v : vs) {
+                SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
+                SDataD sDataD = sData.convertBytes();
+                byte[] scoreD = get(sDataD.toBytes());
+                if (scoreD != null) {
+                    ZDataD zDataD = new ZDataD(sDataD.getMapKeySize(), sDataD.getMapKey(), sDataD.getVersion(), scoreD, sDataD.getValue());
+                    dels.add(zDataD.toBytes());
+                    dels.add(sDataD.toBytes());
+                    metaV.setSize(metaV.getSize() - 1);
+                }
+            }
             removeDo(key_b, metaV, dels);
+            putDB(key_b, metaV.convertMetaBytes().toBytes());
             commit();
         } catch (Exception e) {
+            lock.unlock(key);
             release();
         }
     }
 
+
     /**
      * 返回成员的分数值,如成员不存在，List对应位置则为null
-     *
+     * @param key
      * @param vs
      * @return
      * @throws Exception
@@ -278,7 +287,7 @@ public class ZSet extends RCollection {
         List<Long> scores = new ArrayList<>();
         for (byte[] v : vs) {
             SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
-            byte[] scoreD = db.rocksDB().get(sData.convertBytes().toBytes());
+            byte[] scoreD = get(sData.convertBytes().toBytes());
             if (scoreD != null) {
                 scores.add(ArrayKits.bytesToLong(scoreD));
             }
@@ -298,16 +307,13 @@ public class ZSet extends RCollection {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
-        byte[] scoreD = db.rocksDB().get(sData.convertBytes().toBytes());
+        byte[] scoreD = get(sData.convertBytes().toBytes());
         if (scoreD != null) {
             return ArrayKits.bytesToLong(scoreD);
         }
         return null;
     }
 
-    public ZSet(DB db) {
-        this.db = db;
-    }
 
     private MetaV addCheck(byte[] key_b, byte[] k_v) throws RocksDBException {
         MetaV metaV = null;
@@ -317,7 +323,7 @@ public class ZSet extends RCollection {
             long nowTime = System.currentTimeMillis() / 1000;
             if (metaV.getTimestamp() != -1 && nowTime > metaV.getTimestamp()) {
                 metaV = null;
-                db.rocksDB().put(ArrayKits.addAll("D".getBytes(), key_b, metaD.getVersion()), metaD.toBytes());
+                put(ArrayKits.addAll("D".getBytes(), key_b, metaD.getVersion()), metaD.toBytes());
             }
         }
         return metaV;
@@ -325,7 +331,7 @@ public class ZSet extends RCollection {
 
     @Override
     protected MetaV getMeta(byte[] key_b) throws Exception {
-        byte[] k_v = this.db.rocksDB().get(key_b);
+        byte[] k_v = this.get(key_b);
         if (k_v == null) {
             throw new Exception("List do not exist");
         }
@@ -337,17 +343,7 @@ public class ZSet extends RCollection {
         return metaV;
     }
 
-    public static synchronized void delete(byte[] key_b, byte[] k_v, DB db) throws Exception {
-        ZSet rBase = new ZSet(db);
-        rBase.start();
-        try {
-            MetaD metaD = MetaD.build(k_v);
-            delete(key_b, rBase, metaD);
-            rBase.commit();
-        } finally {
-            rBase.release();
-        }
-    }
+
 
     private static void delete(byte[] key_b, RBase rBase, MetaD metaD) {
         MetaV metaV = metaD.convertMetaV();
@@ -363,25 +359,38 @@ public class ZSet extends RCollection {
     @Override
     public synchronized void delete(String key) throws Exception {
         byte[] key_b = getKey(key);
+        lock.lock(key);
         try {
             start();
             MetaV metaV = getMeta(key_b);
             delete(key_b, this, metaV.convertMetaBytes());
             commit();
         } finally {
+            lock.unlock(key);
+
             release();
         }
+    }
+
+    @Override
+    public KeyIterator getKeyIterator() throws Exception {
+        return null;
     }
 
 
     public synchronized void deleteFast(String key) throws Exception {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
-        deleteFast(key_b, this, metaV);
+        lock.lock(key);
+        try {
+            deleteFast(key_b, metaV);
+        } finally {
+            lock.unlock(key);
+        }
     }
 
     @Override
-    public synchronized int getTtl(String key) throws Exception {
+    public int getTtl(String key) throws Exception {
         byte[] key_b = getKey(key);
 
         MetaV metaV = getMeta(key_b);
@@ -394,6 +403,7 @@ public class ZSet extends RCollection {
     @Override
     public synchronized void delTtl(String key) throws Exception {
         byte[] key_b = getKey(key);
+        lock.lock(key);
         try {
             MetaV metaV = getMeta(key_b);
             metaV.setTimestamp(-1);
@@ -402,6 +412,7 @@ public class ZSet extends RCollection {
             db.getzSet().remove(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes());
             commit();
         } finally {
+            lock.unlock(key);
             release();
         }
     }
@@ -409,7 +420,7 @@ public class ZSet extends RCollection {
     @Override
     public void ttl(String key, int ttl) throws Exception {
         byte[] key_b = getKey(key);
-
+        lock.lock(key);
         try {
             MetaV metaV = getMeta(key_b);
             start();
@@ -418,6 +429,7 @@ public class ZSet extends RCollection {
             db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
             commit();
         } finally {
+            lock.unlock(key);
             release();
         }
 
@@ -426,7 +438,7 @@ public class ZSet extends RCollection {
     @Override
     public boolean isExist(String key) throws RocksDBException {
         byte[] key_b = getKey(key);
-        byte[] k_v = db.rocksDB().get(key_b);
+        byte[] k_v = get(key_b);
         MetaV meta = addCheck(key_b, k_v);
         return meta != null;
     }

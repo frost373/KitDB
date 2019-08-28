@@ -13,7 +13,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class DB {
-
+    final byte[] version = "V0.0.1".getBytes();
 
     private RocksDB rocksDB;
     private boolean openTransaction = false;
@@ -31,6 +31,24 @@ public class DB {
     private RocksDB binLogDB;
     private BinLog binLog;
     static ScheduledThreadPoolExecutor stp = new ScheduledThreadPoolExecutor(3);
+
+    private ThreadLocal<ReadOptions> readOptionsThreadLocal = new ThreadLocal<>();
+
+    public ReadOptions getSnapshot() {
+        return readOptionsThreadLocal.get();
+    }
+
+
+    public void setThreadSnapshot(RSnapshot rSnapshot) {
+        ReadOptions readOptions = new ReadOptions();
+        readOptions.setSnapshot(rSnapshot.getSnapshot());
+        readOptionsThreadLocal.set(readOptions);
+    }
+
+    public void clearThreadSnapshot() {
+        readOptionsThreadLocal.remove();
+    }
+
 
     public final ConcurrentHashMap map1 = new ConcurrentHashMap();
 
@@ -56,7 +74,9 @@ public class DB {
         return this.rocksDB;
     }
 
-
+    public RSnapshot createSnapshot() {
+        return new RSnapshot(this.rocksDB.getSnapshot());
+    }
 
     public VersionSequence versionSequence() {
         return this.versionSequence;
@@ -78,11 +98,11 @@ public class DB {
                 iterator.next();
                 byte[] rel_key_bs = ArrayUtil.sub(key_bs, 1, key_bs.length - 4);
                 if (RList.HEAD_B[0] == rel_key_bs[0]) {
-                    RList.delete(rel_key_bs, value, this);
+                    RList.MetaV metaV = RList.MetaVD.build(value).convertMeta();
+                    this.list.deleteByClear(rel_key_bs, metaV);
                 }
-
                 if (ZSet.HEAD_B[0] == rel_key_bs[0]) {
-                    ZSet.delete(rel_key_bs, value, this);
+                    //ZSet.delete(rel_key_bs, value, this);
                 }
 
             }
@@ -176,16 +196,22 @@ public class DB {
         options.setCreateIfMissing(true);
         db.rocksDB = RocksDB.open(options, dir);
         db.versionSequence = new VersionSequence(db.rocksDB);
+        byte[] version = db.rocksDB.get("version".getBytes());
+
+
 
         db.rKv = new RKv(db);
+        db.zSet = new ZSet(db);
+        db.set = new RSet(db);
+        db.list = new RList(db);
+        db.map = new RMap(db);
+
         db.writeOptions = new WriteOptions();
         if (autoclear) {
             stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
         }
         db.binLogDB = RocksDB.open(options, "D:\\temp\\logs");
-
         db.binLog = new BinLog(db.binLogDB);
-
 
         //stp.scheduleWithFixedDelay(db::checkTTL, 2, 2, TimeUnit.SECONDS);
         return db;

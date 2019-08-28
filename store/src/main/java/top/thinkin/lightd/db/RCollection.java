@@ -4,29 +4,44 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.MetaAbs;
 import top.thinkin.lightd.base.MetaDAbs;
+import top.thinkin.lightd.base.SegmentStrLock;
 import top.thinkin.lightd.kit.ArrayKits;
 
 public abstract class RCollection extends RBase {
+    protected SegmentStrLock lock;
+
+
+    public RCollection(boolean isLog, int lockSize) {
+        super(isLog);
+        this.lock = new SegmentStrLock(lockSize);
+    }
 
     public synchronized void deleteFast(byte[] key_b) throws Exception {
         MetaAbs metaV = getMeta(key_b);
-        deleteFast(key_b, this, metaV);
+        deleteFast(key_b, metaV);
     }
 
     protected abstract <T extends MetaAbs> T getMeta(byte[] key_b) throws Exception;
 
-    protected static void deleteFast(byte[] key_b, RBase rBase, MetaAbs metaV) throws Exception {
-        rBase.start();
+    protected void deleteFast(byte[] key_b, MetaAbs metaV) throws Exception {
+        this.start();
         try {
             MetaDAbs metaVD = metaV.convertMetaBytes();
-            rBase.putDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()), metaVD.toBytes());
-            rBase.deleteDB(key_b);
-            rBase.commit();
+            this.putDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()), metaVD.toBytes());
+            this.deleteDB(key_b);
+            this.commit();
         } finally {
-            rBase.release();
+            this.release();
         }
     }
 
+
+    protected KeyIterator getKeyIterator(byte[] head) {
+        RocksIterator iterator = newIterator();
+        iterator.seek(head);
+        KeyIterator keyIterator = new KeyIterator(iterator, head);
+        return keyIterator;
+    }
 
     abstract <T extends RCollection> RIterator<T> iterator(String key) throws Exception;
 
@@ -37,6 +52,8 @@ public abstract class RCollection extends RBase {
      * @throws Exception
      */
     abstract void delete(String key) throws Exception;
+
+    public abstract KeyIterator getKeyIterator() throws Exception;
 
     /**
      * 获取过期时间戳(秒)

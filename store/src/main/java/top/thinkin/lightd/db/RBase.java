@@ -1,5 +1,6 @@
 package top.thinkin.lightd.db;
 
+import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.WriteBatch;
 import top.thinkin.lightd.base.DBCommand;
@@ -8,6 +9,7 @@ import top.thinkin.lightd.kit.BytesUtil;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public abstract class RBase {
     //protected byte[] key_b;
@@ -16,7 +18,6 @@ public abstract class RBase {
     protected final boolean isLog;
 
     protected static Charset charset = Charset.forName("UTF-8");
-    //private List<DBCommand> logs = new ArrayList<>();
     private ThreadLocal<List<DBCommand>> threadLogs = new ThreadLocal<>();
 
 
@@ -27,6 +28,7 @@ public abstract class RBase {
     public RBase() {
         this.isLog = false;
     }
+
 
     public void start() {
         List<DBCommand> logs = threadLogs.get();
@@ -82,6 +84,33 @@ public abstract class RBase {
     protected void deleteRangeDB(byte[] start, byte[] end) {
         List<DBCommand> logs = threadLogs.get();
         logs.add(DBCommand.deleteRange(start, end));
+    }
+
+
+    protected byte[] get(byte[] key) throws RocksDBException {
+        if (db.getSnapshot() != null) {
+            return db.rocksDB().get(db.getSnapshot(), key);
+        }
+        return db.rocksDB().get(key);
+    }
+
+
+    protected RocksIterator newIterator() {
+        if (db.getSnapshot() != null) {
+            return db.rocksDB().newIterator(db.getSnapshot());
+        }
+        return db.rocksDB().newIterator();
+    }
+
+    protected Map<byte[], byte[]> multiGet(List<byte[]> keys) throws RocksDBException {
+        if (db.getSnapshot() != null) {
+            return db.rocksDB().multiGet(db.getSnapshot(), keys);
+        }
+        return db.rocksDB().multiGet(keys);
+    }
+
+    protected void put(byte[] key, byte[] value) throws RocksDBException {
+        db.rocksDB().put(key, value);
     }
 
     protected static void deleteHead(byte[] head, RBase rBase) {

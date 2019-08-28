@@ -1,25 +1,25 @@
 package top.thinkin.lightd.db;
 
+import cn.hutool.core.util.ArrayUtil;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.kit.BytesUtil;
 
-public class RIterator<R extends RCollection> implements AutoCloseable {
+public class KeyIterator implements AutoCloseable {
     private final RocksIterator iterator;
-    private final RCollection rCollection;
     private final byte[] seekHead;
+    private boolean finish = false;
+    private byte[] now;
     private byte[] next;
-    private  boolean finish = false;
 
-    public  RIterator(RocksIterator iterator,RCollection rCollection,byte[] seekHead){
+    public KeyIterator(RocksIterator iterator, byte[] seekHead) {
         this.iterator = iterator;
-        this.rCollection = rCollection;
         this.seekHead = seekHead;
     }
 
-    public boolean hasNext(){
-        if(finish) return false;
+    public boolean hasNext() {
+        if (finish) return false;
         byte[] key = iterator.key();
-        if(key==null||!BytesUtil.checkHead(seekHead,key)){
+        if (key == null || !BytesUtil.checkHead(seekHead, key)) {
             finish = true;
             return false;
         }
@@ -27,11 +27,14 @@ public class RIterator<R extends RCollection> implements AutoCloseable {
     }
 
 
-    public R.Entry next(){
+    public String next() {
         if (!iterator.isValid()) return null;
-        R.Entry entry =  rCollection.getEntry(iterator);
+        byte[] cKey = iterator.key();
+        if (cKey == null) {
+            return null;
+        }
         iterator.next();
-        return entry;
+        return new String(ArrayUtil.sub(cKey, 1, cKey.length), RBase.charset);
     }
 
     public byte[] getSeek() {

@@ -1,4 +1,3 @@
-/*
 package top.thinkin.lightd.collect;
 
 
@@ -33,29 +32,29 @@ public class RListTest {
 
     @Test
     public void add() throws Exception {
-        RList list =   db.getList("add");
+        RList list = db.getList();
         try {
             for (int i = 0; i < 1000000; i++) {
-                list.add((i + "test").getBytes());
+                list.add("add", (i + "test").getBytes());
             }
-            Assert.assertTrue(list.size() == 1000000);
+            Assert.assertTrue(list.size("add") == 1000000);
         } finally {
-            list.delete();
+            list.delete("add");
         }
     }
 
     @Test
     public void ttl() throws Exception {
-        RList list =   db.getList("ttl");
+        RList list = db.getList();
         try {
             for (int i = 0; i < 100000; i++) {
-                list.add((i + "test").getBytes());
+                list.add("ttl", (i + "test").getBytes());
             }
-            list.ttl(10);
+            list.ttl("ttl", 10);
             Thread.sleep(2 * 1000);
-            Assert.assertTrue(list.isExist());
+            Assert.assertTrue(list.isExist("ttl"));
             Thread.sleep((9 * 1000));
-            Assert.assertTrue(!list.isExist());
+            Assert.assertTrue(!list.isExist("ttl"));
         } finally {
             db.clear();
         }
@@ -69,59 +68,59 @@ public class RListTest {
         for (int i = 0; i < k; i++) {
             arrayList.add((i+"test").getBytes());
         }
-        RList list =   db.getList("pop");
-        list.addAll(arrayList);
+        RList list = db.getList();
+        list.addAll("pop", arrayList);
         try {
             int i=0;
             while (true){
-                List<byte[]> pops = list.blpop(100);
+                List<byte[]> pops = list.blpop("pop", 100);
                 if(CollectionUtil.isEmpty(pops)) break;
                 for (byte[] v:pops) {
                     Assert.assertArrayEquals((i+"test").getBytes(),v);
                     i++;
                 }
-                Assert.assertEquals(list.size(),k-i);
+                Assert.assertEquals(list.size("pop"), k - i);
             }
         } finally {
-            list.delete();
+            list.delete("pop");
         }
     }
 
     @Test
     public void range() throws Exception {
-        RList list = db.getList("range");
+        RList list = db.getList();
         try {
             List<byte[]> arrayList = new ArrayList<>();
             for (int i = 0; i < 1000000; i++) {
                 arrayList.add((i + "test").getBytes());
             }
-            list.addAll(arrayList);
-            List<byte[]> listrange =  list.range(50,100);
+            list.addAll("range", arrayList);
+            List<byte[]> listrange = list.range("range", 50, 100);
             int i = 50;
             for (byte[] v:listrange){
                 Assert.assertArrayEquals((i + "test").getBytes(), v);
                 i++;
             }
         } finally {
-            list.delete();
+            list.delete("range");
         }
     }
 
     @Test
     public void get() throws Exception {
-        RList list =   db.getList("get");
+        RList list = db.getList();
         try {
             List<byte[]> arrayList = new ArrayList<>();
             for (int i = 0; i < 1000000; i++) {
                 arrayList.add((i + "test").getBytes());
             }
-            list.addAll(arrayList);
+            list.addAll("get", arrayList);
             for (int i = 0; i < 100 * 10000; i++) {
-                list.get(i);
-                Assert.assertArrayEquals((i + "test").getBytes(), list.get(i));
+                list.get("get", i);
+                Assert.assertArrayEquals((i + "test").getBytes(), list.get("get", i));
             }
         } finally {
-            list.delete();
+            list.delete("get");
         }
     }
-}*/
+}

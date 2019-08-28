@@ -1,11 +1,11 @@
-/*
 package top.thinkin.lightd.benchmark;
 
 import cn.hutool.core.collection.CollectionUtil;
 import org.junit.Assert;
 import org.rocksdb.RocksDB;
-import top.thinkin.lightd.db.*;
-import top.thinkin.lightd.kit.ArrayKits;
+import top.thinkin.lightd.db.DB;
+import top.thinkin.lightd.db.RKv;
+import top.thinkin.lightd.db.RList;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,13 +18,13 @@ public class BenchmarkWithRedis {
 
     public static void main(String[] args) throws Exception {
         RocksDB.loadLibrary();
-        DB db = DB.build("D:\\temp\\db");
-        for (int i = 0; i < 100; i++) {
+        DB db = DB.build("D:\\temp\\db", false);
+        //for (int i = 0; i < 100; i++) {
             bc(db);
-        }
+        // }
 
 
-        db.clear();
+        //db.clear();
         db.close();
         executorService.shutdown();
     }
@@ -32,51 +32,41 @@ public class BenchmarkWithRedis {
     private static void bc(DB db) throws Exception {
         RKv SET = db.getrKv();
 
-
-        RSet rSet = db.getSet("1");
+       /* RSet rSet = db.getSet("1");
         retry("ZSET", 100, w_times -> sAdd(rSet, w_times));
         retry("ZPOP", 100, w_times -> spop(rSet));
-        rSet.delete();
+        rSet.delete();*/
 
         retry("SET", 100, 1000000, w_times -> set(SET, 1000000));
         retry("GET", 100, 1000000, w_times -> get(SET, 1000000));
         retry("GETNOTTL", 100, 1000000, w_times -> getNoTTL(SET, 1000000));
 
-        retry("INCR", 100, w_times -> {
-            Sequence sequence = db.getSequence("test");
-            for (int i = 0; i < w_times * (10000); i++) {
-                sequence.incr(1L);
-            }
-        });
 
-
-        RList LPUSHs = db.getList("LPUSH_LIST");
+        RList LPUSHs = db.getList();
         retry("LPUSH", 100, w_times -> add(LPUSHs, w_times));
-        LPUSHs.delete();
+        LPUSHs.deleteFast("LPUSH_LIST");
 
-
-        RList LPOP_LIST = db.getList("LPOP_LIST");
-        addAll(LPOP_LIST, 100);
+        RList LPOP_LIST = db.getList();
+        addAll("LPOP_LIST", LPOP_LIST, 100);
         retry("LPOP", 100, w_times -> blpop(LPOP_LIST));
-        LPOP_LIST.delete();
+        LPOP_LIST.deleteFast("LPOP_LIST");
 
 
-        RList LRANGE_500 = db.getList("LRANGE_500_LIST");
-        addAll(LRANGE_500, 100);
+        RList LRANGE_500 = db.getList();
+        addAll("LRANGE_500_LIST", LRANGE_500, 100);
         retry("LRANGE_500", 100, 100000, w_times -> range(LRANGE_500, 100000));
-        LRANGE_500.delete();
+        LRANGE_500.deleteFast("LRANGE_500_LIST");
 
-        retry("MSET", 100, 1000000, w_times -> mset(SET, 1000000));
+        retryBatch("MSET", 10, 1000000, w_times -> mset(SET, 1000000, w_times));
 
-      */
-/*  RMap MSET_MAP = db.getRMap("MSET_MAP");
+ /* RMap MSET_MAP = db.getRMap("MSET_MAP");
         retry("MSET", 100, w_times -> {
             int k = w_times * 10000;
             for (int i = 0; i < k; i++) {
                 MSET_MAP.set(ArrayKits.intToBytes(i), ArrayKits.intToBytes(i));
             }
         });
-        MSET_MAP.delete();*//*
+        MSET_MAP.delete();*/
 
         //db.writeSnapshot();
     }
@@ -87,7 +77,7 @@ public class BenchmarkWithRedis {
             joinFuture.add(args -> {
                 for (int i = 0; i < size / availProcessors; i++) {
                     try {
-                        list.range(0, 450);
+                        list.range("LRANGE_500_LIST", 0, 450);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -99,7 +89,7 @@ public class BenchmarkWithRedis {
     }
 
 
-    private static void mset(RKv rKv, int size) {
+    private static void mset(RKv rKv, int size, int batckSize) {
         JoinFuture<String> joinFuture = JoinFuture.build(executorService, String.class);
         for (int j = 0; j < availProcessors; j++) {
             int finalJ = j;
@@ -109,7 +99,7 @@ public class BenchmarkWithRedis {
                     num++;
                     List<RKv.Entry> list = new ArrayList<>();
                     list.add(new RKv.Entry((finalJ + ":" + i).getBytes(), ("test" + i).getBytes()));
-                    if (num == 10) {
+                    if (num == batckSize) {
                         try {
                             rKv.set(list);
                         } catch (Exception e) {
@@ -181,30 +171,30 @@ public class BenchmarkWithRedis {
         joinFuture.join();
     }
 
-    private static void spop(RSet set) throws Exception {
+    /*private static void spop(RSet set) throws Exception {
         while (true) {
             java.util.List<byte[]> pops = set.pop(1000);
             if (CollectionUtil.isEmpty(pops)) break;
         }
 
 
-       */
-/* try(RIterator<RSet> iterator = set.iterator()){
-            while (iterator.hasNext()){
-                RSet.Entry er =   (RSet.Entry)iterator.next();
+        try (RIterator<RSet> iterator = set.iterator()) {
+            while (iterator.hasNext()) {
+                RSet.Entry er = (RSet.Entry) iterator.next();
             }
-        }*//*
+        }
 
-    }
+    }*/
+
     private static void blpop(RList list) throws Exception {
         while (true) {
-            java.util.List<byte[]> pops = list.blpop(1);
+            java.util.List<byte[]> pops = list.blpop("LPOP_LIST", 1);
             if (CollectionUtil.isEmpty(pops)) break;
         }
     }
 
 
-    private static void sAdd(RSet set, int w_times) throws Exception {
+   /* private static void sAdd(RSet set, int w_times) throws Exception {
         int k = w_times * 10000;
         List<byte[]> arrayList = new ArrayList<>(w_times * 10000);
         for (int i = 0; i < k; i++) {
@@ -213,7 +203,7 @@ public class BenchmarkWithRedis {
         for (byte[] bytes : arrayList) {
             set.add(bytes);
         }
-    }
+    }*/
 
     private static void add(RList list, int w_times) throws Exception {
         int k = w_times * 10000;
@@ -222,11 +212,11 @@ public class BenchmarkWithRedis {
             arrayList.add((i + "t").getBytes());
         }
         for (byte[] bytes : arrayList) {
-            list.add(bytes);
+            list.add("LPUSH_LIST", bytes);
         }
     }
 
-    private static void addAll(RList list, int w_times) throws Exception {
+    private static void addAll(String name, RList list, int w_times) throws Exception {
         int k = w_times * 10000;
         List<byte[]> arrayList = new ArrayList<>();
         for (int i = 0; i < k; i++) {
@@ -235,7 +225,7 @@ public class BenchmarkWithRedis {
         FList<byte[]> fList = new FList(arrayList);
         List<List<byte[]>> lists = fList.split(10000);
         for (List<byte[]> bytes : lists) {
-            list.addAll(bytes);
+            list.addAll(name, bytes);
         }
     }
 
@@ -255,9 +245,16 @@ public class BenchmarkWithRedis {
         System.out.println("benchmark " + name + ":" + ((size * 1.0 / (endTime - startTime)) * 1000 + " per second")); //输出程序运行时间
     }
 
+
+    public static void retryBatch(String name, int batckSize, int size, Function function) throws Exception {
+        long startTime = System.currentTimeMillis(); //获取开始时间
+        function.call(batckSize);
+        long endTime = System.currentTimeMillis(); //获取结束时间
+        System.out.println("benchmark " + name + ":" + ((size * 1.0 / (endTime - startTime)) * 1000 / batckSize + " per second")); //输出程序运行时间
+    }
+
     public interface Function {
         void call(int w_times) throws Exception;
     }
 
 }
-*/

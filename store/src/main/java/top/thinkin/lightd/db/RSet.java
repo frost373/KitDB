@@ -24,7 +24,8 @@ public class RSet extends RCollection {
     public final static byte[] HEAD_B = HEAD.getBytes();
     public final static byte[] HEAD_V_B = KeyEnum.SET_V.getBytes();
 
-    public RSet(DB db) {
+    protected RSet(DB db) {
+        super(false, 128);
         this.db = db;
     }
 
@@ -41,13 +42,13 @@ public class RSet extends RCollection {
      * @return
      * @throws Exception
      */
-    public synchronized List<byte[]> pop(String key, int num) throws Exception {
+    public List<byte[]> pop(String key, int num) throws Exception {
         List<byte[]> values = new ArrayList<>();
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
-
-        start();
-        try (final RocksIterator iterator = db.rocksDB().newIterator()) {
+        lock.lock(key);
+        try (final RocksIterator iterator = newIterator()) {
+            start();
             List<byte[]> dels = new ArrayList<>();
             SData sData = new SData(key_b.length, key_b, metaV.getVersion(), ArrayKits.intToBytes(0));
             byte[] head = sData.getHead();
@@ -55,7 +56,6 @@ public class RSet extends RCollection {
             int count = 0;
             while (iterator.isValid() && count++ < num) {
                 byte[] key_bs = iterator.key();
-                //iterator.value();
                 if (!BytesUtil.checkHead(head, key_bs)) return values;
                 SDataD sDataD = SDataD.build(key_bs);
                 values.add(sDataD.getValue());
@@ -67,13 +67,11 @@ public class RSet extends RCollection {
                 removeDo(metaV, dels);
                 commit();
             } finally {
+                lock.unlock(key);
                 release();
             }
             return values;
-
         }
-
-
     }
 
     /**
@@ -82,36 +80,37 @@ public class RSet extends RCollection {
      * @param values
      * @throws Exception
      */
-    public synchronized void remove(String key, byte[]... values) throws Exception {
+    public void remove(String key, byte[]... values) throws Exception {
         DAssert.notEmpty(values, ErrorType.EMPTY, "values is empty");
         byte[] key_b = getKey(key);
-
         MetaV metaV = getMeta(key_b);
         List<byte[]> dels = new ArrayList<>();
         for (byte[] v : values) {
             SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
             SDataD sDataD = sData.convertBytes();
-            byte[] scoreD = db.rocksDB().get(sDataD.toBytes());
+            byte[] scoreD = get(sDataD.toBytes());
             if (scoreD != null) {
                 dels.add(sDataD.toBytes());
             }
         }
-        start();
+        lock.lock(key);
         try {
+            start();
             removeDo(metaV, dels);
             putDB(key_b, metaV.convertMetaBytes().toBytes());
             commit();
         } catch (Exception e) {
+            lock.unlock(key);
             release();
         }
     }
 
     public boolean isMember(String key, byte[] value) throws RocksDBException {
         byte[] key_b = getKey(key);
-        byte[] k_v = db.rocksDB().get(key_b);
+        byte[] k_v = get(key_b);
         MetaV metaV = addCheck(key_b, k_v);
         SData sData = new SData(key_b.length, key_b, metaV.getVersion(), value);
-        return db.rocksDB().get(sData.convertBytes().toBytes()) != null;
+        return get(sData.convertBytes().toBytes()) != null;
     }
 
     /**
@@ -121,13 +120,14 @@ public class RSet extends RCollection {
      * @param values
      * @throws Exception
      */
-    public synchronized void addMayTTL(String key, int ttl, byte[]... values) throws Exception {
+    public void addMayTTL(String key, int ttl, byte[]... values) throws Exception {
         DAssert.notEmpty(values, ErrorType.EMPTY, "values is empty");
         DAssert.isTrue(ArrayKits.noRepeate(values), ErrorType.REPEATED_KEY, "Repeated memebers");
         byte[] key_b = getKey(key);
         start();
+        lock.lock(key);
         try {
-            byte[] k_v = db.rocksDB().get(key_b);
+            byte[] k_v = get(key_b);
             MetaV metaV = addCheck(key_b, k_v);
             if (metaV != null) {
                 setEntry(key_b, metaV, values);
@@ -145,6 +145,7 @@ public class RSet extends RCollection {
             }
             commit();
         } finally {
+            lock.unlock(key);
             release();
         }
     }
@@ -162,26 +163,38 @@ public class RSet extends RCollection {
 
 
     @Override
-    public synchronized void delete(String key) throws Exception {
+    public void delete(String key) throws Exception {
         byte[] key_b = getKey(key);
+        lock.lock(key);
         try {
             start();
             MetaV metaV = getMeta(key_b);
             delete(key_b, this, metaV.convertMetaBytes());
             commit();
         } finally {
+            lock.unlock(key);
             release();
         }
     }
 
-    public synchronized void deleteFast(String key) throws Exception {
+    @Override
+    public KeyIterator getKeyIterator() throws Exception {
+        return null;
+    }
+
+    public void deleteFast(String key) throws Exception {
         byte[] key_b = getKey(key);
-        byte[] k_v = db.rocksDB().get(key_b);
+        byte[] k_v = get(key_b);
         if (k_v == null) {
             return;
         }
         MetaV meta = MetaD.build(k_v).convertMetaV();
-        deleteFast(key_b, this, meta);
+        lock.lock(key);
+        try {
+            deleteFast(key_b, meta);
+        } finally {
+            lock.unlock(key);
+        }
     }
 
     @Override
@@ -189,7 +202,7 @@ public class RSet extends RCollection {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         SData sData = new SData(key_b.length, key_b, metaV.getVersion(), "".getBytes());
-        RocksIterator iterator = db.rocksDB().newIterator();
+        RocksIterator iterator = newIterator();
         iterator.seek(sData.getHead());
         return new RIterator<>(iterator, this, sData.getHead());
     }
@@ -206,7 +219,8 @@ public class RSet extends RCollection {
     }
 
     @Override
-    public synchronized void delTtl(String key) throws Exception {
+    public void delTtl(String key) throws Exception {
+        lock.lock(key);
         try {
             byte[] key_b = getKey(key);
             MetaV metaV = getMeta(key_b);
@@ -216,12 +230,14 @@ public class RSet extends RCollection {
             db.getzSet().remove(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes());
             commit();
         } finally {
+            lock.unlock(key);
             release();
         }
     }
 
     @Override
-    public synchronized void ttl(String key, int ttl) throws Exception {
+    public void ttl(String key, int ttl) throws Exception {
+        lock.lock(key);
         try {
             byte[] key_b = getKey(key);
             MetaV metaV = getMeta(key_b);
@@ -231,6 +247,7 @@ public class RSet extends RCollection {
             db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
             commit();
         } finally {
+            lock.unlock(key);
             release();
         }
     }
@@ -238,7 +255,7 @@ public class RSet extends RCollection {
     @Override
     public boolean isExist(String key) throws RocksDBException {
         byte[] key_b = getKey(key);
-        byte[] k_v = db.rocksDB().get(key_b);
+        byte[] k_v = get(key_b);
         MetaV meta = addCheck(key_b, k_v);
         return meta != null;
     }
@@ -269,7 +286,7 @@ public class RSet extends RCollection {
             long nowTime = System.currentTimeMillis() / 1000;
             if (metaV.getTimestamp() != -1 && nowTime > metaV.getTimestamp()) {
                 metaV = null;
-                db.rocksDB().put(ArrayKits.addAll("D".getBytes(), key_b, metaD.getVersion()), metaD.toBytes());
+                put(ArrayKits.addAll("D".getBytes(), key_b, metaD.getVersion()), metaD.toBytes());
             }
         }
         return metaV;
@@ -287,7 +304,7 @@ public class RSet extends RCollection {
         for (byte[] value : values) {
             SData sData = new SData(key_b.length, key_b, metaV.getVersion(), value);
             byte[] member = sData.convertBytes().toBytes();
-            if (db.rocksDB().get(member) == null) {
+            if (get(member) == null) {
                 metaV.size = metaV.size + 1;
             }
             putDB(sData.convertBytes().toBytes(), "".getBytes());
@@ -305,7 +322,7 @@ public class RSet extends RCollection {
 
     @Override
     protected MetaV getMeta(byte[] key_b) throws Exception {
-        byte[] k_v = this.db.rocksDB().get(key_b);
+        byte[] k_v = this.get(key_b);
         if (k_v == null) {
             throw new Exception("List do not exist");
         }

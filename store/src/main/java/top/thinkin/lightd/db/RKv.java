@@ -16,8 +16,9 @@ public class RKv extends RBase {
     public final static byte[] HEAD_TTL = KeyEnum.KV_TTL.getBytes();
 
     public final static byte[] HEAD_B = HEAD.getBytes();
-    private SegmentLock lock = new SegmentLock(64);
-    public RKv(DB db) {
+    private SegmentLock lock = new SegmentLock(128);
+
+    protected RKv(DB db) {
         this.db = db;
     }
 
@@ -106,18 +107,18 @@ public class RKv extends RBase {
     }
 
     public byte[] get(byte[] key) throws RocksDBException {
-        byte[] value_bs = db.rocksDB().get(ArrayKits.addAll(HEAD_TTL, key));
+        byte[] value_bs = get(ArrayKits.addAll(HEAD_TTL, key));
         if (value_bs != null) {
             int time = ArrayKits.bytesToInt(value_bs, 0);
             if ((System.currentTimeMillis() / 1000) - time <= 0) {
                 return null;
             }
         }
-        return db.rocksDB().get(ArrayKits.addAll(HEAD_B, key));
+        return get(ArrayKits.addAll(HEAD_B, key));
     }
 
     public byte[] getNoTTL(byte[] key) throws RocksDBException {
-        return db.rocksDB().get(ArrayKits.addAll(HEAD_B, key));
+        return get(ArrayKits.addAll(HEAD_B, key));
     }
 
     public void del(byte[] key) throws Exception {
@@ -136,7 +137,7 @@ public class RKv extends RBase {
     public void release(byte[] key) {
         lock.lock(key);
         try {
-            byte[] value_bs = db.rocksDB().get(ArrayKits.addAll(HEAD_TTL, key));
+            byte[] value_bs = get(ArrayKits.addAll(HEAD_TTL, key));
             if (value_bs != null) {
                 int time = ArrayKits.bytesToInt(value_bs, 0);
                 if ((System.currentTimeMillis() / 1000) - time <= 0) {
@@ -188,7 +189,7 @@ public class RKv extends RBase {
      */
 
     int getTtl(byte[] key) throws Exception {
-        byte[] value_bs = db.rocksDB().get(ArrayKits.addAll(HEAD_TTL, key));
+        byte[] value_bs = get(ArrayKits.addAll(HEAD_TTL, key));
         if (value_bs != null) {
             int time = ArrayKits.bytesToInt(value_bs, 0);
             int ttl = (int) ((System.currentTimeMillis() / 1000) - time);
