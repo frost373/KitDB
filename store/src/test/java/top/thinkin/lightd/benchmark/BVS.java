@@ -1,3 +1,4 @@
+/*
 package top.thinkin.lightd.benchmark;
 
 import org.rocksdb.RocksDB;
@@ -25,3 +26,4 @@ public class BVS {
         }
     }
 }
+*/

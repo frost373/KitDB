@@ -8,12 +8,12 @@ import top.thinkin.lightd.kit.ArrayKits;
 
 public abstract class RCollection extends RBase {
 
-    public synchronized void deleteFast() throws Exception {
-        MetaAbs metaV = getMeta();
-        deleteFast(this.key_b, this, metaV);
+    public synchronized void deleteFast(byte[] key_b) throws Exception {
+        MetaAbs metaV = getMeta(key_b);
+        deleteFast(key_b, this, metaV);
     }
 
-    protected abstract <T extends MetaAbs> T getMeta() throws Exception;
+    protected abstract <T extends MetaAbs> T getMeta(byte[] key_b) throws Exception;
 
     protected static void deleteFast(byte[] key_b, RBase rBase, MetaAbs metaV) throws Exception {
         rBase.start();
@@ -28,7 +28,7 @@ public abstract class RCollection extends RBase {
     }
 
 
-    abstract <T extends RCollection> RIterator<T> iterator() throws Exception;
+    abstract <T extends RCollection> RIterator<T> iterator(String key) throws Exception;
 
 
     /**
@@ -36,30 +36,30 @@ public abstract class RCollection extends RBase {
      *
      * @throws Exception
      */
-    abstract void delete() throws Exception;
+    abstract void delete(String key) throws Exception;
 
     /**
      * 获取过期时间戳(秒)
      * @return
      * @throws Exception
      */
-    abstract int getTtl() throws Exception;
+    abstract int getTtl(String key) throws Exception;
     /**
      * 删除过期时间
      * @return
      * @throws Exception
      */
-    abstract void delTtl() throws Exception;
+    abstract void delTtl(String key) throws Exception;
     /**
      * 设置新的过期时间戳(秒)
      * @return
      * @throws Exception
      */
-    abstract void ttl(int ttl) throws Exception;
+    abstract void ttl(String key, int ttl) throws Exception;
 
-    abstract boolean isExist() throws RocksDBException;
+    abstract boolean isExist(String key) throws RocksDBException;
 
-    abstract int size() throws Exception;
+    abstract int size(String key) throws Exception;
 
     public static class Entry {
 

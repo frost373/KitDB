@@ -6,6 +6,7 @@ import lombok.Data;
 import org.rocksdb.RocksDBException;
 import top.thinkin.lightd.base.SegmentLock;
 import top.thinkin.lightd.data.KeyEnum;
+import top.thinkin.lightd.data.ReservedWords;
 import top.thinkin.lightd.kit.ArrayKits;
 
 import java.util.List;
@@ -66,7 +67,9 @@ public class RKv extends RBase {
                     lock.unlock(kvs.get(i).key);
                 }
             }
-            db.ttlZset().add(entrys);
+
+
+            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, entrys);
             commit();
         } finally {
             release();
@@ -81,7 +84,7 @@ public class RKv extends RBase {
             putDB(ArrayKits.addAll(HEAD_B, key), value);
             int time = (int) (System.currentTimeMillis() / 1000 + ttl);
             putDB(ArrayKits.addAll(HEAD_TTL, key), ArrayKits.intToBytes(time));
-            db.ttlZset().add(key_b, time);
+            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, key_b, time);
             commit();
         } finally {
             lock.unlock(key);
@@ -94,7 +97,7 @@ public class RKv extends RBase {
         try {
             start();
             byte[] key_b = ArrayKits.addAll(HEAD_B, key);
-            db.ttlZset().add(key_b, System.currentTimeMillis() / 1000 + ttl);
+            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, key_b, System.currentTimeMillis() / 1000 + ttl);
             commit();
         } finally {
             lock.unlock(key);

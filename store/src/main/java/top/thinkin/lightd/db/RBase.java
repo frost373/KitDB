@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public abstract class RBase {
-    protected byte[] key_b;
+    //protected byte[] key_b;
     protected DB db;
 
     protected final boolean isLog;
@@ -18,6 +18,7 @@ public abstract class RBase {
     protected static Charset charset = Charset.forName("UTF-8");
     //private List<DBCommand> logs = new ArrayList<>();
     private ThreadLocal<List<DBCommand>> threadLogs = new ThreadLocal<>();
+
 
     public RBase(boolean isLog) {
         this.isLog = isLog;

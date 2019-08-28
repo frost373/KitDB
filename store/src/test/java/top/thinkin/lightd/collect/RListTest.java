@@ -1,3 +1,4 @@
+/*
 package top.thinkin.lightd.collect;
 
 
@@ -123,4 +124,4 @@ public class RListTest {
             list.delete();
         }
     }
-}
+}*/

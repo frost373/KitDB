@@ -1,3 +1,4 @@
+/*
 package top.thinkin.lightd.benchmark;
 
 import cn.hutool.core.collection.CollectionUtil;
@@ -107,3 +108,4 @@ public class BList {
     }
 
 }
+*/

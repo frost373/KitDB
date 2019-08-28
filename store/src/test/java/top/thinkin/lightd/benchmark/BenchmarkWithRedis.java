@@ -1,3 +1,4 @@
+/*
 package top.thinkin.lightd.benchmark;
 
 import cn.hutool.core.collection.CollectionUtil;
@@ -67,14 +68,16 @@ public class BenchmarkWithRedis {
 
         retry("MSET", 100, 1000000, w_times -> mset(SET, 1000000));
 
-      /*  RMap MSET_MAP = db.getRMap("MSET_MAP");
+      */
+/*  RMap MSET_MAP = db.getRMap("MSET_MAP");
         retry("MSET", 100, w_times -> {
             int k = w_times * 10000;
             for (int i = 0; i < k; i++) {
                 MSET_MAP.set(ArrayKits.intToBytes(i), ArrayKits.intToBytes(i));
             }
         });
-        MSET_MAP.delete();*/
+        MSET_MAP.delete();*//*
+
         //db.writeSnapshot();
     }
 
@@ -185,11 +188,13 @@ public class BenchmarkWithRedis {
         }
 
 
-       /* try(RIterator<RSet> iterator = set.iterator()){
+       */
+/* try(RIterator<RSet> iterator = set.iterator()){
             while (iterator.hasNext()){
                 RSet.Entry er =   (RSet.Entry)iterator.next();
             }
-        }*/
+        }*//*
+
     }
     private static void blpop(RList list) throws Exception {
         while (true) {
@@ -255,3 +260,4 @@ public class BenchmarkWithRedis {
     }
 
 }
+*/

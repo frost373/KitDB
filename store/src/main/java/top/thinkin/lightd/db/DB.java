@@ -19,7 +19,10 @@ public class DB {
     private boolean openTransaction = false;
 
     public VersionSequence versionSequence;
-    private ZSet ttlZset;
+    private ZSet zSet;
+    private RMap map;
+    private RSet set;
+    private RList list;
 
     private RKv rKv;
     private final static byte[] DEL_HEAD = "D".getBytes();
@@ -29,7 +32,7 @@ public class DB {
     private BinLog binLog;
     static ScheduledThreadPoolExecutor stp = new ScheduledThreadPoolExecutor(3);
 
-    public final ConcurrentHashMap map = new ConcurrentHashMap();
+    public final ConcurrentHashMap map1 = new ConcurrentHashMap();
 
     static {
         RocksDB.loadLibrary();
@@ -53,9 +56,7 @@ public class DB {
         return this.rocksDB;
     }
 
-    public ZSet ttlZset() {
-        return this.ttlZset;
-    }
+
 
     public VersionSequence versionSequence() {
         return this.versionSequence;
@@ -90,18 +91,34 @@ public class DB {
         }
     }
 
+    public ZSet getzSet() {
+        return zSet;
+    }
+
+    public RMap getMap() {
+        return map;
+    }
+
+    public RSet getSet() {
+        return set;
+    }
+
+    public RList getList() {
+        return list;
+    }
 
     public synchronized void checkTTL() {
         try {
-            List<ZSet.Entry> outTimeKeys = ttlZset.range(System.currentTimeMillis() / 1000, Integer.MAX_VALUE);
+            List<ZSet.Entry> outTimeKeys = zSet.range(ReservedWords.ZSET_KEYS.TTL,
+                    System.currentTimeMillis() / 1000, Integer.MAX_VALUE);
             for (ZSet.Entry outTimeKey : outTimeKeys) {
                 byte[] key_bs = outTimeKey.getValue();
                 if (RList.HEAD_B[0] == key_bs[0]) {
-                    RList.deleteFast(key_bs, this);
+                    //RList.deleteFast(key_bs, this);
                 }
 
                 if (ZSet.HEAD_B[0] == key_bs[0]) {
-                    ZSet.deleteFast(key_bs, this);
+                    //ZSet.deleteFast(key_bs, this);
                 }
 
             }
@@ -134,9 +151,13 @@ public class DB {
         db.rocksDB = rocksDB;
         db.openTransaction = true;
         db.versionSequence = new VersionSequence(db.rocksDB);
-        db.ttlZset = db.getZSet(ReservedWords.ZSET_KEYS.TTL);
 
         db.rKv = new RKv(db);
+        db.zSet = new ZSet(db);
+        db.set = new RSet(db);
+        db.list = new RList(db);
+        db.map = new RMap(db);
+
 
         db.writeOptions = new WriteOptions();
         stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
@@ -155,7 +176,6 @@ public class DB {
         options.setCreateIfMissing(true);
         db.rocksDB = RocksDB.open(options, dir);
         db.versionSequence = new VersionSequence(db.rocksDB);
-        db.ttlZset = db.getZSet(ReservedWords.ZSET_KEYS.TTL);
 
         db.rKv = new RKv(db);
         db.writeOptions = new WriteOptions();
@@ -172,53 +192,11 @@ public class DB {
     }
 
 
-    public synchronized RList getList(String key) {
-        Object list = map.get(RList.HEAD + key);
-        if (list == null) {
-            list = new RList(this, key);
-            map.put(RList.HEAD + key, list);
-        }
-        return (RList) list;
-    }
-
-    public synchronized Sequence getSequence(String key) {
-        Object s = map.get(Sequence.HEAD + key);
-        if (s == null) {
-            s = new Sequence(this, key.getBytes());
-            map.put(Sequence.HEAD + key, s);
-        }
-        return (Sequence) s;
-    }
 
 
-    public synchronized ZSet getZSet(String key) {
-        Object zset = map.get(ZSet.HEAD + key);
-        if (zset == null) {
-            zset = new ZSet(this, key);
-            map.put(ZSet.HEAD + key, zset);
-        }
-        return (ZSet) zset;
-    }
 
 
-    public synchronized RSet getSet(String key) {
-        Object list = map.get(RList.HEAD + key);
-        if (list == null) {
-            list = new RSet(this, key);
-            map.put(RSet.HEAD + key, list);
-        }
-        return (RSet) list;
-    }
 
-
-    public synchronized RMap getRMap(String key) {
-        Object rmap = map.get(RMap.HEAD + key);
-        if (rmap == null) {
-            rmap = new RMap(this, key);
-            map.put(RMap.HEAD + key, rmap);
-        }
-        return (RMap) rmap;
-    }
 
     public RKv getrKv() {
         return rKv;

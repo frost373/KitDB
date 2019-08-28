@@ -1,3 +1,4 @@
+/*
 package top.thinkin.lightd.collect;
 
 import org.rocksdb.RocksDB;
@@ -22,6 +23,7 @@ public class Test {
 
         System.out.println(list.size());
 
+*/
 /*
         RIterator<RList> iterator =  list.iterator();
 
@@ -31,9 +33,11 @@ public class Test {
         }
 
         long endTime = System.currentTimeMillis(); //获取结束时间
-        System.out.println("程序运行时间：" + (endTime - startTime) + "ms"); //输出程序运行时间*/
+        System.out.println("程序运行时间：" + (endTime - startTime) + "ms"); //输出程序运行时间*//*
+
 
         list.delete();
 
     }
 }
+*/
