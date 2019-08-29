@@ -1,5 +1,6 @@
 package top.thinkin.lightd.db;
 
+import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.WriteBatch;
@@ -20,6 +21,9 @@ public abstract class RBase {
     protected static Charset charset = Charset.forName("UTF-8");
     private ThreadLocal<List<DBCommand>> threadLogs = new ThreadLocal<>();
 
+    private ReadOptions readOptions = new ReadOptions();
+
+    private ThreadLocal<ReadOptions> readOptionsThreadLocal = new ThreadLocal<>();
 
     public RBase(boolean isLog) {
         this.isLog = isLog;

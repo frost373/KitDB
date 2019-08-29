@@ -5,6 +5,9 @@ import org.rocksdb.*;
 import top.thinkin.lightd.base.BinLog;
 import top.thinkin.lightd.base.VersionSequence;
 import top.thinkin.lightd.data.ReservedWords;
+import top.thinkin.lightd.exception.DAssert;
+import top.thinkin.lightd.exception.ErrorType;
+import top.thinkin.lightd.kit.BytesUtil;
 
 import java.io.File;
 import java.util.List;
@@ -13,7 +16,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class DB {
-    final byte[] version = "V0.0.1".getBytes();
+    static final byte[] DB_VERSION = "V0.0.2".getBytes();
 
     private RocksDB rocksDB;
     private boolean openTransaction = false;
@@ -197,9 +200,12 @@ public class DB {
         db.rocksDB = RocksDB.open(options, dir);
         db.versionSequence = new VersionSequence(db.rocksDB);
         byte[] version = db.rocksDB.get("version".getBytes());
-
-
-
+        if (version == null) {
+            db.rocksDB.put("version".getBytes(), DB_VERSION);
+        } else {
+            DAssert.isTrue(BytesUtil.compare(version, DB_VERSION) == 0, ErrorType.STORE_VERSION,
+                    "Store versions must be " + new String(DB_VERSION) + ", but now is " + new String(version));
+        }
         db.rKv = new RKv(db);
         db.zSet = new ZSet(db);
         db.set = new RSet(db);
@@ -213,15 +219,8 @@ public class DB {
         db.binLogDB = RocksDB.open(options, "D:\\temp\\logs");
         db.binLog = new BinLog(db.binLogDB);
 
-        //stp.scheduleWithFixedDelay(db::checkTTL, 2, 2, TimeUnit.SECONDS);
         return db;
     }
-
-
-
-
-
-
 
 
     public RKv getrKv() {

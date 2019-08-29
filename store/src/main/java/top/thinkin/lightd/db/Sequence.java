@@ -29,7 +29,6 @@ public class Sequence {
         return version;
     }
 
-
     public Sequence(DB db, byte[] key) {
         this.db = db;
         this.key_b = ArrayKits.addAll(HEAD_B, key);
