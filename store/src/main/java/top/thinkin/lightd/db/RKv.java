@@ -5,8 +5,11 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.rocksdb.RocksDBException;
 import top.thinkin.lightd.base.SegmentLock;
+import top.thinkin.lightd.base.SstColumnFamily;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.data.ReservedWords;
+import top.thinkin.lightd.exception.DAssert;
+import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.kit.ArrayKits;
 
 import java.util.List;
@@ -27,8 +30,37 @@ public class RKv extends RBase {
         try {
             start();
             byte[] key_b = ArrayKits.addAll(HEAD_B, key);
-            putDB(key_b, value);
+            putDB(key_b, value, SstColumnFamily.DEFAULT);
             commit();
+        } finally {
+            lock.unlock(key);
+            release();
+        }
+    }
+
+
+    public long incr(byte[] key, int step, int ttl) throws Exception {
+        lock.lock(key);
+        try {
+            start();
+            byte[] key_b = ArrayKits.addAll(HEAD_B, key);
+
+            byte[] value = getV(key_b);
+            long seq;
+            if (value == null) {
+                seq = step;
+            } else {
+                DAssert.isTrue(value.length == 8, ErrorType.DATA_LOCK, "value not a incr");
+                seq = ArrayKits.bytesToLong(value) + step;
+            }
+
+            putDB(key_b, ArrayKits.longToBytes(seq), SstColumnFamily.DEFAULT);
+            int time = (int) (System.currentTimeMillis() / 1000 + ttl);
+            putDB(ArrayKits.addAll(HEAD_TTL, key), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
+            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, key_b, time);
+
+            commit();
+            return seq;
         } finally {
             lock.unlock(key);
             release();
@@ -42,7 +74,7 @@ public class RKv extends RBase {
                 lock.lock(kv.key);
                 try {
                     byte[] key_b = ArrayKits.addAll(HEAD_B, kv.key);
-                    putDB(key_b, kv.value);
+                    putDB(key_b, kv.value, SstColumnFamily.DEFAULT);
                 } finally {
                     lock.unlock(kv.key);
                 }
@@ -62,7 +94,7 @@ public class RKv extends RBase {
                 lock.lock(kvs.get(i).key);
                 try {
                     byte[] key_b = ArrayKits.addAll(HEAD_B, kvs.get(i).key);
-                    putDB(key_b, kvs.get(i).value);
+                    putDB(key_b, kvs.get(i).value, SstColumnFamily.DEFAULT);
                     entrys[i] = new ZSet.Entry(time, key_b);
                 } finally {
                     lock.unlock(kvs.get(i).key);
@@ -82,9 +114,9 @@ public class RKv extends RBase {
         try {
             start();
             byte[] key_b = ArrayKits.addAll(HEAD_B, key);
-            putDB(ArrayKits.addAll(HEAD_B, key), value);
+            putDB(ArrayKits.addAll(HEAD_B, key), value, SstColumnFamily.DEFAULT);
             int time = (int) (System.currentTimeMillis() / 1000 + ttl);
-            putDB(ArrayKits.addAll(HEAD_TTL, key), ArrayKits.intToBytes(time));
+            putDB(ArrayKits.addAll(HEAD_TTL, key), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
             db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, key_b, time);
             commit();
         } finally {
@@ -106,27 +138,27 @@ public class RKv extends RBase {
         }
     }
 
-    public byte[] get(byte[] key) throws RocksDBException {
-        byte[] value_bs = get(ArrayKits.addAll(HEAD_TTL, key));
+    public byte[] getV(byte[] key) throws RocksDBException {
+        byte[] value_bs = getDB(ArrayKits.addAll(HEAD_TTL, key), SstColumnFamily.DEFAULT);
         if (value_bs != null) {
             int time = ArrayKits.bytesToInt(value_bs, 0);
             if ((System.currentTimeMillis() / 1000) - time <= 0) {
                 return null;
             }
         }
-        return get(ArrayKits.addAll(HEAD_B, key));
+        return getDB(ArrayKits.addAll(HEAD_B, key), SstColumnFamily.DEFAULT);
     }
 
     public byte[] getNoTTL(byte[] key) throws RocksDBException {
-        return get(ArrayKits.addAll(HEAD_B, key));
+        return getDB(ArrayKits.addAll(HEAD_B, key), SstColumnFamily.DEFAULT);
     }
 
     public void del(byte[] key) throws Exception {
         lock.lock(key);
         try {
             start();
-            deleteDB(ArrayKits.addAll(HEAD_B, key));
-            deleteDB(ArrayKits.addAll(HEAD_TTL, key));
+            deleteDB(ArrayKits.addAll(HEAD_B, key), SstColumnFamily.DEFAULT);
+            deleteDB(ArrayKits.addAll(HEAD_TTL, key), SstColumnFamily.DEFAULT);
             commit();
         } finally {
             lock.unlock(key);
@@ -137,14 +169,14 @@ public class RKv extends RBase {
     public void release(byte[] key) {
         lock.lock(key);
         try {
-            byte[] value_bs = get(ArrayKits.addAll(HEAD_TTL, key));
+            byte[] value_bs = getDB(ArrayKits.addAll(HEAD_TTL, key), SstColumnFamily.DEFAULT);
             if (value_bs != null) {
                 int time = ArrayKits.bytesToInt(value_bs, 0);
                 if ((System.currentTimeMillis() / 1000) - time <= 0) {
                     try {
                         start();
-                        deleteDB(ArrayKits.addAll(HEAD_B, key));
-                        deleteDB(ArrayKits.addAll(HEAD_TTL, key));
+                        deleteDB(ArrayKits.addAll(HEAD_B, key), SstColumnFamily.DEFAULT);
+                        deleteDB(ArrayKits.addAll(HEAD_TTL, key), SstColumnFamily.DEFAULT);
                         commit();
                     } finally {
                         release();
@@ -189,7 +221,7 @@ public class RKv extends RBase {
      */
 
     int getTtl(byte[] key) throws Exception {
-        byte[] value_bs = get(ArrayKits.addAll(HEAD_TTL, key));
+        byte[] value_bs = getDB(ArrayKits.addAll(HEAD_TTL, key), SstColumnFamily.DEFAULT);
         if (value_bs != null) {
             int time = ArrayKits.bytesToInt(value_bs, 0);
             int ttl = (int) ((System.currentTimeMillis() / 1000) - time);
@@ -211,7 +243,7 @@ public class RKv extends RBase {
     void delTtl(byte[] key) throws Exception {
         try {
             start();
-            deleteDB(ArrayKits.addAll(HEAD_TTL, key));
+            deleteDB(ArrayKits.addAll(HEAD_TTL, key), SstColumnFamily.DEFAULT);
             commit();
         } finally {
             release();

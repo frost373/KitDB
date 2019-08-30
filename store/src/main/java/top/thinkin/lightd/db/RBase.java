@@ -1,14 +1,13 @@
 package top.thinkin.lightd.db;
 
-import org.rocksdb.ReadOptions;
-import org.rocksdb.RocksDBException;
-import org.rocksdb.RocksIterator;
-import org.rocksdb.WriteBatch;
+import org.rocksdb.*;
 import top.thinkin.lightd.base.DBCommand;
+import top.thinkin.lightd.base.SstColumnFamily;
 import top.thinkin.lightd.kit.BytesUtil;
 
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -49,13 +48,13 @@ public abstract class RBase {
             for (DBCommand log : logs) {
                 switch (log.getType()) {
                     case DELETE:
-                        batch.delete(log.getKey());
+                        batch.delete(findColumnFamilyHandle(log.getFamily()), log.getKey());
                         break;
                     case UPDATE:
-                        batch.put(log.getKey(), log.getValue());
+                        batch.put(findColumnFamilyHandle(log.getFamily()), log.getKey(), log.getValue());
                         break;
                     case DELETE_RANGE:
-                        batch.deleteRange(log.getStart(), log.getEnd());
+                        batch.deleteRange(findColumnFamilyHandle(log.getFamily()), log.getStart(), log.getEnd());
                         break;
                 }
             }
@@ -68,6 +67,18 @@ public abstract class RBase {
         }
     }
 
+    private ColumnFamilyHandle findColumnFamilyHandle(final SstColumnFamily sstColumnFamily) {
+        switch (sstColumnFamily) {
+            case DEFAULT:
+                return this.db.defHandle;
+            case META:
+                return this.db.metaHandle;
+            default:
+                throw new IllegalArgumentException("illegal sstColumnFamily: " + sstColumnFamily.name());
+        }
+    }
+
+
     public void release() {
         List<DBCommand> logs = threadLogs.get();
         if (logs != null) {
@@ -75,35 +86,48 @@ public abstract class RBase {
         }
     }
 
-    public void putDB(byte[] key, byte[] value) {
+
+    public void putDB(byte[] key, byte[] value, SstColumnFamily columnFamily) {
         List<DBCommand> logs = threadLogs.get();
-        logs.add(DBCommand.update(key, value));
+        logs.add(DBCommand.update(key, value, columnFamily));
     }
 
-    public void deleteDB(byte[] key) {
+    public void deleteDB(byte[] key, SstColumnFamily columnFamily) {
         List<DBCommand> logs = threadLogs.get();
-        logs.add(DBCommand.delete(key));
-    }
-
-    protected void deleteRangeDB(byte[] start, byte[] end) {
-        List<DBCommand> logs = threadLogs.get();
-        logs.add(DBCommand.deleteRange(start, end));
+        logs.add(DBCommand.delete(key, columnFamily));
     }
 
 
-    protected byte[] get(byte[] key) throws RocksDBException {
+    protected void deleteRangeDB(byte[] start, byte[] end, SstColumnFamily columnFamily) {
+        List<DBCommand> logs = threadLogs.get();
+        logs.add(DBCommand.deleteRange(start, end, columnFamily));
+    }
+
+
+    protected byte[] getDB(byte[] key, SstColumnFamily columnFamily) throws RocksDBException {
         if (db.getSnapshot() != null) {
-            return db.rocksDB().get(db.getSnapshot(), key);
+            return db.rocksDB().get(findColumnFamilyHandle(columnFamily), db.getSnapshot(), key);
         }
-        return db.rocksDB().get(key);
+        return db.rocksDB().get(findColumnFamilyHandle(columnFamily), key);
     }
 
 
-    protected RocksIterator newIterator() {
+    protected RocksIterator newIterator(SstColumnFamily columnFamily) {
         if (db.getSnapshot() != null) {
-            return db.rocksDB().newIterator(db.getSnapshot());
+            return db.rocksDB().newIterator(findColumnFamilyHandle(columnFamily), db.getSnapshot());
         }
-        return db.rocksDB().newIterator();
+        return db.rocksDB().newIterator(findColumnFamilyHandle(columnFamily));
+    }
+
+
+    protected Map<byte[], byte[]> multiGet(List<byte[]> keys, SstColumnFamily columnFamily) throws RocksDBException {
+        if (db.getSnapshot() != null) {
+
+            ReadOptions readOptions = new ReadOptions();
+            readOptions.setSnapshot(db.getSnapshot().snapshot());
+            return db.rocksDB().multiGet(readOptions, Arrays.asList(findColumnFamilyHandle(columnFamily)), keys);
+        }
+        return db.rocksDB().multiGet(Arrays.asList(findColumnFamilyHandle(columnFamily)), keys);
     }
 
     protected Map<byte[], byte[]> multiGet(List<byte[]> keys) throws RocksDBException {
@@ -113,11 +137,8 @@ public abstract class RBase {
         return db.rocksDB().multiGet(keys);
     }
 
-    protected void put(byte[] key, byte[] value) throws RocksDBException {
-        db.rocksDB().put(key, value);
-    }
 
-    protected static void deleteHead(byte[] head, RBase rBase) {
+    protected static void deleteHead(byte[] head, RBase rBase, SstColumnFamily columnFamily) {
         try (final RocksIterator iterator = rBase.db.rocksDB().newIterator()) {
             iterator.seek(head);
             byte[] start;
@@ -129,10 +150,10 @@ public abstract class RBase {
                     iterator.seekToLast();
                     end = iterator.key();
                     if (BytesUtil.checkHead(head, end)) {
-                        rBase.deleteRangeDB(start, end);
-                        rBase.deleteDB(end);
+                        rBase.deleteRangeDB(start, end, columnFamily);
+                        rBase.deleteDB(end, columnFamily);
                     } else {
-                        rBase.deleteDB(start);
+                        rBase.deleteDB(start, columnFamily);
                     }
                 }
             }

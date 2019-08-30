@@ -6,6 +6,8 @@ import org.rocksdb.RocksDB;
 import top.thinkin.lightd.db.DB;
 import top.thinkin.lightd.db.RKv;
 import top.thinkin.lightd.db.RList;
+import top.thinkin.lightd.db.RSet;
+import top.thinkin.lightd.kit.ArrayKits;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,9 +21,9 @@ public class BenchmarkWithRedis {
     public static void main(String[] args) throws Exception {
         RocksDB.loadLibrary();
         DB db = DB.build("D:\\temp\\db", false);
-        //for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 100; i++) {
             bc(db);
-        // }
+        }
 
 
         //db.clear();
@@ -32,14 +34,13 @@ public class BenchmarkWithRedis {
     private static void bc(DB db) throws Exception {
         RKv SET = db.getrKv();
 
-       /* RSet rSet = db.getSet("1");
-        retry("ZSET", 100, w_times -> sAdd(rSet, w_times));
-        retry("ZPOP", 100, w_times -> spop(rSet));
-        rSet.delete();*/
+       /* retry("ZSET", 100, w_times -> sAdd(db.getSet(), w_times));
+        retry("ZPOP", 100, w_times -> spop(db.getSet()));
+        db.getSet().delete("ZSET");*/
 
-        retry("SET", 100, 1000000, w_times -> set(SET, 1000000));
-        retry("GET", 100, 1000000, w_times -> get(SET, 1000000));
-        retry("GETNOTTL", 100, 1000000, w_times -> getNoTTL(SET, 1000000));
+       /* retry("SET", 100, 1000000, w_times -> set(SET, 1000000));
+        retry("GET", 100, 1000000, w_times -> getDB(SET, 1000000));
+        retry("GETNOTTL", 100, 1000000, w_times -> getNoTTL(SET, 1000000));*/
 
 
         RList LPUSHs = db.getList();
@@ -57,7 +58,7 @@ public class BenchmarkWithRedis {
         retry("LRANGE_500", 100, 100000, w_times -> range(LRANGE_500, 100000));
         LRANGE_500.deleteFast("LRANGE_500_LIST");
 
-        retryBatch("MSET", 10, 1000000, w_times -> mset(SET, 1000000, w_times));
+        //retryBatch("MSET", 10, 1000000, w_times -> mset(SET, 1000000, w_times));
 
  /* RMap MSET_MAP = db.getRMap("MSET_MAP");
         retry("MSET", 100, w_times -> {
@@ -140,7 +141,7 @@ public class BenchmarkWithRedis {
             joinFuture.add(args -> {
                 for (int i = 0; i < size / availProcessors; i++) {
                     try {
-                        byte[] bytes = rKv.get((finalJ + ":" + i).getBytes());
+                        byte[] bytes = rKv.getV((finalJ + ":" + i).getBytes());
                         Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -171,39 +172,33 @@ public class BenchmarkWithRedis {
         joinFuture.join();
     }
 
-    /*private static void spop(RSet set) throws Exception {
+    private static void spop(RSet set) throws Exception {
         while (true) {
-            java.util.List<byte[]> pops = set.pop(1000);
-            if (CollectionUtil.isEmpty(pops)) break;
-        }
-
-
-        try (RIterator<RSet> iterator = set.iterator()) {
-            while (iterator.hasNext()) {
-                RSet.Entry er = (RSet.Entry) iterator.next();
-            }
-        }
-
-    }*/
-
-    private static void blpop(RList list) throws Exception {
-        while (true) {
-            java.util.List<byte[]> pops = list.blpop("LPOP_LIST", 1);
+            java.util.List<byte[]> pops = set.pop("ZSET", 1000);
             if (CollectionUtil.isEmpty(pops)) break;
         }
     }
 
+    private static void blpop(RList list) throws Exception {
+        int i = 0;
+        while (true) {
+            java.util.List<byte[]> pops = list.blpop("LPOP_LIST", 1);
+            if (CollectionUtil.isEmpty(pops)) break;
+            i++;
+        }
+    }
 
-   /* private static void sAdd(RSet set, int w_times) throws Exception {
+
+    private static void sAdd(RSet set, int w_times) throws Exception {
         int k = w_times * 10000;
         List<byte[]> arrayList = new ArrayList<>(w_times * 10000);
         for (int i = 0; i < k; i++) {
             arrayList.add(ArrayKits.intToBytes(i));
         }
         for (byte[] bytes : arrayList) {
-            set.add(bytes);
+            set.add("ZSET", bytes);
         }
-    }*/
+    }
 
     private static void add(RList list, int w_times) throws Exception {
         int k = w_times * 10000;

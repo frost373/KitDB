@@ -114,13 +114,13 @@ public class RListTest {
             for (int i = 0; i < 1000000; i++) {
                 arrayList.add((i + "test").getBytes());
             }
-            list.addAll("get", arrayList);
+            list.addAll("getDB", arrayList);
             for (int i = 0; i < 100 * 10000; i++) {
-                list.get("get", i);
-                Assert.assertArrayEquals((i + "test").getBytes(), list.get("get", i));
+                list.get("getDB", i);
+                Assert.assertArrayEquals((i + "test").getBytes(), list.get("getDB", i));
             }
         } finally {
-            list.delete("get");
+            list.delete("getDB");
         }
     }
 }

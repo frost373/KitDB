@@ -150,7 +150,7 @@ public class RSetTest {
 
             byte[][] members = new byte[list.size()][];
             for (int i = 0; i < list.size(); i++) {
-                members[i] = list.get(i).getBytes();
+                members[i] = list.getDB(i).getBytes();
             }
 
             set.add(members);

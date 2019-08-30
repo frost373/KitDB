@@ -5,6 +5,7 @@ import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.MetaAbs;
 import top.thinkin.lightd.base.MetaDAbs;
 import top.thinkin.lightd.base.SegmentStrLock;
+import top.thinkin.lightd.base.SstColumnFamily;
 import top.thinkin.lightd.kit.ArrayKits;
 
 public abstract class RCollection extends RBase {
@@ -27,8 +28,8 @@ public abstract class RCollection extends RBase {
         this.start();
         try {
             MetaDAbs metaVD = metaV.convertMetaBytes();
-            this.putDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()), metaVD.toBytes());
-            this.deleteDB(key_b);
+            this.putDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()), metaVD.toBytes(), SstColumnFamily.DEFAULT);
+            this.deleteDB(key_b, SstColumnFamily.META);
             this.commit();
         } finally {
             this.release();
@@ -37,7 +38,7 @@ public abstract class RCollection extends RBase {
 
 
     protected KeyIterator getKeyIterator(byte[] head) {
-        RocksIterator iterator = newIterator();
+        RocksIterator iterator = newIterator(SstColumnFamily.META);
         iterator.seek(head);
         KeyIterator keyIterator = new KeyIterator(iterator, head);
         return keyIterator;

@@ -8,6 +8,7 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.MetaAbs;
 import top.thinkin.lightd.base.MetaDAbs;
+import top.thinkin.lightd.base.SstColumnFamily;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.data.ReservedWords;
 import top.thinkin.lightd.exception.DAssert;
@@ -41,7 +42,6 @@ public class RMap extends RCollection {
             long nowTime = System.currentTimeMillis() / 1000;
             if (metaV.getTimestamp() != -1 && nowTime > metaV.getTimestamp()) {
                 metaV = null;
-                put(ArrayKits.addAll("D".getBytes(), key_b, metaVD.getVersion()), metaVD.toBytes());
             }
         }
         return metaV;
@@ -52,7 +52,7 @@ public class RMap extends RCollection {
         for (Entry entry : entrys) {
             metaV.size = metaV.size + 1;
             Key key = new Key(key_b.length, key_b, metaV.getVersion(), entry.key);
-            putDB(key.convertBytes().toBytes(), entry.value);
+            putDB(key.convertBytes().toBytes(), entry.value, SstColumnFamily.DEFAULT);
         }
     }
 
@@ -65,7 +65,7 @@ public class RMap extends RCollection {
         lock.lock(key);
         try {
             start();
-            byte[] k_v = get(key_b);
+            byte[] k_v = getDB(key_b, SstColumnFamily.META);
             Meta metaV = addCheck(key_b, k_v);
 
             if (ttl != -1) {
@@ -76,15 +76,15 @@ public class RMap extends RCollection {
                 metaV.size = metaV.size + 1;
                 metaV.setTimestamp(ttl);
                 Key key_ = new Key(key_b.length, key_b, metaV.getVersion(), mkey);
-                putDB(key_.convertBytes().toBytes(), value);
-                putDB(key_b, metaV.convertMetaBytes().toBytes());
+                putDB(key_.convertBytes().toBytes(), value, SstColumnFamily.DEFAULT);
+                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             } else {
 
                 metaV = new Meta(0, ttl, db.versionSequence().incr());
                 metaV.size = metaV.size + 1;
                 Key key_ = new Key(key_b.length, key_b, metaV.getVersion(), mkey);
-                putDB(key_.convertBytes().toBytes(), value);
-                putDB(key_b, metaV.convertMetaBytes().toBytes());
+                putDB(key_.convertBytes().toBytes(), value, SstColumnFamily.DEFAULT);
+                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             }
 
             if (metaV.getTimestamp() != -1) {
@@ -111,7 +111,7 @@ public class RMap extends RCollection {
         start();
         lock.lock(key);
         try {
-            byte[] k_v = get(key_b);
+            byte[] k_v = getDB(key_b, SstColumnFamily.META);
             Meta metaV = addCheck(key_b, k_v);
 
             if (ttl != -1) {
@@ -121,12 +121,12 @@ public class RMap extends RCollection {
             if (metaV != null) {
                 setEntry(key_b, metaV, entries);
                 metaV.setTimestamp(ttl);
-                putDB(key_b, metaV.convertMetaBytes().toBytes());
+                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             } else {
 
                 metaV = new Meta(0, ttl, db.versionSequence().incr());
                 setEntry(key_b, metaV, entries);
-                putDB(key_b, metaV.convertMetaBytes().toBytes());
+                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             }
 
             if (metaV.getTimestamp() != -1) {
@@ -173,13 +173,13 @@ public class RMap extends RCollection {
             return null;
         }
         Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), mkey);
-        byte[] value = get(vkey.convertBytes().toBytes());
+        byte[] value = getDB(vkey.convertBytes().toBytes(), SstColumnFamily.DEFAULT);
         return value;
     }
 
 
     protected Meta getMeta(byte[] key_b) throws Exception {
-        byte[] k_v = this.get(key_b);
+        byte[] k_v = this.getDB(key_b, SstColumnFamily.META);
         if (k_v == null) {
             return null;
         }
@@ -206,13 +206,13 @@ public class RMap extends RCollection {
             for (byte[] mkey : keys) {
                 Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), mkey);
 
-                byte[] value = get(vkey.convertBytes().toBytes());
+                byte[] value = getDB(vkey.convertBytes().toBytes(), SstColumnFamily.DEFAULT);
                 if (value != null) {
-                    deleteDB(vkey.convertBytes().toBytes());
+                    deleteDB(vkey.convertBytes().toBytes(), SstColumnFamily.DEFAULT);
                     metaV.size = metaV.size - 1;
                 }
             }
-            putDB(key_b, metaV.convertMetaBytes().toBytes());
+            putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             commit();
         } finally {
             lock.unlock(key);
@@ -223,10 +223,10 @@ public class RMap extends RCollection {
 
     private void delete(byte[] key_b, Meta meta) {
         MetaD metaD = meta.convertMetaBytes();
-        this.deleteDB(key_b);
+        this.deleteDB(key_b, SstColumnFamily.META);
         Key vkey = new Key(key_b.length, key_b, meta.getVersion(), null);
-        deleteHead(vkey.getHead(), this);
-        this.deleteDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaD.getVersion()));
+        deleteHead(vkey.getHead(), this, SstColumnFamily.DEFAULT);
+        this.deleteDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaD.getVersion()), SstColumnFamily.DEFAULT);
     }
 
     @Override
@@ -275,7 +275,7 @@ public class RMap extends RCollection {
         }
 
         Key k_seek = new Key(key_b.length, key_b, metaV.getVersion(), null);
-        RocksIterator iterator = newIterator();
+        RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT);
         iterator.seek(k_seek.getHead());
         RIterator<RMap> rIterator = new RIterator<>(iterator, this, k_seek.getHead());
         return rIterator;
@@ -320,7 +320,7 @@ public class RMap extends RCollection {
         try {
             metaV.setTimestamp(-1);
             start();
-            putDB(key_b, metaV.convertMetaBytes().toBytes());
+            putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
 
             db.getzSet().remove(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes());
             commit();
@@ -342,7 +342,7 @@ public class RMap extends RCollection {
             if (ttl != -1) {
                 metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
             }
-            putDB(key_b, metaV.convertMetaBytes().toBytes());
+            putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
             commit();
         } finally {
@@ -354,7 +354,7 @@ public class RMap extends RCollection {
     public boolean isExist(String key) throws RocksDBException {
         byte[] key_b = getKey(key);
 
-        byte[] k_v = get(key_b);
+        byte[] k_v = getDB(key_b, SstColumnFamily.META);
         Meta meta = addCheck(key_b, k_v);
         return meta != null;
     }

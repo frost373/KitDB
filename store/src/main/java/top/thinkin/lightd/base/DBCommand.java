@@ -1,8 +1,6 @@
 package top.thinkin.lightd.base;
 
-import cn.hutool.core.util.ArrayUtil;
 import lombok.Data;
-import top.thinkin.lightd.kit.ArrayKits;
 
 import java.io.Serializable;
 
@@ -12,37 +10,58 @@ public class DBCommand implements Serializable {
 
     private DBCommandType type;
 
+    private SstColumnFamily family;
+
     private  byte[] key;
     private  byte[] value;
 
     private  byte[] start;
     private  byte[] end;
 
-    public static DBCommand update(byte[] key, byte[] value) {
+    public static DBCommand update(byte[] key, byte[] value, SstColumnFamily family) {
         DBCommand dbCommand = new DBCommand();
         dbCommand.key = key;
         dbCommand.value = value;
         dbCommand.type = DBCommandType.UPDATE;
+        dbCommand.family = family;
+        return dbCommand;
+    }
+
+
+    public static DBCommand update(byte[] key, byte[] value) {
+
+        return update(key, value, SstColumnFamily.DEFAULT);
+    }
+
+    public static DBCommand delete(byte[] key, SstColumnFamily family) {
+        DBCommand dbCommand = new DBCommand();
+        dbCommand.key = key;
+        dbCommand.type = DBCommandType.DELETE;
+        dbCommand.family = family;
         return dbCommand;
     }
 
     public static DBCommand delete(byte[] key) {
-        DBCommand dbCommand = new DBCommand();
-        dbCommand.key = key;
-        dbCommand.type = DBCommandType.DELETE;
-        return dbCommand;
+
+        return delete(key, SstColumnFamily.DEFAULT);
     }
 
-    public static DBCommand deleteRange(byte[] start, byte[] end) {
+    public static DBCommand deleteRange(byte[] start, byte[] end, SstColumnFamily family) {
         DBCommand dbCommand = new DBCommand();
         dbCommand.start = start;
         dbCommand.end = end;
         dbCommand.type = DBCommandType.DELETE_RANGE;
+        dbCommand.family = family;
         return dbCommand;
     }
 
+    public static DBCommand deleteRange(byte[] start, byte[] end) {
 
-    public byte[] toBytes() {
+        return deleteRange(start, end, SstColumnFamily.DEFAULT);
+    }
+
+
+    /*public byte[] toBytes() {
         switch (this.type) {
             case DELETE:
                 return ArrayKits.addAll(ArrayKits.intToBytes(this.type.getKey()), this.key);
@@ -94,7 +113,7 @@ public class DBCommand implements Serializable {
         int value_length = ArrayKits.bytesToInt(ArrayUtil.sub(bytes, postion = postion + 1, postion + 3), 0);
         byte[] value = ArrayUtil.sub(bytes, postion, (postion + value_length - 1));
         return DBCommand.update(key, value);
-    }
+    }*/
 
 
     public void readLogs() {

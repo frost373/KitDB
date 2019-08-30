@@ -3,6 +3,7 @@ package top.thinkin.lightd.db;
 import cn.hutool.core.util.ArrayUtil;
 import org.rocksdb.*;
 import top.thinkin.lightd.base.BinLog;
+import top.thinkin.lightd.base.TableConfig;
 import top.thinkin.lightd.base.VersionSequence;
 import top.thinkin.lightd.data.ReservedWords;
 import top.thinkin.lightd.exception.DAssert;
@@ -10,6 +11,7 @@ import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.kit.BytesUtil;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -21,7 +23,11 @@ public class DB {
     private RocksDB rocksDB;
     private boolean openTransaction = false;
 
-    public VersionSequence versionSequence;
+    protected ColumnFamilyHandle metaHandle;
+    protected ColumnFamilyHandle defHandle;
+
+
+    private VersionSequence versionSequence;
     private ZSet zSet;
     private RMap map;
     private RSet set;
@@ -33,14 +39,27 @@ public class DB {
 
     private RocksDB binLogDB;
     private BinLog binLog;
+
+
     static ScheduledThreadPoolExecutor stp = new ScheduledThreadPoolExecutor(3);
 
     private ThreadLocal<ReadOptions> readOptionsThreadLocal = new ThreadLocal<>();
+
 
     public ReadOptions getSnapshot() {
         return readOptionsThreadLocal.get();
     }
 
+
+    private static List<ColumnFamilyDescriptor> getColumnFamilyDescriptor() {
+        final ColumnFamilyOptions cfOptions = TableConfig.createColumnFamilyOptions();
+        final ColumnFamilyOptions defCfOptions = TableConfig.createDefColumnFamilyOptions();
+        final List<ColumnFamilyDescriptor> cfDescriptors = new ArrayList<>();
+        cfDescriptors.add(new ColumnFamilyDescriptor("R_META".getBytes(), cfOptions));
+        cfDescriptors.add(new ColumnFamilyDescriptor(RocksDB.DEFAULT_COLUMN_FAMILY, defCfOptions));
+
+        return cfDescriptors;
+    }
 
     public void setThreadSnapshot(RSnapshot rSnapshot) {
         ReadOptions readOptions = new ReadOptions();
@@ -195,9 +214,17 @@ public class DB {
 
     public synchronized static DB build(String dir, boolean autoclear) throws RocksDBException {
         DB db = new DB();
-        Options options = new Options();
+        DBOptions options = new DBOptions();
         options.setCreateIfMissing(true);
-        db.rocksDB = RocksDB.open(options, dir);
+        options.setCreateMissingColumnFamilies(true);
+
+        final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
+
+        db.rocksDB = RocksDB.open(options, dir, getColumnFamilyDescriptor(), cfHandles);
+
+        db.metaHandle = cfHandles.get(0);
+        db.defHandle = cfHandles.get(1);
+
         db.versionSequence = new VersionSequence(db.rocksDB);
         byte[] version = db.rocksDB.get("version".getBytes());
         if (version == null) {
@@ -216,7 +243,11 @@ public class DB {
         if (autoclear) {
             stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
         }
-        db.binLogDB = RocksDB.open(options, "D:\\temp\\logs");
+
+        Options optionsBinLog = new Options();
+        optionsBinLog.setCreateIfMissing(true);
+
+        db.binLogDB = RocksDB.open(optionsBinLog, "D:\\temp\\logs");
         db.binLog = new BinLog(db.binLogDB);
 
         return db;
@@ -230,4 +261,6 @@ public class DB {
     public BinLog getBinLog() {
         return binLog;
     }
+
+
 }

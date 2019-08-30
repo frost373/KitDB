@@ -27,7 +27,7 @@ public class BList {
 
         addAll(list, arrayList);
 
-        System.out.println(new String(list.get(0)));
+        System.out.println(new String(list.getDB(0)));
         try {
             long startTime = System.currentTimeMillis(); //获取开始时间
 
@@ -35,7 +35,7 @@ public class BList {
             //range(list);
             //iterator(list);
             //deleteDB(list);
-            //get(list);
+            //getDB(list);
             long endTime = System.currentTimeMillis(); //获取结束时间
             System.out.println("程序运行时间：" + (endTime - startTime) + "ms"); //输出程序运行时间
             System.out.println("benchmark" + ((100.00 * 10000) / (endTime - startTime)) * 1000 + "per second"); //输出程序运行时间
@@ -71,9 +71,9 @@ public class BList {
         }
     }
 
-    private static void get(RList list) throws Exception {
+    private static void getDB(RList list) throws Exception {
         for (int i = 0; i < 100 * 10000; i++) {
-            list.get(i);
+            list.getDB(i);
         }
     }
 
@@ -84,7 +84,7 @@ public class BList {
         for (int i = 0; i < 100 * 10000; i++) {
             ints[j] = i;
             if (i % 10000 == 0) {
-                list.get(ints);
+                list.getDB(ints);
                 j = 0;
             }
             j++;

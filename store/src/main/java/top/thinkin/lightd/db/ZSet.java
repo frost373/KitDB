@@ -9,6 +9,7 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.MetaAbs;
 import top.thinkin.lightd.base.MetaDAbs;
+import top.thinkin.lightd.base.SstColumnFamily;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.data.ReservedWords;
 import top.thinkin.lightd.exception.DAssert;
@@ -63,18 +64,18 @@ public class ZSet extends RCollection {
         lock.lock(key);
         start();
         try {
-            byte[] k_v = get(key_b);
+            byte[] k_v = getDB(key_b, SstColumnFamily.META);
             MetaV metaV = addCheck(key_b, k_v);
             if (metaV != null) {
                 setEntry(key_b, metaV, entrys);
-                putDB(key_b, metaV.convertMetaBytes().toBytes());
+                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             } else {
                 if (ttl != -1) {
                     ttl = (int) (System.currentTimeMillis() / 1000 + ttl);
                 }
                 metaV = new MetaV(0, ttl, db.versionSequence().incr());
                 setEntry(key_b, metaV, entrys);
-                putDB(key_b, metaV.convertMetaBytes().toBytes());
+                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             }
             if (metaV.getTimestamp() != -1) {
                 db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
@@ -93,11 +94,11 @@ public class ZSet extends RCollection {
             SData sData = new SData(key_b.length, key_b, metaV.getVersion(), entry.value);
             ZData zData = new ZData(key_b.length, key_b, metaV.getVersion(), entry.score, entry.value);
             byte[] member = sData.convertBytes().toBytes();
-            if (get(member) == null) {
+            if (getDB(member, SstColumnFamily.DEFAULT) == null) {
                 metaV.size = metaV.size + 1;
             }
-            putDB(member, ArrayKits.longToBytes(entry.score));
-            putDB(zData.convertBytes().toBytes(), "".getBytes());
+            putDB(member, ArrayKits.longToBytes(entry.score), SstColumnFamily.DEFAULT);
+            putDB(zData.convertBytes().toBytes(), "".getBytes(), SstColumnFamily.DEFAULT);
         }
     }
 
@@ -118,7 +119,7 @@ public class ZSet extends RCollection {
 
         byte[] seek = zData.getSeek();
         byte[] head = zData.getHead();
-        try (final RocksIterator iterator = newIterator()) {
+        try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
             iterator.seek(seek);
             long index = 0;
             while (iterator.isValid() && index <= end) {
@@ -141,7 +142,7 @@ public class ZSet extends RCollection {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         SData sData = new SData(key_b.length, key_b, metaV.getVersion(), "".getBytes());
-        RocksIterator iterator = newIterator();
+        RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT);
         iterator.seek(sData.getHead());
         RIterator<ZSet> rIterator = new RIterator<>(iterator, this, sData.getHead());
         return rIterator;
@@ -160,7 +161,7 @@ public class ZSet extends RCollection {
         byte[] key_b = getKey(key);
         lock.lock(key);
         List<Entry> entries = new ArrayList<>();
-        try (final RocksIterator iterator = newIterator()) {
+        try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
             MetaV metaV = getMeta(key_b);
             ZData zData = new ZData(key_b.length, key_b, metaV.getVersion(), start, "".getBytes());
 
@@ -189,7 +190,7 @@ public class ZSet extends RCollection {
             }
             start();
             removeDo(key_b, metaV, dels);
-            putDB(key_b, metaV.convertMetaBytes().toBytes());
+            putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             commit();
         } finally {
             lock.unlock(key);
@@ -200,7 +201,7 @@ public class ZSet extends RCollection {
 
     private void removeDo(byte[] key_b, MetaV metaV, List<byte[]> dels) {
         for (byte[] del : dels) {
-            deleteDB(del);
+            deleteDB(del, SstColumnFamily.DEFAULT);
         }
     }
 
@@ -222,13 +223,13 @@ public class ZSet extends RCollection {
             for (byte[] v : vs) {
                 SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
                 SDataD sDataD = sData.convertBytes();
-                byte[] scoreD = get(sDataD.toBytes());
+                byte[] scoreD = getDB(sDataD.toBytes(), SstColumnFamily.DEFAULT);
                 if (scoreD != null) {
                     int score = ArrayKits.bytesToInt(scoreD, 0) + increment;
                     scoreD = ArrayKits.intToBytes(score);
                     ZDataD zDataD = new ZDataD(sDataD.getMapKeySize(), sDataD.getMapKey(), sDataD.getVersion(), scoreD, sDataD.getValue());
-                    putDB(sData.convertBytes().toBytes(), scoreD);
-                    putDB(zDataD.toBytes(), null);
+                    putDB(sData.convertBytes().toBytes(), scoreD, SstColumnFamily.DEFAULT);
+                    putDB(zDataD.toBytes(), null, SstColumnFamily.DEFAULT);
                 }
             }
             commit();
@@ -255,7 +256,7 @@ public class ZSet extends RCollection {
             for (byte[] v : vs) {
                 SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
                 SDataD sDataD = sData.convertBytes();
-                byte[] scoreD = get(sDataD.toBytes());
+                byte[] scoreD = getDB(sDataD.toBytes(), SstColumnFamily.DEFAULT);
                 if (scoreD != null) {
                     ZDataD zDataD = new ZDataD(sDataD.getMapKeySize(), sDataD.getMapKey(), sDataD.getVersion(), scoreD, sDataD.getValue());
                     dels.add(zDataD.toBytes());
@@ -264,7 +265,7 @@ public class ZSet extends RCollection {
                 }
             }
             removeDo(key_b, metaV, dels);
-            putDB(key_b, metaV.convertMetaBytes().toBytes());
+            putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             commit();
         } catch (Exception e) {
             lock.unlock(key);
@@ -287,7 +288,7 @@ public class ZSet extends RCollection {
         List<Long> scores = new ArrayList<>();
         for (byte[] v : vs) {
             SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
-            byte[] scoreD = get(sData.convertBytes().toBytes());
+            byte[] scoreD = getDB(sData.convertBytes().toBytes(), SstColumnFamily.DEFAULT);
             if (scoreD != null) {
                 scores.add(ArrayKits.bytesToLong(scoreD));
             }
@@ -307,7 +308,7 @@ public class ZSet extends RCollection {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
-        byte[] scoreD = get(sData.convertBytes().toBytes());
+        byte[] scoreD = getDB(sData.convertBytes().toBytes(), SstColumnFamily.DEFAULT);
         if (scoreD != null) {
             return ArrayKits.bytesToLong(scoreD);
         }
@@ -323,7 +324,6 @@ public class ZSet extends RCollection {
             long nowTime = System.currentTimeMillis() / 1000;
             if (metaV.getTimestamp() != -1 && nowTime > metaV.getTimestamp()) {
                 metaV = null;
-                put(ArrayKits.addAll("D".getBytes(), key_b, metaD.getVersion()), metaD.toBytes());
             }
         }
         return metaV;
@@ -331,7 +331,7 @@ public class ZSet extends RCollection {
 
     @Override
     protected MetaV getMeta(byte[] key_b) throws Exception {
-        byte[] k_v = this.get(key_b);
+        byte[] k_v = this.getDB(key_b, SstColumnFamily.META);
         if (k_v == null) {
             throw new Exception("List do not exist");
         }
@@ -347,12 +347,12 @@ public class ZSet extends RCollection {
 
     private static void delete(byte[] key_b, RBase rBase, MetaD metaD) {
         MetaV metaV = metaD.convertMetaV();
-        rBase.deleteDB(key_b);
+        rBase.deleteDB(key_b, SstColumnFamily.META);
         SData sData = new SData(key_b.length, key_b, metaV.getVersion(), null);
-        deleteHead(sData.getHead(), rBase);
+        deleteHead(sData.getHead(), rBase, SstColumnFamily.DEFAULT);
         ZData zData = new ZData(sData.getMapKeySize(), sData.getMapKey(), sData.getVersion(), 0, null);
-        deleteHead(zData.getHead(), rBase);
-        rBase.deleteDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaD.getVersion()));
+        deleteHead(zData.getHead(), rBase, SstColumnFamily.DEFAULT);
+        rBase.deleteDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaD.getVersion()), SstColumnFamily.DEFAULT);
     }
 
 
@@ -408,7 +408,7 @@ public class ZSet extends RCollection {
             MetaV metaV = getMeta(key_b);
             metaV.setTimestamp(-1);
             start();
-            putDB(key_b, metaV.convertMetaBytes().toBytes());
+            putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             db.getzSet().remove(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes());
             commit();
         } finally {
@@ -425,7 +425,7 @@ public class ZSet extends RCollection {
             MetaV metaV = getMeta(key_b);
             start();
             metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
-            putDB(key_b, metaV.convertMetaBytes().toBytes());
+            putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
             commit();
         } finally {
@@ -438,7 +438,7 @@ public class ZSet extends RCollection {
     @Override
     public boolean isExist(String key) throws RocksDBException {
         byte[] key_b = getKey(key);
-        byte[] k_v = get(key_b);
+        byte[] k_v = getDB(key_b, SstColumnFamily.META);
         MetaV meta = addCheck(key_b, k_v);
         return meta != null;
     }
