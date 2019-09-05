@@ -128,7 +128,7 @@ public class RList extends RCollection {
         MetaVD metaVD = metaV.convertMetaBytes();
         ValueKD valueKD = valueK_seek.convertValueBytes();
         byte[] heads = valueKD.toHeadBytes();
-        deleteHead(heads, this, SstColumnFamily.DEFAULT);
+        deleteHead(heads, SstColumnFamily.DEFAULT);
         byte[] key = ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion());
         deleteDB(key, SstColumnFamily.DEFAULT);
     }

@@ -4,6 +4,7 @@ package top.thinkin.lightd.db;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.SegmentLock;
 import top.thinkin.lightd.base.SstColumnFamily;
 import top.thinkin.lightd.data.KeyEnum;
@@ -12,7 +13,10 @@ import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.kit.ArrayKits;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class RKv extends RBase {
     public final static String HEAD = KeyEnum.KV_KEY.getKey();
@@ -45,7 +49,7 @@ public class RKv extends RBase {
             start();
             byte[] key_b = ArrayKits.addAll(HEAD_B, key);
 
-            byte[] value = getV(key_b);
+            byte[] value = get(key_b);
             long seq;
             if (value == null) {
                 seq = step;
@@ -59,6 +63,30 @@ public class RKv extends RBase {
             putDB(ArrayKits.addAll(HEAD_TTL, key), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
             db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, key_b, time);
 
+            commit();
+            return seq;
+        } finally {
+            lock.unlock(key);
+            release();
+        }
+    }
+
+
+    public long incr(byte[] key, int step) throws Exception {
+        lock.lock(key);
+        try {
+            start();
+            byte[] key_b = ArrayKits.addAll(HEAD_B, key);
+
+            byte[] value = get(key);
+            long seq;
+            if (value == null) {
+                seq = step;
+            } else {
+                DAssert.isTrue(value.length == 8, ErrorType.DATA_LOCK, "value not a incr");
+                seq = ArrayKits.bytesToLong(value) + step;
+            }
+            putDB(key_b, ArrayKits.longToBytes(seq), SstColumnFamily.DEFAULT);
             commit();
             return seq;
         } finally {
@@ -100,10 +128,8 @@ public class RKv extends RBase {
                     lock.unlock(kvs.get(i).key);
                 }
             }
-
-
-            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, entrys);
             commit();
+            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, entrys);
         } finally {
             release();
         }
@@ -115,10 +141,10 @@ public class RKv extends RBase {
             start();
             byte[] key_b = ArrayKits.addAll(HEAD_B, key);
             putDB(ArrayKits.addAll(HEAD_B, key), value, SstColumnFamily.DEFAULT);
-            int time = (int) (System.currentTimeMillis() / 1000 + ttl);
+            int time = (int) (System.currentTimeMillis() / 1000) + ttl;
             putDB(ArrayKits.addAll(HEAD_TTL, key), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
-            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, key_b, time);
             commit();
+            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, key_b, time);
         } finally {
             lock.unlock(key);
             release();
@@ -130,23 +156,71 @@ public class RKv extends RBase {
         try {
             start();
             byte[] key_b = ArrayKits.addAll(HEAD_B, key);
-            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, key_b, System.currentTimeMillis() / 1000 + ttl);
             commit();
+            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, key_b, System.currentTimeMillis() / 1000 + ttl);
         } finally {
             lock.unlock(key);
             release();
         }
     }
 
-    public byte[] getV(byte[] key) throws RocksDBException {
-        byte[] value_bs = getDB(ArrayKits.addAll(HEAD_TTL, key), SstColumnFamily.DEFAULT);
-        if (value_bs != null) {
-            int time = ArrayKits.bytesToInt(value_bs, 0);
+
+    public Map<byte[], byte[]> get(byte[]... keys) throws RocksDBException {
+        DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
+        List<byte[]> vKeys = new ArrayList<>(keys.length);
+
+        for (byte[] key : keys) {
+            vKeys.add(ArrayKits.addAll(HEAD_TTL, key));
+            vKeys.add(ArrayKits.addAll(HEAD_B, key));
+        }
+        vKeys.addAll(vKeys);
+        Map<String, byte[]> resMap = transMap(multiGet(vKeys, SstColumnFamily.DEFAULT));
+        Map<byte[], byte[]> map = new HashMap<>(keys.length);
+
+        for (byte[] key : keys) {
+            byte[] ttl_bs = resMap.get(new String(ArrayKits.addAll(HEAD_TTL, key)));
+            if (ttl_bs == null) {
+                map.put(key, resMap.get(new String((ArrayKits.addAll(HEAD_B, key)))));
+            }
+            int time = ArrayKits.bytesToInt(ttl_bs, 0);
             if ((System.currentTimeMillis() / 1000) - time <= 0) {
-                return null;
+                map.put(key, null);
+            } else {
+                map.put(key, resMap.get(new String((ArrayKits.addAll(HEAD_B, key)))));
             }
         }
-        return getDB(ArrayKits.addAll(HEAD_B, key), SstColumnFamily.DEFAULT);
+
+        return map;
+    }
+
+
+    public Map<String, byte[]> transMap(Map<byte[], byte[]> bsMap) {
+        Map<String, byte[]> map = new HashMap<>(bsMap.size());
+
+        for (Map.Entry<byte[], byte[]> entry : bsMap.entrySet()) {
+            map.put(new String(entry.getKey()), entry.getValue());
+        }
+
+        return map;
+    }
+
+
+    public byte[] get(byte[] key) throws RocksDBException {
+        List<byte[]> keys = new ArrayList<>();
+        keys.add(ArrayKits.addAll(HEAD_TTL, key));
+        keys.add(ArrayKits.addAll(HEAD_B, key));
+
+        Map<String, byte[]> resMap = transMap(multiGet(keys, SstColumnFamily.DEFAULT));
+        byte[] ttl_bs = resMap.get(new String(ArrayKits.addAll(HEAD_TTL, key)));
+        if (ttl_bs == null) {
+            return resMap.get(new String(ArrayKits.addAll(HEAD_B, key)));
+        }
+        int time = ArrayKits.bytesToInt(ttl_bs, 0);
+        if ((System.currentTimeMillis() / 1000) - time >= 0) {
+            return null;
+        } else {
+            return resMap.get(new String(ArrayKits.addAll(HEAD_B, key)));
+        }
     }
 
     public byte[] getNoTTL(byte[] key) throws RocksDBException {
@@ -195,18 +269,34 @@ public class RKv extends RBase {
         private byte[] value;
     }
 
-    public void delPrefix(byte[] key_) {
-
-
+    public void delPrefix(byte[] key_) throws Exception {
+        try {
+            start();
+            deleteHead(ArrayKits.addAll(HEAD_B, key_), SstColumnFamily.DEFAULT);
+            deleteHead(ArrayKits.addAll(HEAD_TTL, key_), SstColumnFamily.DEFAULT);
+            commit();
+        } finally {
+            release();
+        }
     }
 
-    public void getPrefix(byte[] key_) {
 
-    }
-
-    public List<byte[]> keys(byte[] key_) {
-
-        return null;
+    public List<byte[]> keys(byte[] key_, int start, int limit) {
+        List<byte[]> list = new ArrayList<>();
+        int index = 0;
+        int count = 0;
+        try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
+            iterator.seek(ArrayKits.addAll(HEAD_B, key_));
+            while (iterator.isValid() && count <= limit) {
+                byte[] key = iterator.key();
+                index++;
+                if (index >= start) {
+                    list.add(key);
+                    count++;
+                }
+            }
+        }
+        return list;
     }
 
     /**

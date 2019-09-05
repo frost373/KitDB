@@ -41,9 +41,10 @@ public class BenchmarkWithRedis {
        /* retry("SET", 100, 1000000, w_times -> set(SET, 1000000));
         retry("GET", 100, 1000000, w_times -> getDB(SET, 1000000));
         retry("GETNOTTL", 100, 1000000, w_times -> getNoTTL(SET, 1000000));*/
+        RKv kv = db.getrKv();
+        retry("incr", 100, w_times -> incr(kv, w_times));
 
-
-        RList LPUSHs = db.getList();
+      /*  RList LPUSHs = db.getList();
         retry("LPUSH", 100, w_times -> add(LPUSHs, w_times));
         LPUSHs.deleteFast("LPUSH_LIST");
 
@@ -56,7 +57,7 @@ public class BenchmarkWithRedis {
         RList LRANGE_500 = db.getList();
         addAll("LRANGE_500_LIST", LRANGE_500, 100);
         retry("LRANGE_500", 100, 100000, w_times -> range(LRANGE_500, 100000));
-        LRANGE_500.deleteFast("LRANGE_500_LIST");
+        LRANGE_500.deleteFast("LRANGE_500_LIST");*/
 
         //retryBatch("MSET", 10, 1000000, w_times -> mset(SET, 1000000, w_times));
 
@@ -141,7 +142,7 @@ public class BenchmarkWithRedis {
             joinFuture.add(args -> {
                 for (int i = 0; i < size / availProcessors; i++) {
                     try {
-                        byte[] bytes = rKv.getV((finalJ + ":" + i).getBytes());
+                        byte[] bytes = rKv.get((finalJ + ":" + i).getBytes());
                         Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -199,6 +200,16 @@ public class BenchmarkWithRedis {
             set.add("ZSET", bytes);
         }
     }
+
+
+    private static void incr(RKv rKv, int w_times) throws Exception {
+        int k = w_times * 10000;
+        byte[] key = "incr".getBytes();
+        for (int i = 0; i < k; i++) {
+            rKv.incr(key, 1);
+        }
+    }
+
 
     private static void add(RList list, int w_times) throws Exception {
         int k = w_times * 10000;

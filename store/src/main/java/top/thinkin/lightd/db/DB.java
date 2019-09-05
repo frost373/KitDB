@@ -17,14 +17,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-public class DB {
+public class DB extends DBAbs {
     static final byte[] DB_VERSION = "V0.0.2".getBytes();
 
-    private RocksDB rocksDB;
     private boolean openTransaction = false;
-
-    protected ColumnFamilyHandle metaHandle;
-    protected ColumnFamilyHandle defHandle;
 
 
     private VersionSequence versionSequence;
@@ -35,7 +31,6 @@ public class DB {
 
     private RKv rKv;
     private final static byte[] DEL_HEAD = "D".getBytes();
-    private WriteOptions writeOptions;
 
     private RocksDB binLogDB;
     private BinLog binLog;
@@ -43,12 +38,6 @@ public class DB {
 
     static ScheduledThreadPoolExecutor stp = new ScheduledThreadPoolExecutor(3);
 
-    private ThreadLocal<ReadOptions> readOptionsThreadLocal = new ThreadLocal<>();
-
-
-    public ReadOptions getSnapshot() {
-        return readOptionsThreadLocal.get();
-    }
 
 
     private static List<ColumnFamilyDescriptor> getColumnFamilyDescriptor() {
@@ -71,7 +60,6 @@ public class DB {
         readOptionsThreadLocal.remove();
     }
 
-
     public final ConcurrentHashMap map1 = new ConcurrentHashMap();
 
     static {
@@ -92,9 +80,6 @@ public class DB {
         }
     }
 
-    public RocksDB rocksDB() {
-        return this.rocksDB;
-    }
 
     public RSnapshot createSnapshot() {
         return new RSnapshot(this.rocksDB.getSnapshot());
@@ -104,9 +89,6 @@ public class DB {
         return this.versionSequence;
     }
 
-    protected WriteOptions writeOptions() {
-        return this.writeOptions;
-    }
 
     public synchronized void clear() {
         try (RocksIterator iterator = this.rocksDB.newIterator()) {

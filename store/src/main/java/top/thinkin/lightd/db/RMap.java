@@ -154,7 +154,7 @@ public class RMap extends RCollection {
             Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), mkey);
             keyList.add(vkey.convertBytes().toBytes());
         }
-        Map<byte[], byte[]> resMap = multiGet(keyList);
+        Map<byte[], byte[]> resMap = multiGet(keyList, SstColumnFamily.DEFAULT);
         Iterator<Map.Entry<byte[], byte[]>> iter = resMap.entrySet().iterator();
         while (iter.hasNext()) {
             Map.Entry<byte[], byte[]> entry = iter.next();
@@ -225,7 +225,7 @@ public class RMap extends RCollection {
         MetaD metaD = meta.convertMetaBytes();
         this.deleteDB(key_b, SstColumnFamily.META);
         Key vkey = new Key(key_b.length, key_b, meta.getVersion(), null);
-        deleteHead(vkey.getHead(), this, SstColumnFamily.DEFAULT);
+        deleteHead(vkey.getHead(), SstColumnFamily.DEFAULT);
         this.deleteDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaD.getVersion()), SstColumnFamily.DEFAULT);
     }
 
@@ -248,7 +248,7 @@ public class RMap extends RCollection {
 
     @Override
     public KeyIterator getKeyIterator() throws Exception {
-        return null;
+        return getKeyIterator(HEAD_B);
     }
 
 

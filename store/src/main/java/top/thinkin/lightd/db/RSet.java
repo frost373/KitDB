@@ -170,7 +170,7 @@ public class RSet extends RCollection {
         try {
             start();
             MetaV metaV = getMeta(key_b);
-            delete(key_b, this, metaV.convertMetaBytes());
+            delete(key_b, metaV.convertMetaBytes());
             commit();
         } finally {
             lock.unlock(key);
@@ -312,12 +312,12 @@ public class RSet extends RCollection {
     }
 
 
-    private static void delete(byte[] key_b, RBase rBase, MetaD metaD) {
+    private void delete(byte[] key_b, MetaD metaD) {
         MetaV metaV = metaD.convertMetaV();
-        rBase.deleteDB(key_b, SstColumnFamily.META);
+        deleteDB(key_b, SstColumnFamily.META);
         SData sData = new SData(key_b.length, key_b, metaV.getVersion(), null);
-        deleteHead(sData.getHead(), rBase, SstColumnFamily.DEFAULT);
-        rBase.deleteDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaD.getVersion()), SstColumnFamily.DEFAULT);
+        deleteHead(sData.getHead(), SstColumnFamily.DEFAULT);
+        deleteDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaD.getVersion()), SstColumnFamily.DEFAULT);
     }
 
     @Override

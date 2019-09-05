@@ -10,6 +10,7 @@
     <version>1.0-SNAPSHOT</version>
     <modules>
         <module>store</module>
+        <module>raft</module>
     </modules>
 
     <properties>
