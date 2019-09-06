@@ -2,7 +2,6 @@ package top.thinkin.lightd.collect;
 
 
 import cn.hutool.core.collection.CollectionUtil;
-import lombok.extern.log4j.Log4j;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.FixMethodOrder;
@@ -18,7 +17,6 @@ import java.util.List;
 
 
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
-@Log4j
 public class RListTest {
     static DB db;
 

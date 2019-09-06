@@ -1,6 +1,7 @@
 package top.thinkin.lightd.db;
 
 import cn.hutool.core.util.ArrayUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.rocksdb.*;
 import top.thinkin.lightd.base.BinLog;
 import top.thinkin.lightd.base.TableConfig;
@@ -11,17 +12,20 @@ import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.kit.BytesUtil;
 
 import java.io.File;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 public class DB extends DBAbs {
     static final byte[] DB_VERSION = "V0.0.2".getBytes();
 
     private boolean openTransaction = false;
 
+    protected static Charset charset = Charset.forName("UTF-8");
 
     private VersionSequence versionSequence;
     private ZSet zSet;
@@ -36,7 +40,7 @@ public class DB extends DBAbs {
     private BinLog binLog;
 
 
-    static ScheduledThreadPoolExecutor stp = new ScheduledThreadPoolExecutor(3);
+    static ScheduledThreadPoolExecutor stp = new ScheduledThreadPoolExecutor(4);
 
 
 
@@ -133,18 +137,47 @@ public class DB extends DBAbs {
 
     public synchronized void checkTTL() {
         try {
-            List<ZSet.Entry> outTimeKeys = zSet.range(ReservedWords.ZSET_KEYS.TTL,
-                    System.currentTimeMillis() / 1000, Integer.MAX_VALUE);
+            int count = 0;
+            List<ZSet.Entry> outTimeKeys = zSet.rangeDel(ReservedWords.ZSET_KEYS.TTL,
+                    0, System.currentTimeMillis() / 1000);
+            if (outTimeKeys.size() > 0) {
+                log.info("outTimeKeysL:{}", outTimeKeys.size());
+            }
             for (ZSet.Entry outTimeKey : outTimeKeys) {
+                count++;
                 byte[] key_bs = outTimeKey.getValue();
-                if (RList.HEAD_B[0] == key_bs[0]) {
-                    //RList.deleteFast(key_bs, this);
-                }
 
                 if (ZSet.HEAD_B[0] == key_bs[0]) {
                     //ZSet.deleteFast(key_bs, this);
                 }
 
+            }
+            if (count != 0) {
+                log.info("count:{}", count);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    public synchronized void clearKV() {
+        try {
+            int count = 0;
+            List<ZSet.Entry> outTimeKeys = zSet.rangeDel(ReservedWords.ZSET_KEYS.TTL_KV,
+                    0, System.currentTimeMillis() / 1000);
+            if (outTimeKeys.size() > 0) {
+                log.info("outTimeKeysL:{}", outTimeKeys.size());
+            }
+            for (ZSet.Entry outTimeKey : outTimeKeys) {
+                count++;
+                byte[] key_bs = outTimeKey.getValue();
+                if (RKv.HEAD_B[0] == key_bs[0]) {
+                    this.rKv.delCheckTTL(new String(ArrayUtil.sub(key_bs, 1, key_bs.length + 1), charset), (int) outTimeKey.getScore());
+                }
+            }
+            if (count != 0) {
+                log.info("count:{}", count);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -224,7 +257,9 @@ public class DB extends DBAbs {
         db.writeOptions = new WriteOptions();
         if (autoclear) {
             stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
+            stp.scheduleWithFixedDelay(db::clearKV, 1, 1, TimeUnit.SECONDS);
         }
+        stp.scheduleWithFixedDelay(db::checkTTL, 1, 1, TimeUnit.SECONDS);
 
         Options optionsBinLog = new Options();
         optionsBinLog.setCreateIfMissing(true);

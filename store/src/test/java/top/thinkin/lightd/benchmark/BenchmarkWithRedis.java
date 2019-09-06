@@ -100,7 +100,7 @@ public class BenchmarkWithRedis {
                 for (int i = 0; i < size / availProcessors; i++) {
                     num++;
                     List<RKv.Entry> list = new ArrayList<>();
-                    list.add(new RKv.Entry((finalJ + ":" + i).getBytes(), ("test" + i).getBytes()));
+                    list.add(new RKv.Entry(finalJ + ":" + i, ("test" + i).getBytes()));
                     if (num == batckSize) {
                         try {
                             rKv.set(list);
@@ -124,7 +124,7 @@ public class BenchmarkWithRedis {
             joinFuture.add(args -> {
                 for (int i = 0; i < size / availProcessors; i++) {
                     try {
-                        rKv.set((finalJ + ":" + i).getBytes(), ("test" + i).getBytes());
+                        rKv.set(finalJ + ":" + i, ("test" + i).getBytes());
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -142,7 +142,7 @@ public class BenchmarkWithRedis {
             joinFuture.add(args -> {
                 for (int i = 0; i < size / availProcessors; i++) {
                     try {
-                        byte[] bytes = rKv.get((finalJ + ":" + i).getBytes());
+                        byte[] bytes = rKv.get(finalJ + ":" + i);
                         Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -161,7 +161,7 @@ public class BenchmarkWithRedis {
             joinFuture.add(args -> {
                 for (int i = 0; i < size / availProcessors; i++) {
                     try {
-                        byte[] bytes = rKv.getNoTTL((finalJ + ":" + i).getBytes());
+                        byte[] bytes = rKv.getNoTTL(finalJ + ":" + i);
                         Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -204,7 +204,7 @@ public class BenchmarkWithRedis {
 
     private static void incr(RKv rKv, int w_times) throws Exception {
         int k = w_times * 10000;
-        byte[] key = "incr".getBytes();
+        String key = "incr";
         for (int i = 0; i < k; i++) {
             rKv.incr(key, 1);
         }

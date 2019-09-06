@@ -6,7 +6,8 @@ import java.util.Collection;
 public interface ReservedWords {
     interface ZSET_KEYS {
         String TTL = "sys:TTL";
-        Collection<String> ALL = Arrays.asList(TTL);
+        String TTL_KV = "sys:TTL_KV";
+        Collection<String> ALL = Arrays.asList(TTL, TTL_KV);
     }
 
 

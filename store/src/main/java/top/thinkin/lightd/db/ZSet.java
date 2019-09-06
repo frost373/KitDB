@@ -163,6 +163,9 @@ public class ZSet extends RCollection {
         List<Entry> entries = new ArrayList<>();
         try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
             MetaV metaV = getMeta(key_b);
+            if (metaV == null) {
+                return entries;
+            }
             ZData zData = new ZData(key_b.length, key_b, metaV.getVersion(), start, "".getBytes());
 
             byte[] seek = zData.getSeek();
@@ -333,12 +336,12 @@ public class ZSet extends RCollection {
     protected MetaV getMeta(byte[] key_b) throws Exception {
         byte[] k_v = this.getDB(key_b, SstColumnFamily.META);
         if (k_v == null) {
-            throw new Exception("List do not exist");
+            return null;
         }
         MetaV metaV = MetaD.build(k_v).convertMetaV();
         long nowTime = System.currentTimeMillis();
         if (metaV.getTimestamp() != -1 && nowTime > metaV.getTimestamp()) {
-            throw new Exception("List do not exist");
+            return null;
         }
         return metaV;
     }
@@ -636,7 +639,7 @@ public class ZSet extends RCollection {
             zData.setMapKey(ArrayUtil.sub(bytes, 5, position = 5 + position));
             zData.setVersion(ArrayUtil.sub(bytes, position, position = position + 4));
             zData.setScore(ArrayUtil.sub(bytes, position, position = position + 8));
-            zData.setValue(ArrayUtil.sub(bytes, position, bytes.length - 1));
+            zData.setValue(ArrayUtil.sub(bytes, position, bytes.length));
             return zData;
         }
 

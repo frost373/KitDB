@@ -169,25 +169,59 @@ public abstract class DBAbs {
     }
 
 
-    protected void deleteHead(byte[] head, SstColumnFamily columnFamily) {
-        try (final RocksIterator iterator = this.rocksDB().newIterator(findColumnFamilyHandle(columnFamily))) {
+   /* protected void deleteHead2(byte[] head, SstColumnFamily columnFamily) {
+
+        ReadOptions readOptions = new ReadOptions();
+        readOptions.setPrefixSameAsStart(true);
+
+        try (final RocksIterator iterator = this.rocksDB().newIterator(findColumnFamilyHandle(columnFamily),readOptions)) {
             iterator.seek(head);
             byte[] start;
             byte[] end;
             if (iterator.isValid()) {
                 start = iterator.key();
-                iterator.prev();
                 if (BytesUtil.checkHead(head, start)) {
+                    iterator.seek(head);
                     iterator.seekToLast();
                     end = iterator.key();
                     if (BytesUtil.checkHead(head, end)) {
                         deleteRangeDB(start, end, columnFamily);
                         deleteDB(end, columnFamily);
                     } else {
-                        deleteDB(start, columnFamily);
+                        iterator.prev();
+                        end = iterator.key();
+                        if (BytesUtil.checkHead(head, end)) {
+                            deleteRangeDB(start, end, columnFamily);
+                            deleteDB(end, columnFamily);
+                        }{
+                            deleteDB(start, columnFamily);
+                        }
                     }
                 }
             }
+        }
+    }*/
+
+
+    protected void deleteHead(byte[] head, SstColumnFamily columnFamily) {
+
+        ReadOptions readOptions = new ReadOptions();
+        readOptions.setPrefixSameAsStart(true);
+        try (final RocksIterator iterator = this.rocksDB().newIterator(findColumnFamilyHandle(columnFamily), readOptions)) {
+            iterator.seek(head);
+            byte[] start;
+            byte[] end = null;
+            start = iterator.key();
+            if (!BytesUtil.checkHead(head, start)) return;
+            while (iterator.isValid()) {
+                if (!BytesUtil.checkHead(head, start)) break;
+                end = iterator.key();
+                iterator.next();
+            }
+            if (end != null) {
+                deleteRangeDB(start, end, columnFamily);
+            }
+            deleteDB(end, columnFamily);
         }
     }
 
