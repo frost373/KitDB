@@ -166,11 +166,10 @@ public class RKvTest {
 
             for (int i = 0; i < 100 * num; i++) {
                 byte[] bytes = kv.get(head + i);
-                System.out.println(("test" + i) + ":" + new String(bytes));
                 Assert.assertArrayEquals(("test" + i).getBytes(), bytes);
             }
 
-            Thread.sleep(3 * 100);
+            Thread.sleep(3 * 1000);
 
             for (int i = 0; i < 100 * num; i++) {
                 byte[] bytes = kv.get(head + i);

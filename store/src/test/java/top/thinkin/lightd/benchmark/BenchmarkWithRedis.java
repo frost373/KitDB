@@ -38,9 +38,9 @@ public class BenchmarkWithRedis {
         retry("ZPOP", 100, w_times -> spop(db.getSet()));
         db.getSet().delete("ZSET");*/
 
-       /* retry("SET", 100, 1000000, w_times -> set(SET, 1000000));
-        retry("GET", 100, 1000000, w_times -> getDB(SET, 1000000));
-        retry("GETNOTTL", 100, 1000000, w_times -> getNoTTL(SET, 1000000));*/
+        retry("SET", 100, 1000000, w_times -> set(SET, 1000000));
+        retry("GET", 100, 1000000, w_times -> get(SET, 1000000));
+        retry("GETNOTTL", 100, 1000000, w_times -> getNoTTL(SET, 1000000));
         RKv kv = db.getrKv();
         retry("incr", 100, w_times -> incr(kv, w_times));
 

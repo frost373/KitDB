@@ -214,8 +214,9 @@ public abstract class DBAbs {
             start = iterator.key();
             if (!BytesUtil.checkHead(head, start)) return;
             while (iterator.isValid()) {
-                if (!BytesUtil.checkHead(head, start)) break;
-                end = iterator.key();
+                byte[] key = iterator.key();
+                if (!BytesUtil.checkHead(head, key)) break;
+                end = key;
                 iterator.next();
             }
             if (end != null) {

@@ -8,7 +8,6 @@ import java.util.concurrent.locks.ReentrantLock;
 public class SegmentStrLock {
     private final List<ReentrantLock> buckets = new ArrayList<>();
     private final int size;
-
     public SegmentStrLock(int size) {
         this.size = size;
         for (int i = 0; i < this.size; i++) {

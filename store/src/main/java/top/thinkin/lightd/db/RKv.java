@@ -27,6 +27,7 @@ public class RKv extends RBase {
     public final static byte[] HEAD_B = HEAD.getBytes();
     private SegmentStrLock lock = new SegmentStrLock(128);
 
+
     protected RKv(DB db) {
         this.db = db;
     }
