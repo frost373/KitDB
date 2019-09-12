@@ -4,6 +4,7 @@ import org.rocksdb.*;
 import top.thinkin.lightd.base.DBCommand;
 import top.thinkin.lightd.base.SstColumnFamily;
 import top.thinkin.lightd.base.TableConfig;
+import top.thinkin.lightd.base.TransactionEntity;
 import top.thinkin.lightd.kit.BytesUtil;
 
 import java.util.ArrayList;
@@ -13,6 +14,10 @@ import java.util.Map;
 
 public abstract class DBAbs {
     protected RocksDB rocksDB;
+
+    protected RocksDB getRocksDB() {
+        return rocksDB;
+    }
 
     public RocksDB rocksDB() {
         return this.rocksDB;
@@ -34,6 +39,62 @@ public abstract class DBAbs {
 
     protected ThreadLocal<List<DBCommand>> threadLogs = new ThreadLocal<>();
 
+    protected ThreadLocal<TransactionEntity> TRANSACTION_ENTITY = new ThreadLocal<>();
+
+
+    public void startTran() {
+        if (TRANSACTION_ENTITY.get() == null) {
+            TRANSACTION_ENTITY.set(new TransactionEntity());
+        } else {
+            TRANSACTION_ENTITY.get().addCount();
+        }
+    }
+
+    public void commitTran() throws Exception {
+        TransactionEntity entity = TRANSACTION_ENTITY.get();
+        if (entity == null) {
+            return;
+        }
+        if (entity.getCount() > 0) {
+            //事务不需要提交，计数器减一
+            entity.subCount();
+        } else {
+            try {
+                functionCommit.call(entity.getDbCommands());
+            } catch (Exception e) {
+                throw e;
+            } finally {
+                entity.reset();
+            }
+        }
+    }
+
+
+    public void releaseTran() {
+        TransactionEntity entity = TRANSACTION_ENTITY.get();
+        if (entity == null) {
+            return;
+        }
+        entity.reset();
+    }
+
+    public void putDBTran(byte[] key, byte[] value, SstColumnFamily columnFamily) {
+        TransactionEntity entity = TRANSACTION_ENTITY.get();
+        entity.add(DBCommand.update(key, value, columnFamily));
+    }
+
+    public void deleteDBTran(byte[] key, SstColumnFamily columnFamily) {
+        TransactionEntity entity = TRANSACTION_ENTITY.get();
+        entity.add(DBCommand.delete(key, columnFamily));
+    }
+
+
+    protected void deleteRangeDBTran(byte[] start, byte[] end, SstColumnFamily columnFamily) {
+        TransactionEntity entity = TRANSACTION_ENTITY.get();
+        entity.add(DBCommand.deleteRange(start, end, columnFamily));
+    }
+
+
     public void start() {
         List<DBCommand> logs = threadLogs.get();
         if (logs == null) {
@@ -52,8 +113,46 @@ public abstract class DBAbs {
         }
     }
 
+    public void commit() throws Exception {
+        List<DBCommand> logs = threadLogs.get();
+        try {
+            functionCommit.call(logs);
+        } catch (Exception e) {
+            throw e;
+        } finally {
+            logs.clear();
+        }
+    }
+
+
+
+
     protected WriteOptions writeOptions() {
         return this.writeOptions;
+    }
+
+
+    public void release() {
+        List<DBCommand> logs = threadLogs.get();
+        if (logs != null) {
+            logs.clear();
+        }
+    }
+
+    public void putDB(byte[] key, byte[] value, SstColumnFamily columnFamily) {
+        List<DBCommand> logs = threadLogs.get();
+        logs.add(DBCommand.update(key, value, columnFamily));
+    }
+
+    public void deleteDB(byte[] key, SstColumnFamily columnFamily) {
+        List<DBCommand> logs = threadLogs.get();
+        logs.add(DBCommand.delete(key, columnFamily));
+    }
+
+
+    protected void deleteRangeDB(byte[] start, byte[] end, SstColumnFamily columnFamily) {
+        List<DBCommand> logs = threadLogs.get();
+        logs.add(DBCommand.deleteRange(start, end, columnFamily));
     }
 
 
@@ -91,17 +190,6 @@ public abstract class DBAbs {
     }
 
 
-    public void commit() throws Exception {
-        List<DBCommand> logs = threadLogs.get();
-        try {
-            functionCommit.call(logs);
-        } catch (Exception e) {
-            throw e;
-        } finally {
-            logs.clear();
-        }
-    }
-
     private ColumnFamilyHandle findColumnFamilyHandle(final SstColumnFamily sstColumnFamily) {
         switch (sstColumnFamily) {
             case DEFAULT:
@@ -113,28 +201,9 @@ public abstract class DBAbs {
         }
     }
 
-    public void release() {
-        List<DBCommand> logs = threadLogs.get();
-        if (logs != null) {
-            logs.clear();
-        }
-    }
-
-    public void putDB(byte[] key, byte[] value, SstColumnFamily columnFamily) {
-        List<DBCommand> logs = threadLogs.get();
-        logs.add(DBCommand.update(key, value, columnFamily));
-    }
-
-    public void deleteDB(byte[] key, SstColumnFamily columnFamily) {
-        List<DBCommand> logs = threadLogs.get();
-        logs.add(DBCommand.delete(key, columnFamily));
-    }
 
 
-    protected void deleteRangeDB(byte[] start, byte[] end, SstColumnFamily columnFamily) {
-        List<DBCommand> logs = threadLogs.get();
-        logs.add(DBCommand.deleteRange(start, end, columnFamily));
-    }
+
 
 
     protected byte[] getDB(byte[] key, SstColumnFamily columnFamily) throws RocksDBException {

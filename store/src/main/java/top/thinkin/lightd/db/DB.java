@@ -7,6 +7,7 @@ import top.thinkin.lightd.base.BinLog;
 import top.thinkin.lightd.base.TableConfig;
 import top.thinkin.lightd.base.VersionSequence;
 import top.thinkin.lightd.data.ReservedWords;
+import top.thinkin.lightd.db.internal.KVTimerStore;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.kit.BytesUtil;
@@ -39,6 +40,7 @@ public class DB extends DBAbs {
     private RocksDB binLogDB;
     private BinLog binLog;
 
+    private KVTimerStore kvTimerStore = new KVTimerStore();
 
     static ScheduledThreadPoolExecutor stp = new ScheduledThreadPoolExecutor(4);
 
@@ -314,4 +316,7 @@ public class DB extends DBAbs {
     }
 
 
+    public KVTimerStore getKvTimerStore() {
+        return kvTimerStore;
+    }
 }

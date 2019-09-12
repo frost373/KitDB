@@ -7,7 +7,9 @@ public enum KeyEnum {
     MAP("M"), MAP_KEY("m"),
     SET("S"), SET_V("p"),
     SEQ("U"),
-    ZSET("Z"), ZSET_S("z"), ZSET_V("a");
+    ZSET("Z"), ZSET_S("z"), ZSET_V("a"),
+
+    COLLECT_TIMER("R");
 
 
 

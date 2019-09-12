@@ -9,7 +9,6 @@ import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.SegmentStrLock;
 import top.thinkin.lightd.base.SstColumnFamily;
 import top.thinkin.lightd.data.KeyEnum;
-import top.thinkin.lightd.data.ReservedWords;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.kit.ArrayKits;
@@ -71,7 +70,8 @@ public class RKv extends RBase {
             putDB(key_b, ArrayKits.longToBytes(seq), SstColumnFamily.DEFAULT);
             int time = (int) (System.currentTimeMillis() / 1000 + ttl);
             putDB(ArrayKits.addAll(HEAD_TTL, keyb), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
-            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL_KV, key_b, time);
+
+            setTimer(time, key_b);
 
             commit();
             return seq;
@@ -131,21 +131,19 @@ public class RKv extends RBase {
         try {
             start();
             int i = 0;
-            ZSet.Entry[] entrys = new ZSet.Entry[map.size()];
             for (Map.Entry<String, byte[]> entry : map.entrySet()) {
                 lock.lock(entry.getKey());
                 try {
                     byte[] key_b = ArrayKits.addAll(HEAD_B, getKey(entry.getKey()));
                     putDB(key_b, entry.getValue(), SstColumnFamily.DEFAULT);
                     putDB(ArrayKits.addAll(HEAD_TTL, getKey(entry.getKey())), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
-                    entrys[i] = new ZSet.Entry(time, key_b);
+                    setTimer(time, key_b);
                     i++;
                 } finally {
                     lock.unlock(entry.getKey());
                 }
             }
             commit();
-            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL_KV, entrys);
         } finally {
             release();
         }
@@ -161,7 +159,7 @@ public class RKv extends RBase {
             int time = (int) (System.currentTimeMillis() / 1000) + ttl;
             putDB(ArrayKits.addAll(HEAD_TTL, keyb), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
             commit();
-            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL_KV, key_b, time);
+            setTimer(time, key_b);
         } finally {
             lock.unlock(key);
             release();
@@ -177,7 +175,7 @@ public class RKv extends RBase {
             int time = (int) (System.currentTimeMillis() / 1000) + ttl;
             putDB(ArrayKits.addAll(HEAD_TTL, keyb), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
             commit();
-            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL_KV, key_b, time);
+            setTimer(time, key_b);
         } finally {
             lock.unlock(key);
             release();
@@ -372,6 +370,7 @@ public class RKv extends RBase {
      */
 
     void delTtl(String key) throws Exception {
+        lock.lock(key);
         byte[] keyb = getKey(key);
 
         try {
@@ -379,6 +378,7 @@ public class RKv extends RBase {
             deleteDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
             commit();
         } finally {
+            lock.unlock(key);
             release();
         }
     }

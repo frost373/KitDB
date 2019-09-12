@@ -32,6 +32,10 @@ public abstract class RBase {
     }
 
 
+    public void setTimer(int time, byte[] value) {
+        db.getKvTimerStore().put(this, time, value);
+    }
+
     public void commit() throws Exception {
         db.commit();
     }
