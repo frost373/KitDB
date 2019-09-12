@@ -1,12 +1,13 @@
 package top.thinkin.lightd.base;
 
-import java.util.ArrayList;
-import java.util.List;
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReentrantLock;
 
-
+@Slf4j
 public class SegmentStrLock {
-    private final List<ReentrantLock> buckets = new ArrayList<>();
+    private final CopyOnWriteArrayList<ReentrantLock> buckets = new CopyOnWriteArrayList();
     private final int size;
     public SegmentStrLock(int size) {
         this.size = size;
@@ -15,10 +16,11 @@ public class SegmentStrLock {
         }
     }
 
-    public void lock(String key) {
+    public ReentrantLock lock(String key) {
         int h = hash(key.hashCode());
         ReentrantLock lock = buckets.get(h);
         lock.lock();
+        return lock;
     }
 
     public void unlock(String key) {
@@ -31,6 +33,4 @@ public class SegmentStrLock {
         int h;
         return (this.size - 1) & ((key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16));
     }
-
-
 }

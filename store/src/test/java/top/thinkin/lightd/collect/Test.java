@@ -28,7 +28,7 @@ public class Test {
         RIterator<RList> iterator =  list.iterator();
 
         while (iterator.hasNext()){
-            RList.Entry entry = (RList.Entry) iterator.next();
+            RList.REntry entry = (RList.REntry) iterator.next();
             System.out.println(entry.index +":"+new String(entry.value));
         }
 

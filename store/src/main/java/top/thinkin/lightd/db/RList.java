@@ -13,7 +13,6 @@ import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.data.ReservedWords;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
-import top.thinkin.lightd.exception.NonExistException;
 import top.thinkin.lightd.kit.ArrayKits;
 import top.thinkin.lightd.kit.BytesUtil;
 
@@ -35,6 +34,16 @@ public class RList extends RCollection {
         this.db = db;
     }
 
+    public void add(String key, byte[] v) throws Exception {
+        addMayTTL(key, v, -1);
+    }
+
+
+    public void addAll(String key, List<byte[]> vs) throws Exception {
+        addAllMayTTL(key, vs, -1);
+    }
+
+
     protected byte[] getKey(String key) {
         DAssert.notNull(key, ErrorType.NULL, "Key is null");
         return ArrayKits.addAll(HEAD_B, key.getBytes(charset));
@@ -49,14 +58,28 @@ public class RList extends RCollection {
         return metaV.getSize();
     }
 
+    private MetaV addCheck(byte[] k_v) {
+        MetaV metaV = null;
+        if (k_v != null) {
+            MetaVD metaVD = MetaVD.build(k_v);
+            metaV = metaVD.convertMeta();
+            if (metaV.getTimestamp() != -1 && (System.currentTimeMillis() / 1000) - metaV.getTimestamp() >= 0) {
+                metaV = null;
+            }
+        }
+        return metaV;
+    }
+
+
     protected MetaV getMeta(byte[] key_b) throws Exception {
 
         byte[] k_v = getDB(key_b, SstColumnFamily.META);
         if (k_v == null) return null;
 
         MetaV metaV = MetaVD.build(k_v).convertMeta();
-        long nowTime = System.currentTimeMillis();
-        if (metaV.getTimestamp() != -1 && nowTime > metaV.getTimestamp()) throw new NonExistException("List");
+        if (metaV.getTimestamp() != -1 && (System.currentTimeMillis() / 1000) - metaV.getTimestamp() >= 0) {
+            metaV = null;
+        }
 
         return metaV;
     }
@@ -64,7 +87,7 @@ public class RList extends RCollection {
     public boolean isExist(String key) throws RocksDBException {
         byte[] key_b = getKey(key);
         byte[] k_v = getDB(key_b, SstColumnFamily.META);
-        MetaV metaV = addCheck(key_b, k_v);
+        MetaV metaV = addCheck(k_v);
 
         return metaV != null;
     }
@@ -75,15 +98,15 @@ public class RList extends RCollection {
         try {
             start();
             MetaV metaV = getMeta(key_b);
-            if (metaV == null) {
-                metaV = new MetaV(0, 0, -1, -1, db.versionSequence().incr());
-            }
+
+            DAssert.notNull(metaV, ErrorType.NOT_EXIST, "The List does not exist.");
+
             if (ttl != -1) {
                 metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
             }
             putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
             commit();
+            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
         } finally {
             lock.unlock(key);
             release();
@@ -97,13 +120,12 @@ public class RList extends RCollection {
         if (metaV == null) {
             return;
         }
-
         try {
             start();
             metaV.setTimestamp(-1);
             putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-            db.getzSet().remove(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes());
             commit();
+            db.getzSet().remove(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes());
         } finally {
             lock.unlock(key);
             release();
@@ -198,6 +220,7 @@ public class RList extends RCollection {
         return list;
     }
 
+    @SuppressWarnings("unchecked")
     public RIterator<RList> iterator(String key) throws Exception {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
@@ -270,9 +293,7 @@ public class RList extends RCollection {
         }
     }
 
-    public void addAll(String key, List<byte[]> vs) throws Exception {
-        addAllMayTTL(key, vs, -1);
-    }
+
 
     public void addAllMayTTL(String key, List<byte[]> vs, int ttl) throws Exception {
         lock.lock(key);
@@ -280,7 +301,7 @@ public class RList extends RCollection {
         try {
             start();
             byte[] k_v = getDB(key_b, SstColumnFamily.META);
-            MetaV metaV = addCheck(key_b, k_v);
+            MetaV metaV = addCheck(k_v);
 
             if (metaV != null) {
                 //写入Value
@@ -315,11 +336,10 @@ public class RList extends RCollection {
                 //写入Meta
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             }
+            commit();
             if (ttl != -1) {
                 db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
             }
-
-            commit();
         } finally {
             lock.unlock(key);
             release();
@@ -342,18 +362,7 @@ public class RList extends RCollection {
         }
     }
 
-    private MetaV addCheck(byte[] key_b, byte[] k_v) throws RocksDBException {
-        MetaV metaV = null;
-        if (k_v != null) {
-            MetaVD metaVD = MetaVD.build(k_v);
-            metaV = metaVD.convertMeta();
-            long nowTime = System.currentTimeMillis() / 1000;
-            if (metaV.getTimestamp() != -1 && nowTime > metaV.getTimestamp()) {
-                metaV = null;
-            }
-        }
-        return metaV;
-    }
+
 
     /**
      * 如果新建则设置设置TTL。如果已存在则不设置
@@ -368,7 +377,7 @@ public class RList extends RCollection {
         try {
             start();
             byte[] k_v = getDB(key_b, SstColumnFamily.META);
-            MetaV metaV = addCheck(key_b, k_v);
+            MetaV metaV = addCheck(k_v);
             if (metaV != null) {
                 metaV.size = metaV.size + 1;
                 metaV.right = metaV.right + 1;
@@ -394,21 +403,17 @@ public class RList extends RCollection {
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
 
             }
-
+            commit();
             if (ttl != -1) {
                 db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
             }
-
-            commit();
         } finally {
             lock.unlock(key);
             release();
         }
     }
 
-    public void add(String key, byte[] v) throws Exception {
-        addMayTTL(key, v, -1);
-    }
+
 
     public byte[] get(String key, long i) throws Exception {
         byte[] key_b = getKey(key);
@@ -422,14 +427,14 @@ public class RList extends RCollection {
     }
 
 
-    public List<byte[]> get(String key, long... is) throws Exception {
+    public List<byte[]> get(String key, List<Long> is) throws Exception {
         byte[] key_b = getKey(key);
 
         MetaV metaV = getMeta(key_b);
         if (metaV == null) {
             return new ArrayList<>();
         }
-        List<byte[]> list = new ArrayList<>(is.length);
+        List<byte[]> list = new ArrayList<>(is.size());
 
         for (long i : is) {
             ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), i);
@@ -439,7 +444,25 @@ public class RList extends RCollection {
     }
 
 
-    public void remove(String key, long i) throws Exception {
+    public Long left(String key) throws Exception {
+        byte[] key_b = getKey(key);
+        MetaV metaV = getMeta(key_b);
+        if (metaV == null) {
+            return null;
+        }
+        return metaV.left;
+    }
+
+    public Long right(String key) throws Exception {
+        byte[] key_b = getKey(key);
+        MetaV metaV = getMeta(key_b);
+        if (metaV == null) {
+            return null;
+        }
+        return metaV.right;
+    }
+
+    public void set(String key, long i, byte[] v) throws Exception {
         lock.lock(key);
         try {
             byte[] key_b = getKey(key);
@@ -447,9 +470,13 @@ public class RList extends RCollection {
             if (metaV == null) {
                 return;
             }
+            DAssert.isTrue(i >= metaV.left && i <= metaV.right, ErrorType.EMPTY, "index not exist");
             start();
+
             ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), i);
-            deleteDB(valueK.convertValueBytes().toBytes(), SstColumnFamily.DEFAULT);
+            ValueKD valueKD = valueK.convertValueBytes();
+            //写入Value
+            putDB(valueKD.toBytes(), v, SstColumnFamily.DEFAULT);
             commit();
         } finally {
             lock.unlock(key);
@@ -459,7 +486,7 @@ public class RList extends RCollection {
 
     @Data
     @AllArgsConstructor
-    public class Entry extends RCollection.Entry {
+    public class Entry extends REntry {
         private long index;
         private byte[] value;
     }

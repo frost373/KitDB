@@ -1,10 +1,12 @@
 package top.thinkin.lightd.db;
 
+import cn.hutool.cache.CacheUtil;
+import cn.hutool.cache.impl.TimedCache;
 import cn.hutool.core.util.ArrayUtil;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.extern.java.Log;
+import lombok.extern.slf4j.Slf4j;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.MetaAbs;
@@ -20,12 +22,15 @@ import top.thinkin.lightd.kit.BytesUtil;
 import java.util.ArrayList;
 import java.util.List;
 
-@Log
+@Slf4j
 public class ZSet extends RCollection {
     public static String HEAD = KeyEnum.ZSET.getKey();
     public static byte[] HEAD_B = HEAD.getBytes();
     public static byte[] HEAD_SCORE_B = KeyEnum.ZSET_S.getBytes();
     public static byte[] HEAD_V_B = KeyEnum.ZSET_V.getBytes();
+
+    TimedCache<String, String> timedCache = CacheUtil.newTimedCache(4);
+
 
     protected ZSet(DB db) {
         super(false, 128);
@@ -51,7 +56,7 @@ public class ZSet extends RCollection {
         addMayTTL(key, ttl, new Entry(score, v));
     }
 
-    public synchronized void addMayTTL(String key, int ttl, Entry... entrys) throws Exception {
+    public synchronized void addMayTTL(final String key, int ttl, Entry... entrys) throws Exception {
         DAssert.notEmpty(entrys, ErrorType.EMPTY, "entrys is empty");
         byte[] key_b = getKey(key);
 
@@ -60,10 +65,9 @@ public class ZSet extends RCollection {
             bytess[i] = entrys[i].value;
         }
         DAssert.isTrue(ArrayKits.noRepeate(bytess), ErrorType.REPEATED_KEY, "Repeated memebers");
-
         lock.lock(key);
-        start();
         try {
+            start();
             byte[] k_v = getDB(key_b, SstColumnFamily.META);
             MetaV metaV = addCheck(key_b, k_v);
             if (metaV != null) {
@@ -82,6 +86,7 @@ public class ZSet extends RCollection {
             }
 
             commit();
+
         } finally {
             lock.unlock(key);
             release();
@@ -94,9 +99,9 @@ public class ZSet extends RCollection {
             SData sData = new SData(key_b.length, key_b, metaV.getVersion(), entry.value);
             ZData zData = new ZData(key_b.length, key_b, metaV.getVersion(), entry.score, entry.value);
             byte[] member = sData.convertBytes().toBytes();
-            if (getDB(member, SstColumnFamily.DEFAULT) == null) {
-                metaV.size = metaV.size + 1;
-            }
+            //if (getDB(member, SstColumnFamily.DEFAULT) == null) {
+            metaV.size = metaV.size + 1;
+            //}
             putDB(member, ArrayKits.longToBytes(entry.score), SstColumnFamily.DEFAULT);
             putDB(zData.convertBytes().toBytes(), "".getBytes(), SstColumnFamily.DEFAULT);
         }
@@ -110,7 +115,7 @@ public class ZSet extends RCollection {
      * @return
      * @throws Exception
      */
-    public List<Entry> range(String key, long start, long end) throws Exception {
+    public List<Entry> range(String key, long start, long end, int limit) throws Exception {
         byte[] key_b = getKey(key);
 
         List<Entry> entries = new ArrayList<>();
@@ -119,10 +124,11 @@ public class ZSet extends RCollection {
 
         byte[] seek = zData.getSeek();
         byte[] head = zData.getHead();
+        int count = 0;
         try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
             iterator.seek(seek);
             long index = 0;
-            while (iterator.isValid() && index <= end) {
+            while (iterator.isValid() && index <= end && count < limit) {
                 byte[] key_bs = iterator.key();
                 if (!BytesUtil.checkHead(head, key_bs)) break;
                 ZData izData = ZDataD.build(key_bs).convertValue();
@@ -131,23 +137,12 @@ public class ZSet extends RCollection {
                     break;
                 }
                 entries.add(new Entry(index, izData.value));
+                count++;
                 iterator.next();
             }
         }
         return entries;
     }
-
-    @Override
-    public RIterator<ZSet> iterator(String key) throws Exception {
-        byte[] key_b = getKey(key);
-        MetaV metaV = getMeta(key_b);
-        SData sData = new SData(key_b.length, key_b, metaV.getVersion(), "".getBytes());
-        RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT);
-        iterator.seek(sData.getHead());
-        RIterator<ZSet> rIterator = new RIterator<>(iterator, this, sData.getHead());
-        return rIterator;
-    }
-
 
     /**
      * 返回指定区间分数的成员并删除
@@ -157,7 +152,7 @@ public class ZSet extends RCollection {
      * @return
      * @throws Exception
      */
-    public synchronized List<Entry> rangeDel(String key, long start, long end) throws Exception {
+    public synchronized List<Entry> rangeDel(String key, long start, long end, int limit) throws Exception {
         byte[] key_b = getKey(key);
         lock.lock(key);
         List<Entry> entries = new ArrayList<>();
@@ -174,7 +169,8 @@ public class ZSet extends RCollection {
             List<byte[]> dels = new ArrayList<>();
             iterator.seek(seek);
             long index = 0;
-            while (iterator.isValid() && index <= end) {
+            int count = 0;
+            while (iterator.isValid() && index <= end && count < limit) {
                 byte[] key_bs = iterator.key();
                 if (!BytesUtil.checkHead(head, key_bs)) break;
                 ZDataD zDataD = ZDataD.build(key_bs);
@@ -184,6 +180,7 @@ public class ZSet extends RCollection {
                     break;
                 }
                 entries.add(new Entry(index, izData.value));
+                count++;
                 //DEL
                 metaV.setSize(metaV.getSize() - 1);
                 dels.add(zDataD.toBytes());
@@ -201,6 +198,21 @@ public class ZSet extends RCollection {
         }
         return entries;
     }
+
+
+    @Override
+    public RIterator<ZSet> iterator(String key) throws Exception {
+        byte[] key_b = getKey(key);
+        MetaV metaV = getMeta(key_b);
+        SData sData = new SData(key_b.length, key_b, metaV.getVersion(), "".getBytes());
+        RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT);
+        iterator.seek(sData.getHead());
+        RIterator<ZSet> rIterator = new RIterator<>(iterator, this, sData.getHead());
+        return rIterator;
+    }
+
+
+
 
     private void removeDo(byte[] key_b, MetaV metaV, List<byte[]> dels) {
         for (byte[] del : dels) {
@@ -270,7 +282,7 @@ public class ZSet extends RCollection {
             removeDo(key_b, metaV, dels);
             putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             commit();
-        } catch (Exception e) {
+        } finally {
             lock.unlock(key);
             release();
         }
@@ -279,6 +291,7 @@ public class ZSet extends RCollection {
 
     /**
      * 返回成员的分数值,如成员不存在，List对应位置则为null
+     *
      * @param key
      * @param vs
      * @return
@@ -376,7 +389,7 @@ public class ZSet extends RCollection {
 
     @Override
     public KeyIterator getKeyIterator() throws Exception {
-        return null;
+        return getKeyIterator(HEAD_B);
     }
 
 
@@ -447,9 +460,14 @@ public class ZSet extends RCollection {
 
     @Override
     public int size(String key) throws Exception {
-        byte[] key_b = getKey(key);
-        MetaV metaV = getMeta(key_b);
-        return metaV.getSize();
+        int size = 0;
+        try (RIterator<ZSet> iterator = iterator(key)) {
+            while (iterator.hasNext()) {
+                iterator.next();
+                size++;
+            }
+        }
+        return size;
     }
 
     @Override
@@ -465,7 +483,7 @@ public class ZSet extends RCollection {
 
     @Data
     @AllArgsConstructor
-    public static class Entry extends RCollection.Entry {
+    public static class Entry extends REntry {
         private long score;
         private byte[] value;
     }
@@ -568,7 +586,7 @@ public class ZSet extends RCollection {
             int position = ArrayKits.bytesToInt(sDataD.getMapKeySize(), 0);
             sDataD.setMapKey(ArrayUtil.sub(bytes, 5, position = 5 + position));
             sDataD.setVersion(ArrayUtil.sub(bytes, position, position = position + 4));
-            sDataD.setValue(ArrayUtil.sub(bytes, position, bytes.length - 1));
+            sDataD.setValue(ArrayUtil.sub(bytes, position, bytes.length));
             return sDataD;
         }
 

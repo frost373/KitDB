@@ -5,12 +5,11 @@ import top.thinkin.lightd.kit.BytesUtil;
 
 public class RIterator<R extends RCollection> implements AutoCloseable {
     private final RocksIterator iterator;
-    private final RCollection rCollection;
+    private final R rCollection;
     private final byte[] seekHead;
-    private byte[] next;
     private  boolean finish = false;
 
-    public  RIterator(RocksIterator iterator,RCollection rCollection,byte[] seekHead){
+    public RIterator(RocksIterator iterator, R rCollection, byte[] seekHead) {
         this.iterator = iterator;
         this.rCollection = rCollection;
         this.seekHead = seekHead;
@@ -27,16 +26,13 @@ public class RIterator<R extends RCollection> implements AutoCloseable {
     }
 
 
-    public R.Entry next(){
+    public <E extends REntry> E next() {
         if (!iterator.isValid()) return null;
-        R.Entry entry =  rCollection.getEntry(iterator);
+        E entry = rCollection.getEntry(iterator);
         iterator.next();
         return entry;
     }
 
-    public byte[] getSeek() {
-        return seekHead;
-    }
 
     @Override
     public void close() {

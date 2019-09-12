@@ -336,7 +336,7 @@ public class RSet extends RCollection {
 
     @Data
     @AllArgsConstructor
-    public static class Entry extends RCollection.Entry {
+    public static class Entry extends REntry {
         private byte[] value;
     }
 

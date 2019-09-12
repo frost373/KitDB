@@ -91,7 +91,7 @@ public class BenchmarkWithRedis {
     }
 
 
-    private static void mset(RKv rKv, int size, int batckSize) {
+    /*private static void mset(RKv rKv, int size, int batckSize) {
         JoinFuture<String> joinFuture = JoinFuture.build(executorService, String.class);
         for (int j = 0; j < availProcessors; j++) {
             int finalJ = j;
@@ -99,8 +99,8 @@ public class BenchmarkWithRedis {
                 int num = 0;
                 for (int i = 0; i < size / availProcessors; i++) {
                     num++;
-                    List<RKv.Entry> list = new ArrayList<>();
-                    list.add(new RKv.Entry(finalJ + ":" + i, ("test" + i).getBytes()));
+                    List<RKv.REntry> list = new ArrayList<>();
+                    list.add(new RKv.REntry(finalJ + ":" + i, ("test" + i).getBytes()));
                     if (num == batckSize) {
                         try {
                             rKv.set(list);
@@ -115,7 +115,7 @@ public class BenchmarkWithRedis {
             });
         }
         joinFuture.join();
-    }
+    }*/
 
     private static void set(RKv rKv, int size) {
         JoinFuture<String> joinFuture = JoinFuture.build(executorService, String.class);

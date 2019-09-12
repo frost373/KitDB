@@ -106,17 +106,18 @@ public class RKv extends RBase {
         }
     }
 
-    public void set(List<Entry> kvs) throws Exception {
+    public void set(Map<String, byte[]> map) throws Exception {
         try {
             start();
-            for (Entry kv : kvs) {
-                lock.lock(kv.key);
+
+            for (Map.Entry<String, byte[]> entry : map.entrySet()) {
+                lock.lock(entry.getKey());
                 try {
-                    byte[] key_b = ArrayKits.addAll(HEAD_B, getKey(kv.key));
-                    putDB(key_b, kv.value, SstColumnFamily.DEFAULT);
-                    deleteDB(ArrayKits.addAll(HEAD_TTL, getKey(kv.key)), SstColumnFamily.DEFAULT);
+                    byte[] key_b = ArrayKits.addAll(HEAD_B, getKey(entry.getKey()));
+                    putDB(key_b, entry.getValue(), SstColumnFamily.DEFAULT);
+                    deleteDB(ArrayKits.addAll(HEAD_TTL, getKey(entry.getKey())), SstColumnFamily.DEFAULT);
                 } finally {
-                    lock.unlock(kv.key);
+                    lock.unlock(entry.getKey());
                 }
             }
             commit();
@@ -125,20 +126,22 @@ public class RKv extends RBase {
         }
     }
 
-    public void set(List<Entry> kvs, int ttl) throws Exception {
+    public void set(Map<String, byte[]> map, int ttl) throws Exception {
         int time = (int) (System.currentTimeMillis() / 1000 + ttl);
         try {
             start();
-            ZSet.Entry[] entrys = new ZSet.Entry[kvs.size()];
-            for (int i = 0; i < kvs.size(); i++) {
-                lock.lock(kvs.get(i).key);
+            int i = 0;
+            ZSet.Entry[] entrys = new ZSet.Entry[map.size()];
+            for (Map.Entry<String, byte[]> entry : map.entrySet()) {
+                lock.lock(entry.getKey());
                 try {
-                    byte[] key_b = ArrayKits.addAll(HEAD_B, getKey(kvs.get(i).key));
-                    putDB(key_b, kvs.get(i).value, SstColumnFamily.DEFAULT);
-                    putDB(ArrayKits.addAll(HEAD_TTL, getKey(kvs.get(i).key)), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
+                    byte[] key_b = ArrayKits.addAll(HEAD_B, getKey(entry.getKey()));
+                    putDB(key_b, entry.getValue(), SstColumnFamily.DEFAULT);
+                    putDB(ArrayKits.addAll(HEAD_TTL, getKey(entry.getKey())), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
                     entrys[i] = new ZSet.Entry(time, key_b);
+                    i++;
                 } finally {
-                    lock.unlock(kvs.get(i).key);
+                    lock.unlock(entry.getKey());
                 }
             }
             commit();
@@ -182,12 +185,12 @@ public class RKv extends RBase {
     }
 
 
-    public Map<String, byte[]> get(String... keys) throws RocksDBException {
+    public Map<String, byte[]> get(List<String> keys) throws RocksDBException {
         DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
 
-        byte[][] keybs = new byte[keys.length][];
-        for (int i = 0; i < keys.length; i++) {
-            keybs[i] = getKey(keys[i]);
+        byte[][] keybs = new byte[keys.size()][];
+        for (int i = 0; i < keys.size(); i++) {
+            keybs[i] = getKey(keys.get(i));
         }
 
         List<byte[]> vKeys = new ArrayList<>(keybs.length);

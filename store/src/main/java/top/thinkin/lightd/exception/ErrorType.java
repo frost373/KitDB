@@ -11,7 +11,8 @@ public enum ErrorType {
     REPEATED_KEY(2, "REPEATED_KEY"),//重复的KEY
     EMPTY(3, "EMPTY"),
     NULL(4, "NULL"),
-    STORE_VERSION(5, "STORE_VERSION");
+    STORE_VERSION(5, "STORE_VERSION"), NOT_EXIST(3, "NOT_EXIST"),
+    ;
 
     private final String type;
     static final Set<String> ALL;

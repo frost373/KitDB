@@ -4,7 +4,7 @@ import cn.hutool.core.util.ArrayUtil;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.rocksdb.*;
-import top.thinkin.lightd.db.RCollection;
+import top.thinkin.lightd.db.REntry;
 import top.thinkin.lightd.kit.ArrayKits;
 import top.thinkin.lightd.kit.BytesUtil;
 
@@ -85,7 +85,7 @@ public class BinLog {
 
     @Data
     @AllArgsConstructor
-    public static class Entry extends RCollection.Entry {
+    public static class Entry extends REntry {
         private long index;
         private byte[] value;
     }

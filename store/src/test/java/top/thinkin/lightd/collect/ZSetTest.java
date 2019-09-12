@@ -57,10 +57,10 @@ public class ZSetTest {
         ZSet zSet=null;
         try {
             zSet = db.getZSet("add1");
-            ZSet.Entry[] entrys =  new ZSet.Entry[1000];
+            ZSet.REntry[] entrys =  new ZSet.REntry[1000];
 
             for (int i = 0; i < 1000; i++) {
-                ZSet.Entry entry = new ZSet.Entry(i,("add"+i).getBytes());
+                ZSet.REntry entry = new ZSet.REntry(i,("add"+i).getBytes());
                 entrys[i] = entry;
             }
             zSet.add(entrys);
@@ -86,23 +86,23 @@ public class ZSetTest {
         ZSet zSet=null;
         try {
             zSet = db.getZSet("range");
-            ZSet.Entry[] entrys =  new ZSet.Entry[10000];
+            ZSet.REntry[] entrys =  new ZSet.REntry[10000];
 
             for (int i = 0; i < 10000; i++) {
-                ZSet.Entry entry = new ZSet.Entry(i,("range"+i).getBytes());
+                ZSet.REntry entry = new ZSet.REntry(i,("range"+i).getBytes());
                 entrys[i] = entry;
             }
             zSet.add(entrys);
 
             for (int i = 0; i < 100; i++) {
-                List<ZSet.Entry> list =   zSet.range(i*100,(i+1)*100);
+                List<ZSet.REntry> list =   zSet.range(i*100,(i+1)*100);
                 Assert.assertTrue(list.size()>0);
                 int j=i*100;
-                for (ZSet.Entry entry:list){
+                for (ZSet.REntry entry:list){
                     Assert.assertEquals(entry.getScore(), j++);
                 }
             }
-            List<ZSet.Entry> list =   zSet.range(100,Integer.MAX_VALUE);
+            List<ZSet.REntry> list =   zSet.range(100,Integer.MAX_VALUE);
             Assert.assertTrue(list.size()==10000-100);
         } catch (Exception e) {
             e.printStackTrace();
@@ -127,10 +127,10 @@ public class ZSetTest {
         ZSet zSet=null;
         try {
             zSet = db.getZSet("add1");
-            ZSet.Entry[] entrys =  new ZSet.Entry[10000];
+            ZSet.REntry[] entrys =  new ZSet.REntry[10000];
 
             for (int i = 0; i < 10000; i++) {
-                ZSet.Entry entry = new ZSet.Entry(i,("add"+i).getBytes());
+                ZSet.REntry entry = new ZSet.REntry(i,("add"+i).getBytes());
                 entrys[i] = entry;
             }
             zSet.add(entrys);

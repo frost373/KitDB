@@ -79,7 +79,6 @@ public class RMap extends RCollection {
                 putDB(key_.convertBytes().toBytes(), value, SstColumnFamily.DEFAULT);
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             } else {
-
                 metaV = new Meta(0, ttl, db.versionSequence().incr());
                 metaV.size = metaV.size + 1;
                 Key key_ = new Key(key_b.length, key_b, metaV.getVersion(), mkey);
@@ -372,7 +371,7 @@ public class RMap extends RCollection {
 
     @Data
     @AllArgsConstructor
-    public static class Entry extends RCollection.Entry {
+    public static class Entry extends REntry {
         private byte[] key;
         private byte[] value;
     }

@@ -1,5 +1,6 @@
 package top.thinkin.lightd.db;
 
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -12,6 +13,7 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+@Slf4j
 public class RKvTest {
 
     static int availProcessors = Runtime.getRuntime().availableProcessors();
@@ -26,6 +28,7 @@ public class RKvTest {
             RocksDB.loadLibrary();
             db = DB.build("D:\\temp\\db", true);
         }
+        log.info("outTimeKeysL:{}", 1111111);
     }
 
     /**
@@ -105,14 +108,12 @@ public class RKvTest {
                 int finalI = i1;
                 joinFuture.add(args -> {
                     try {
-                        List<RKv.Entry> entries = new ArrayList<>(10000);
+                        Map<String, byte[]> map = new HashMap<>();
 
                         for (int j = 0; j < 10000; j++) {
-                            entries.add(new RKv.Entry(
-                                    head + (finalI * 10000 + j),
-                                    ("test" + (finalI * 10000 + j)).getBytes()));
+                            map.put(head + (finalI * 10000 + j), ("test" + (finalI * 10000 + j)).getBytes());
                         }
-                        kv.set(entries);
+                        kv.set(map);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -148,14 +149,11 @@ public class RKvTest {
                 int finalI = i1;
                 joinFuture.add(args -> {
                     try {
-                        List<RKv.Entry> entries = new ArrayList<>(num);
-
+                        Map<String, byte[]> map = new HashMap<>();
                         for (int j = 0; j < num; j++) {
-                            entries.add(new RKv.Entry(
-                                    head + (finalI * num + j),
-                                    ("test" + (finalI * num + j)).getBytes()));
+                            map.put(head + (finalI * num + j), ("test" + (finalI * num + j)).getBytes());
                         }
-                        kv.set(entries, 3);
+                        kv.set(map, 3);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -283,6 +281,19 @@ public class RKvTest {
 
     }
 
+
+    public static String getRandomString(int length) {
+        String str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        Random random = new Random();
+        StringBuffer sb = new StringBuffer();
+        for (int i = 0; i < length; i++) {
+            int number = random.nextInt(62);
+            sb.append(str.charAt(number));
+        }
+        return sb.toString();
+    }
+
+
     /**
      * 单个GET
      */
@@ -304,11 +315,12 @@ public class RKvTest {
         RKv kv = db.getrKv();
         String head = "getB";
         try {
-            String[] strings = new String[100];
+
+            List<String> strings = new ArrayList<>();
 
             for (int i = 0; i < 100; i++) {
                 kv.set(head + i, ("test" + i).getBytes());
-                strings[i] = head + i;
+                strings.add(head + i);
             }
             Map<String, byte[]> map = kv.get(strings);
 
@@ -346,20 +358,26 @@ public class RKvTest {
         RKv kv = db.getrKv();
         String head = "getNoTTL";
 
-        for (int i = 0; i < 1; i++) {
-            kv.set(head + i, ("test" + i).getBytes(), 1);
-        }
+        try {
 
-        for (int i = 0; i < 1; i++) {
-            byte[] bytes = kv.getNoTTL(head + i);
-            Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
-        }
+            for (int i = 0; i < 1; i++) {
+                kv.set(head + i, ("test" + i).getBytes(), 1);
+            }
 
-        Thread.sleep(5 * 1000);
+            for (int i = 0; i < 1; i++) {
+                byte[] bytes = kv.getNoTTL(head + i);
+                Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
+            }
 
-        for (int i = 0; i < 1; i++) {
-            byte[] bytes = kv.getNoTTL(head + i);
-            Assert.assertNull(bytes);
+            Thread.sleep(5 * 1000);
+
+            for (int i = 0; i < 1; i++) {
+                byte[] bytes = kv.getNoTTL(head + i);
+                Assert.assertNull(bytes);
+            }
+        } finally {
+            kv.delPrefix(head);
+
         }
     }
 
@@ -395,11 +413,11 @@ public class RKvTest {
         String head = "delPrefixA";
 
         try {
-            for (int i = 0; i < 1000 * 10000; i++) {
+            for (int i = 0; i < 10 * 10000; i++) {
                 kv.set(head + i, ("test" + i).getBytes());
             }
             kv.delPrefix(head);
-            for (int i = 0; i < 1000 * 10000; i++) {
+            for (int i = 0; i < 10 * 10000; i++) {
                 byte[] bytes = kv.get(head + i);
                 Assert.assertNull(bytes);
             }

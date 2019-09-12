@@ -9,7 +9,7 @@ import top.thinkin.lightd.base.SstColumnFamily;
 import top.thinkin.lightd.kit.ArrayKits;
 
 public abstract class RCollection extends RBase {
-    protected SegmentStrLock lock;
+    protected final SegmentStrLock lock;
 
 
     public RCollection(boolean isLog, int lockSize) {
@@ -79,11 +79,8 @@ public abstract class RCollection extends RBase {
 
     abstract int size(String key) throws Exception;
 
-    public static class Entry {
 
-    }
-
-    abstract Entry getEntry(RocksIterator iterator);
+    abstract <E extends REntry> E getEntry(RocksIterator iterator);
 
 
 }

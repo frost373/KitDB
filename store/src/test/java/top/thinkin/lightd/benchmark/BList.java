@@ -95,7 +95,7 @@ public class BList {
     private static void iterator(RList list) throws Exception {
         RIterator<RList> iterator =  list.iterator();
         while (iterator.hasNext()){
-            RList.Entry entry = (RList.Entry) iterator.next();
+            RList.REntry entry = (RList.REntry) iterator.next();
         }
     }
 

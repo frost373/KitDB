@@ -157,7 +157,7 @@ public class RSetTest {
 
             try (RIterator<RSet> iterator = set.iterator()) {
                 while (iterator.hasNext()) {
-                    RSet.Entry er = (RSet.Entry) iterator.next();
+                    RSet.REntry er = (RSet.REntry) iterator.next();
                     list.remove(new String(er.getValue()));
                 }
             }

@@ -139,10 +139,8 @@ public class DB extends DBAbs {
         try {
             int count = 0;
             List<ZSet.Entry> outTimeKeys = zSet.rangeDel(ReservedWords.ZSET_KEYS.TTL,
-                    0, System.currentTimeMillis() / 1000);
-            if (outTimeKeys.size() > 0) {
-                log.info("outTimeKeysL:{}", outTimeKeys.size());
-            }
+                    0, System.currentTimeMillis() / 1000, 10 * 10000);
+
             for (ZSet.Entry outTimeKey : outTimeKeys) {
                 count++;
                 byte[] key_bs = outTimeKey.getValue();
@@ -152,35 +150,71 @@ public class DB extends DBAbs {
                 }
 
             }
-            if (count != 0) {
-                log.info("count:{}", count);
-            }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
 
-    public synchronized void clearKV() {
+    public synchronized void clearKV2() {
         try {
-            int count = 0;
             List<ZSet.Entry> outTimeKeys = zSet.rangeDel(ReservedWords.ZSET_KEYS.TTL_KV,
-                    0, System.currentTimeMillis() / 1000);
+                    0, System.currentTimeMillis() / 1000, 10 * 10000);
             if (outTimeKeys.size() > 0) {
-                log.info("outTimeKeysL:{}", outTimeKeys.size());
+
+            } else {
+                return;
             }
-            for (ZSet.Entry outTimeKey : outTimeKeys) {
-                count++;
-                byte[] key_bs = outTimeKey.getValue();
-                if (RKv.HEAD_B[0] == key_bs[0]) {
-                    this.rKv.delCheckTTL(new String(ArrayUtil.sub(key_bs, 1, key_bs.length + 1), charset), (int) outTimeKey.getScore());
+            ZSet.Entry[] entries = new ZSet.Entry[outTimeKeys.size()];
+            outTimeKeys.toArray(entries);
+            zSet.add(ReservedWords.ZSET_KEYS.TTL_KV_SOTRE, entries);
+            try (RIterator<ZSet> iterator = zSet.iterator(ReservedWords.ZSET_KEYS.TTL_KV_SOTRE)) {
+                while (iterator.hasNext()) {
+                    ZSet.Entry entry = (ZSet.Entry) iterator.next();
+                    byte[] key_bs = entry.getValue();
+                    if (RKv.HEAD_B[0] == key_bs[0]) {
+                        this.rKv.delCheckTTL(
+                                new String(ArrayUtil.sub(key_bs, 1, key_bs.length + 1), charset),
+                                (int) entry.getScore());
+                        zSet.remove(ReservedWords.ZSET_KEYS.TTL_KV_SOTRE, entry.getValue());
+                    }
                 }
             }
-            if (count != 0) {
-                log.info("count:{}", count);
+        } catch (Exception e) {
+            log.error("clearKV error", e);
+        }
+    }
+
+    /**
+     * 检测泄露的KV——TTL
+     * TODO
+     */
+    public synchronized void checkKVTTL() {
+
+    }
+
+
+    public synchronized void clearKV() {
+        try {
+            for (int i = 0; i < 10; i++) {
+
+                List<ZSet.Entry> outTimeKeys = zSet.rangeDel(ReservedWords.ZSET_KEYS.TTL_KV,
+                        0, System.currentTimeMillis() / 1000, 2000);
+                if (outTimeKeys.size() == 0) {
+                    return;
+                }
+                for (ZSet.Entry outTimeKey : outTimeKeys) {
+                    byte[] key_bs = outTimeKey.getValue();
+                    if (RKv.HEAD_B[0] == key_bs[0]) {
+                        this.rKv.delCheckTTL(
+                                new String(ArrayUtil.sub(key_bs, 1, key_bs.length + 1), charset),
+                                (int) outTimeKey.getScore());
+                    }
+                }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("clearKV error", e);
         }
     }
 

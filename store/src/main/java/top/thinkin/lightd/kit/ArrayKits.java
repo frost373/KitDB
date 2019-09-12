@@ -3,7 +3,9 @@ package top.thinkin.lightd.kit;
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ArrayKits {
     public static byte[] newArray(Class<?> componentType, int newSize) {
@@ -69,8 +71,8 @@ public class ArrayKits {
     }
 
 
-    public static boolean noRepeate(byte[][] bytess) {
-        List<byte[]> temps = new ArrayList<>(bytess.length);
+    public static boolean noRepeateFinal(List<byte[]> bytess) {
+        List<byte[]> temps = new ArrayList<>(bytess.size());
 
         for (byte[] bytes : bytess) {
             for (byte[] temp : temps) {
@@ -81,5 +83,70 @@ public class ArrayKits {
             temps.add(bytes);
         }
         return true;
+    }
+
+
+    public static class HashEnty {
+        public int hashCode;
+        public byte[] bytes;
+    }
+
+    public static boolean noRepeate(byte[][] bytess) {
+        Map<Integer, List<HashEnty>> map = new HashMap<>(bytess.length);
+        for (byte[] bytes : bytess) {
+
+            HashEnty hashEnty = new HashEnty();
+            hashEnty.hashCode = hashCode(bytes);
+            hashEnty.bytes = bytes;
+            int hash = hash(hashEnty.hashCode, bytess.length);
+            List<HashEnty> list = map.computeIfAbsent(hash, k -> new ArrayList<>());
+            list.add(hashEnty);
+        }
+
+        for (int key : map.keySet()) {
+            List<HashEnty> list = map.get(key);
+            if (list.size() > 1) {
+                if (!noRepeate2(list)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    public static boolean noRepeate2(List<HashEnty> bytess) {
+        Map<Integer, List<byte[]>> map = new HashMap<>(bytess.size());
+        for (HashEnty hashEnty : bytess) {
+            int hash = hash(hashEnty.hashCode, bytess.size());
+            List<byte[]> list = map.computeIfAbsent(hash, k -> new ArrayList<>());
+            list.add(hashEnty.bytes);
+        }
+
+        for (int key : map.keySet()) {
+            List<byte[]> list = map.get(key);
+            if (list.size() > 1) {
+                if (!noRepeateFinal(list)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+
+    private static int hash(Object key, int size) {
+        int h;
+        return (size - 1) & ((key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16));
+    }
+
+    private static int hashCode(byte[] value) {
+        int h = 0;
+        byte val[] = value;
+        for (int i = 0; i < value.length; i++) {
+            h = 31 * h + val[i];
+        }
+        return h;
     }
 }
