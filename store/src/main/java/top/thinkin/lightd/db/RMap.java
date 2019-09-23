@@ -10,7 +10,6 @@ import top.thinkin.lightd.base.MetaAbs;
 import top.thinkin.lightd.base.MetaDAbs;
 import top.thinkin.lightd.base.SstColumnFamily;
 import top.thinkin.lightd.data.KeyEnum;
-import top.thinkin.lightd.data.ReservedWords;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.kit.ArrayKits;
@@ -87,7 +86,7 @@ public class RMap extends RCollection {
             }
 
             if (metaV.getTimestamp() != -1) {
-                db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
+                setTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
             }
 
             commit();
@@ -129,7 +128,7 @@ public class RMap extends RCollection {
             }
 
             if (metaV.getTimestamp() != -1) {
-                db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
+                setTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
             }
             commit();
         } finally {
@@ -320,8 +319,8 @@ public class RMap extends RCollection {
             metaV.setTimestamp(-1);
             start();
             putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+            delTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
 
-            db.getzSet().remove(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes());
             commit();
         } finally {
             release();
@@ -338,11 +337,12 @@ public class RMap extends RCollection {
                 metaV = new Meta(0, -1, db.versionSequence().incr());
             }
             start();
-            if (ttl != -1) {
-                metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
-            }
+            delTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
+            metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
+
             putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
+            setTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
+
             commit();
         } finally {
             release();

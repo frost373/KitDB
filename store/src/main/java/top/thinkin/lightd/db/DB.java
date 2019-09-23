@@ -120,7 +120,7 @@ public class DB extends DBAbs {
         }
     }
 
-    public ZSet getzSet() {
+    public ZSet getzSet2() {
         return zSet;
     }
 

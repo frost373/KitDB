@@ -10,7 +10,6 @@ import top.thinkin.lightd.base.MetaAbs;
 import top.thinkin.lightd.base.MetaDAbs;
 import top.thinkin.lightd.base.SstColumnFamily;
 import top.thinkin.lightd.data.KeyEnum;
-import top.thinkin.lightd.data.ReservedWords;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.kit.ArrayKits;
@@ -100,13 +99,14 @@ public class RList extends RCollection {
             MetaV metaV = getMeta(key_b);
 
             DAssert.notNull(metaV, ErrorType.NOT_EXIST, "The List does not exist.");
+            delTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
 
-            if (ttl != -1) {
-                metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
-            }
+            metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
+
             putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+            setTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
             commit();
-            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
+
         } finally {
             lock.unlock(key);
             release();
@@ -124,8 +124,8 @@ public class RList extends RCollection {
             start();
             metaV.setTimestamp(-1);
             putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+            delTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
             commit();
-            db.getzSet().remove(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes());
         } finally {
             lock.unlock(key);
             release();
@@ -336,10 +336,10 @@ public class RList extends RCollection {
                 //写入Meta
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             }
-            commit();
             if (ttl != -1) {
-                db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
+                setTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
             }
+            commit();
         } finally {
             lock.unlock(key);
             release();
@@ -403,10 +403,11 @@ public class RList extends RCollection {
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
 
             }
-            commit();
+
             if (ttl != -1) {
-                db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
+                setTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
             }
+            commit();
         } finally {
             lock.unlock(key);
             release();

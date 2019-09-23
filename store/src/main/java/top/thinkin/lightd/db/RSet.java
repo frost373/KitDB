@@ -10,7 +10,6 @@ import top.thinkin.lightd.base.MetaAbs;
 import top.thinkin.lightd.base.MetaDAbs;
 import top.thinkin.lightd.base.SstColumnFamily;
 import top.thinkin.lightd.data.KeyEnum;
-import top.thinkin.lightd.data.ReservedWords;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.kit.ArrayKits;
@@ -142,7 +141,7 @@ public class RSet extends RCollection {
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             }
             if (metaV.getTimestamp() != -1) {
-                db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
+                setTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
             }
             commit();
         } finally {
@@ -228,7 +227,8 @@ public class RSet extends RCollection {
             metaV.setTimestamp(-1);
             start();
             putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-            db.getzSet().remove(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes());
+            delTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
+
             commit();
         } finally {
             lock.unlock(key);
@@ -243,9 +243,10 @@ public class RSet extends RCollection {
             byte[] key_b = getKey(key);
             MetaV metaV = getMeta(key_b);
             start();
+            delTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
             metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
             putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-            db.getzSet().add(ReservedWords.ZSET_KEYS.TTL, metaV.convertMetaBytes().toBytes(), metaV.getTimestamp());
+            setTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
             commit();
         } finally {
             lock.unlock(key);

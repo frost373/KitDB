@@ -33,7 +33,7 @@ public abstract class RBase {
     }
 
 
-    public void setTimer(int time, KeyEnum keyEnum, byte[] value) {
+    public void setTimer(KeyEnum keyEnum, int time, byte[] value) {
 
         TimerStore.put(this, keyEnum.getKey(), time, value);
 
