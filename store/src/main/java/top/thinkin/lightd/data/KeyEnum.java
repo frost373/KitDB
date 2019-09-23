@@ -9,7 +9,7 @@ public enum KeyEnum {
     SEQ("U"),
     ZSET("Z"), ZSET_S("z"), ZSET_V("a"),
 
-    COLLECT_TIMER("R");
+    COLLECT_TIMER("XCT"), KV_TIMER("XKT");
 
 
 

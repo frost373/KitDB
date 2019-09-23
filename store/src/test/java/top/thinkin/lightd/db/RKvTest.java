@@ -376,7 +376,7 @@ public class RKvTest {
                 Assert.assertNull(bytes);
             }
         } finally {
-            kv.delPrefix(head);
+            //kv.delPrefix(head);
 
         }
     }

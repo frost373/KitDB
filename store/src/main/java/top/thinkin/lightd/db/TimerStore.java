@@ -12,35 +12,37 @@ import top.thinkin.lightd.kit.BytesUtil;
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class TimerStore {
+public class TimerStore {
 
 
     public static byte[] DEF = "".getBytes();
 
-    public abstract byte[] getHead();
-
-    public void put(RBase rBase, int time, byte[] value) {
-        rBase.putDB(ArrayKits.addAll(getHead(), ArrayKits.intToBytes(time), value), DEF, SstColumnFamily.DEFAULT);
+    private static byte[] getHead(String headStr) {
+        return headStr.getBytes();
     }
 
-    public void del(RBase rBase, int time, byte[] value) {
-        rBase.deleteDB(ArrayKits.addAll(getHead(), ArrayKits.intToBytes(time), value), SstColumnFamily.DEFAULT);
+    public static void put(RBase rBase, String head, int time, byte[] value) {
+        rBase.putDB(ArrayKits.addAll(getHead(head), ArrayKits.intToBytes(time), value), DEF, SstColumnFamily.DEFAULT);
     }
 
-    public List<TData> rangeDel(DB db, int start, int end, int limit) throws RocksDBException {
+    public static void del(RBase rBase, String head, int time, byte[] value) {
+        rBase.deleteDB(ArrayKits.addAll(getHead(head), ArrayKits.intToBytes(time), value), SstColumnFamily.DEFAULT);
+    }
+
+    public static List<TData> rangeDel(DB db, String head, int start, int end, int limit) throws RocksDBException {
         List<TData> entries = new ArrayList<>();
         List<byte[]> dels = new ArrayList<>();
 
         try (final RocksIterator iterator = db.newIterator(SstColumnFamily.DEFAULT)) {
-            iterator.seek(ArrayKits.addAll(getHead(), ArrayKits.intToBytes(start)));
+            iterator.seek(ArrayKits.addAll(getHead(head), ArrayKits.intToBytes(start)));
             long index = 0;
             int count = 0;
             while (iterator.isValid() && index <= end && count < limit) {
                 byte[] key_bs = iterator.key();
-                if (!BytesUtil.checkHead(getHead(), key_bs)) break;
+                if (!BytesUtil.checkHead(getHead(head), key_bs)) break;
                 TData tData = new TData();
-                tData.setTime(ArrayKits.bytesToInt(ArrayUtil.sub(key_bs, 1, 5), 0));
-                tData.setValue(ArrayUtil.sub(key_bs, 5, key_bs.length));
+                tData.setTime(ArrayKits.bytesToInt(ArrayUtil.sub(key_bs, 3, 7), 0));
+                tData.setValue(ArrayUtil.sub(key_bs, 7, key_bs.length));
                 index = tData.getTime();
                 if (index > end) {
                     break;
@@ -70,4 +72,5 @@ public abstract class TimerStore {
         private int time;
         private byte[] value;
     }
+
 }

@@ -71,7 +71,7 @@ public class RKv extends RBase {
             int time = (int) (System.currentTimeMillis() / 1000 + ttl);
             putDB(ArrayKits.addAll(HEAD_TTL, keyb), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
 
-            setTimer(time, key_b);
+            setTimer(time, KeyEnum.KV_TIMER, key_b);
 
             commit();
             return seq;
@@ -137,7 +137,7 @@ public class RKv extends RBase {
                     byte[] key_b = ArrayKits.addAll(HEAD_B, getKey(entry.getKey()));
                     putDB(key_b, entry.getValue(), SstColumnFamily.DEFAULT);
                     putDB(ArrayKits.addAll(HEAD_TTL, getKey(entry.getKey())), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
-                    setTimer(time, key_b);
+                    setTimer(time, KeyEnum.KV_TIMER, key_b);
                     i++;
                 } finally {
                     lock.unlock(entry.getKey());
@@ -158,8 +158,8 @@ public class RKv extends RBase {
             putDB(key_b, value, SstColumnFamily.DEFAULT);
             int time = (int) (System.currentTimeMillis() / 1000) + ttl;
             putDB(ArrayKits.addAll(HEAD_TTL, keyb), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
+            setTimer(time, KeyEnum.KV_TIMER, key_b);
             commit();
-            setTimer(time, key_b);
         } finally {
             lock.unlock(key);
             release();
@@ -174,8 +174,8 @@ public class RKv extends RBase {
             byte[] key_b = ArrayKits.addAll(HEAD_B, keyb);
             int time = (int) (System.currentTimeMillis() / 1000) + ttl;
             putDB(ArrayKits.addAll(HEAD_TTL, keyb), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
+            setTimer(time, KeyEnum.KV_TIMER, key_b);
             commit();
-            setTimer(time, key_b);
         } finally {
             lock.unlock(key);
             release();

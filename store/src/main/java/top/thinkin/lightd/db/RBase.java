@@ -4,6 +4,7 @@ import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.SstColumnFamily;
+import top.thinkin.lightd.data.KeyEnum;
 
 import java.nio.charset.Charset;
 import java.util.List;
@@ -32,9 +33,16 @@ public abstract class RBase {
     }
 
 
-    public void setTimer(int time, byte[] value) {
-        db.getKvTimerStore().put(this, time, value);
+    public void setTimer(int time, KeyEnum keyEnum, byte[] value) {
+
+        TimerStore.put(this, keyEnum.getKey(), time, value);
+
     }
+
+    public void delTimer(KeyEnum keyEnum, int time, byte[] value) {
+        TimerStore.del(this, keyEnum.getKey(), time, value);
+    }
+
 
     public void commit() throws Exception {
         db.commit();

@@ -6,8 +6,8 @@ import org.rocksdb.*;
 import top.thinkin.lightd.base.BinLog;
 import top.thinkin.lightd.base.TableConfig;
 import top.thinkin.lightd.base.VersionSequence;
+import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.data.ReservedWords;
-import top.thinkin.lightd.db.internal.KVTimerStore;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.kit.BytesUtil;
@@ -40,7 +40,6 @@ public class DB extends DBAbs {
     private RocksDB binLogDB;
     private BinLog binLog;
 
-    private KVTimerStore kvTimerStore = new KVTimerStore();
 
     static ScheduledThreadPoolExecutor stp = new ScheduledThreadPoolExecutor(4);
 
@@ -199,19 +198,20 @@ public class DB extends DBAbs {
 
     public synchronized void clearKV() {
         try {
+            int end = (int) (System.currentTimeMillis() / 1000);
             for (int i = 0; i < 10; i++) {
 
-                List<ZSet.Entry> outTimeKeys = zSet.rangeDel(ReservedWords.ZSET_KEYS.TTL_KV,
-                        0, System.currentTimeMillis() / 1000, 2000);
+                List<TimerStore.TData> outTimeKeys = TimerStore.rangeDel(this,
+                        KeyEnum.KV_TIMER.getKey(), 0, end, 2000);
                 if (outTimeKeys.size() == 0) {
                     return;
                 }
-                for (ZSet.Entry outTimeKey : outTimeKeys) {
+                for (TimerStore.TData outTimeKey : outTimeKeys) {
                     byte[] key_bs = outTimeKey.getValue();
                     if (RKv.HEAD_B[0] == key_bs[0]) {
                         this.rKv.delCheckTTL(
                                 new String(ArrayUtil.sub(key_bs, 1, key_bs.length + 1), charset),
-                                (int) outTimeKey.getScore());
+                                outTimeKey.getTime());
                     }
                 }
             }
@@ -316,7 +316,4 @@ public class DB extends DBAbs {
     }
 
 
-    public KVTimerStore getKvTimerStore() {
-        return kvTimerStore;
-    }
 }
