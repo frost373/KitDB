@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
+import top.thinkin.lightd.base.KeyDoubletLock;
 import top.thinkin.lightd.base.MetaAbs;
 import top.thinkin.lightd.base.MetaDAbs;
 import top.thinkin.lightd.base.SstColumnFamily;
@@ -92,7 +93,7 @@ public class RList extends RCollection {
     }
 
     public void ttl(String key, int ttl) throws Exception {
-        lock.lock(key);
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
         byte[] key_b = getKey(key);
         try {
             start();
@@ -108,13 +109,13 @@ public class RList extends RCollection {
             commit();
 
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
 
     public void delTtl(String key) throws Exception {
-        lock.lock(key);
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         if (metaV == null) {
@@ -127,7 +128,7 @@ public class RList extends RCollection {
             delTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
@@ -160,6 +161,7 @@ public class RList extends RCollection {
         try {
             start();
             delete(key_b, metaV);
+            commit();
         } finally {
             release();
         }
@@ -167,7 +169,7 @@ public class RList extends RCollection {
 
 
     public void delete(String key) throws Exception {
-        lock.lock(key);
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
         byte[] key_b = getKey(key);
 
         MetaV metaV = getMeta(key_b);
@@ -180,7 +182,7 @@ public class RList extends RCollection {
             delete(key_b, metaV);
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
@@ -246,7 +248,7 @@ public class RList extends RCollection {
     }
 
     public List<byte[]> blpop(String key, int num) throws Exception {
-        lock.lock(key);
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
         byte[] key_b = getKey(key);
 
         List<byte[]> list = new ArrayList<>();
@@ -288,7 +290,7 @@ public class RList extends RCollection {
         } catch (Exception e) {
             throw e;
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
@@ -296,7 +298,7 @@ public class RList extends RCollection {
 
 
     public void addAllMayTTL(String key, List<byte[]> vs, int ttl) throws Exception {
-        lock.lock(key);
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
         byte[] key_b = getKey(key);
         try {
             start();
@@ -341,14 +343,14 @@ public class RList extends RCollection {
             }
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
 
 
     public void deleteFast(String key) throws Exception {
-        lock.lock(key);
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
         byte[] key_b = getKey(key);
 
         MetaV metaV = getMeta(key_b);
@@ -358,7 +360,7 @@ public class RList extends RCollection {
         try {
             deleteFast(key_b, metaV);
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
         }
     }
 
@@ -372,7 +374,7 @@ public class RList extends RCollection {
      * @throws RocksDBException
      */
     public void addMayTTL(String key, byte[] v, int ttl) throws Exception {
-        lock.lock(key);
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
         byte[] key_b = getKey(key);
         try {
             start();
@@ -409,7 +411,7 @@ public class RList extends RCollection {
             }
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
@@ -464,7 +466,7 @@ public class RList extends RCollection {
     }
 
     public void set(String key, long i, byte[] v) throws Exception {
-        lock.lock(key);
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
         try {
             byte[] key_b = getKey(key);
             MetaV metaV = getMeta(key_b);
@@ -480,7 +482,7 @@ public class RList extends RCollection {
             putDB(valueKD.toBytes(), v, SstColumnFamily.DEFAULT);
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }

@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
+import top.thinkin.lightd.base.KeyDoubletLock;
 import top.thinkin.lightd.base.MetaAbs;
 import top.thinkin.lightd.base.MetaDAbs;
 import top.thinkin.lightd.base.SstColumnFamily;
@@ -43,10 +44,11 @@ public class RSet extends RCollection {
      * @throws Exception
      */
     public List<byte[]> pop(String key, int num) throws Exception {
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+
         List<byte[]> values = new ArrayList<>();
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
-        lock.lock(key);
         try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
             start();
             List<byte[]> dels = new ArrayList<>();
@@ -67,7 +69,7 @@ public class RSet extends RCollection {
                 removeDo(metaV, dels);
                 commit();
             } finally {
-                lock.unlock(key);
+                lock.unlock(lockEntity);
                 release();
             }
             return values;
@@ -82,6 +84,8 @@ public class RSet extends RCollection {
      */
     public void remove(String key, byte[]... values) throws Exception {
         DAssert.notEmpty(values, ErrorType.EMPTY, "values is empty");
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         List<byte[]> dels = new ArrayList<>();
@@ -93,14 +97,13 @@ public class RSet extends RCollection {
                 dels.add(sDataD.toBytes());
             }
         }
-        lock.lock(key);
         try {
             start();
             removeDo(metaV, dels);
             putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             commit();
         } catch (Exception e) {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
@@ -123,9 +126,10 @@ public class RSet extends RCollection {
     public void addMayTTL(String key, int ttl, byte[]... values) throws Exception {
         DAssert.notEmpty(values, ErrorType.EMPTY, "values is empty");
         DAssert.isTrue(ArrayKits.noRepeate(values), ErrorType.REPEATED_KEY, "Repeated memebers");
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+
         byte[] key_b = getKey(key);
         start();
-        lock.lock(key);
         try {
             byte[] k_v = getDB(key_b, SstColumnFamily.META);
             MetaV metaV = addCheck(key_b, k_v);
@@ -145,7 +149,7 @@ public class RSet extends RCollection {
             }
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
@@ -164,15 +168,16 @@ public class RSet extends RCollection {
 
     @Override
     public void delete(String key) throws Exception {
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+
         byte[] key_b = getKey(key);
-        lock.lock(key);
         try {
             start();
             MetaV metaV = getMeta(key_b);
             delete(key_b, metaV.convertMetaBytes());
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
@@ -183,17 +188,18 @@ public class RSet extends RCollection {
     }
 
     public void deleteFast(String key) throws Exception {
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+
         byte[] key_b = getKey(key);
         byte[] k_v = getDB(key_b, SstColumnFamily.META);
         if (k_v == null) {
             return;
         }
         MetaV meta = MetaD.build(k_v).convertMetaV();
-        lock.lock(key);
         try {
             deleteFast(key_b, meta);
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
         }
     }
 
@@ -220,7 +226,7 @@ public class RSet extends RCollection {
 
     @Override
     public void delTtl(String key) throws Exception {
-        lock.lock(key);
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
         try {
             byte[] key_b = getKey(key);
             MetaV metaV = getMeta(key_b);
@@ -231,14 +237,14 @@ public class RSet extends RCollection {
 
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
 
     @Override
     public void ttl(String key, int ttl) throws Exception {
-        lock.lock(key);
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
         try {
             byte[] key_b = getKey(key);
             MetaV metaV = getMeta(key_b);
@@ -249,7 +255,7 @@ public class RSet extends RCollection {
             setTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }

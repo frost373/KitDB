@@ -435,8 +435,19 @@ public class RListTest {
     }
 
     @Test
-    public void deleteFast() {
-
+    public void deleteFast() throws Exception {
+        String head = "deleteFast0";
+        RList list = db.getList();
+        int num = 10 * 10000;
+        try {
+            for (int i = 0; i < num; i++) {
+                list.add(head, ("hello" + i).getBytes());
+            }
+            list.deleteFast(head);
+            Thread.sleep(5000);
+        } finally {
+            // list.delete(head);
+        }
     }
 
     @Test

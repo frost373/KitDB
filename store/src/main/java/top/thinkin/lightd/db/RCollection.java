@@ -2,25 +2,21 @@ package top.thinkin.lightd.db;
 
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
+import top.thinkin.lightd.base.KeyDoubletLock;
 import top.thinkin.lightd.base.MetaAbs;
 import top.thinkin.lightd.base.MetaDAbs;
-import top.thinkin.lightd.base.SegmentStrLock;
 import top.thinkin.lightd.base.SstColumnFamily;
 import top.thinkin.lightd.kit.ArrayKits;
 
 public abstract class RCollection extends RBase {
-    protected final SegmentStrLock lock;
+    protected final KeyDoubletLock lock;
 
 
     public RCollection(boolean isLog, int lockSize) {
         super(isLog);
-        this.lock = new SegmentStrLock(lockSize);
+        this.lock = db.getKeySegmentLockManager().createLock(2000);
     }
 
-    public synchronized void deleteFast(byte[] key_b) throws Exception {
-        MetaAbs metaV = getMeta(key_b);
-        deleteFast(key_b, metaV);
-    }
 
     protected abstract <T extends MetaAbs> T getMeta(byte[] key_b) throws Exception;
 

@@ -4,10 +4,10 @@ import cn.hutool.core.util.ArrayUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.rocksdb.*;
 import top.thinkin.lightd.base.BinLog;
+import top.thinkin.lightd.base.KeySegmentLockManager;
 import top.thinkin.lightd.base.TableConfig;
 import top.thinkin.lightd.base.VersionSequence;
 import top.thinkin.lightd.data.KeyEnum;
-import top.thinkin.lightd.data.ReservedWords;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.kit.BytesUtil;
@@ -39,10 +39,9 @@ public class DB extends DBAbs {
 
     private RocksDB binLogDB;
     private BinLog binLog;
+    private KeySegmentLockManager keySegmentLockManager;
 
-
-    static ScheduledThreadPoolExecutor stp = new ScheduledThreadPoolExecutor(4);
-
+    ScheduledThreadPoolExecutor stp = new ScheduledThreadPoolExecutor(4);
 
 
     private static List<ColumnFamilyDescriptor> getColumnFamilyDescriptor() {
@@ -138,47 +137,17 @@ public class DB extends DBAbs {
 
     public synchronized void checkTTL() {
         try {
-            int count = 0;
-            List<ZSet.Entry> outTimeKeys = zSet.rangeDel(ReservedWords.ZSET_KEYS.TTL,
-                    0, System.currentTimeMillis() / 1000, 10 * 10000);
-
-            for (ZSet.Entry outTimeKey : outTimeKeys) {
-                count++;
-                byte[] key_bs = outTimeKey.getValue();
-
-                if (ZSet.HEAD_B[0] == key_bs[0]) {
-                    //ZSet.deleteFast(key_bs, this);
+            int end = (int) (System.currentTimeMillis() / 1000);
+            for (int i = 0; i < 10; i++) {
+                List<TimerStore.TData> outTimeKeys = TimerStore.rangeDel(this,
+                        KeyEnum.COLLECT_TIMER.getKey(), 0, end, 2000);
+                if (outTimeKeys.size() == 0) {
+                    return;
                 }
-
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-
-    public synchronized void clearKV2() {
-        try {
-            List<ZSet.Entry> outTimeKeys = zSet.rangeDel(ReservedWords.ZSET_KEYS.TTL_KV,
-                    0, System.currentTimeMillis() / 1000, 10 * 10000);
-            if (outTimeKeys.size() > 0) {
-
-            } else {
-                return;
-            }
-            ZSet.Entry[] entries = new ZSet.Entry[outTimeKeys.size()];
-            outTimeKeys.toArray(entries);
-            zSet.add(ReservedWords.ZSET_KEYS.TTL_KV_SOTRE, entries);
-            try (RIterator<ZSet> iterator = zSet.iterator(ReservedWords.ZSET_KEYS.TTL_KV_SOTRE)) {
-                while (iterator.hasNext()) {
-                    ZSet.Entry entry = (ZSet.Entry) iterator.next();
-                    byte[] key_bs = entry.getValue();
-                    if (RKv.HEAD_B[0] == key_bs[0]) {
-                        this.rKv.delCheckTTL(
-                                new String(ArrayUtil.sub(key_bs, 1, key_bs.length + 1), charset),
-                                (int) entry.getScore());
-                        zSet.remove(ReservedWords.ZSET_KEYS.TTL_KV_SOTRE, entry.getValue());
+                for (TimerStore.TData outTimeKey : outTimeKeys) {
+                    byte[] key_bs = outTimeKey.getValue();
+                    if (RList.HEAD_B[0] == key_bs[0]) {
+                        this.list.deleteFast(new String(ArrayUtil.sub(key_bs, 1, key_bs.length + 1), charset));
                     }
                 }
             }
@@ -186,6 +155,7 @@ public class DB extends DBAbs {
             log.error("clearKV error", e);
         }
     }
+
 
     /**
      * 检测泄露的KV——TTL
@@ -253,7 +223,7 @@ public class DB extends DBAbs {
 
 
         db.writeOptions = new WriteOptions();
-        stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
+        db.stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
         //stp.scheduleWithFixedDelay(db::checkTTL, 2, 2, TimeUnit.SECONDS);
 
         return db;
@@ -292,17 +262,17 @@ public class DB extends DBAbs {
 
         db.writeOptions = new WriteOptions();
         if (autoclear) {
-            stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
-            stp.scheduleWithFixedDelay(db::clearKV, 1, 1, TimeUnit.SECONDS);
+            db.stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
+            db.stp.scheduleWithFixedDelay(db::clearKV, 1, 1, TimeUnit.SECONDS);
         }
-        stp.scheduleWithFixedDelay(db::checkTTL, 1, 1, TimeUnit.SECONDS);
+        db.stp.scheduleWithFixedDelay(db::checkTTL, 1, 1, TimeUnit.SECONDS);
 
         Options optionsBinLog = new Options();
         optionsBinLog.setCreateIfMissing(true);
 
         db.binLogDB = RocksDB.open(optionsBinLog, "D:\\temp\\logs");
         db.binLog = new BinLog(db.binLogDB);
-
+        db.keySegmentLockManager = new KeySegmentLockManager(db.stp);
         return db;
     }
 
@@ -316,4 +286,7 @@ public class DB extends DBAbs {
     }
 
 
+    public KeySegmentLockManager getKeySegmentLockManager() {
+        return keySegmentLockManager;
+    }
 }

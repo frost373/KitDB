@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
+import top.thinkin.lightd.base.KeyDoubletLock;
 import top.thinkin.lightd.base.MetaAbs;
 import top.thinkin.lightd.base.MetaDAbs;
 import top.thinkin.lightd.base.SstColumnFamily;
@@ -61,7 +62,7 @@ public class RMap extends RCollection {
 
     public void putTTL(String key, byte[] mkey, byte[] value, int ttl) throws Exception {
         byte[] key_b = getKey(key);
-        lock.lock(key);
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
         try {
             start();
             byte[] k_v = getDB(key_b, SstColumnFamily.META);
@@ -91,7 +92,7 @@ public class RMap extends RCollection {
 
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
@@ -99,7 +100,7 @@ public class RMap extends RCollection {
 
     public void putMayTTL(String key, int ttl, Entry... entries) throws Exception {
         byte[] key_b = getKey(key);
-
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
         DAssert.notEmpty(entries, ErrorType.EMPTY, "entries is empty");
         byte[][] bytess = new byte[entries.length][];
         for (int i = 0; i < entries.length; i++) {
@@ -107,7 +108,6 @@ public class RMap extends RCollection {
         }
         DAssert.isTrue(ArrayKits.noRepeate(bytess), ErrorType.REPEATED_KEY, "Repeated keys");
         start();
-        lock.lock(key);
         try {
             byte[] k_v = getDB(key_b, SstColumnFamily.META);
             Meta metaV = addCheck(key_b, k_v);
@@ -132,7 +132,7 @@ public class RMap extends RCollection {
             }
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
@@ -192,13 +192,14 @@ public class RMap extends RCollection {
 
     public void remove(String key, byte[]... keys) throws Exception {
         DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+
         byte[] key_b = getKey(key);
 
         Meta metaV = getMeta(key_b);
         if (metaV == null) {
             return;
         }
-        lock.lock(key);
         try {
             start();
             for (byte[] mkey : keys) {
@@ -213,7 +214,7 @@ public class RMap extends RCollection {
             putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
@@ -229,17 +230,18 @@ public class RMap extends RCollection {
 
     @Override
     public void delete(String key) throws Exception {
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+
         byte[] key_b = getKey(key);
         Meta meta = getMeta(key_b);
         if (meta == null) {
             return;
         }
-        lock.lock(key);
         try {
             start();
             delete(key_b, meta);
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
@@ -251,7 +253,7 @@ public class RMap extends RCollection {
 
 
     public void deleteFast(String key) throws Exception {
-        lock.lock(key);
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
         try {
             byte[] key_b = getKey(key);
             Meta metaV = getMeta(key_b);
@@ -260,7 +262,7 @@ public class RMap extends RCollection {
             }
             deleteFast(key_b, metaV);
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
         }
     }
 
@@ -309,6 +311,8 @@ public class RMap extends RCollection {
 
     @Override
     public void delTtl(String key) throws Exception {
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+
         byte[] key_b = getKey(key);
 
         Meta metaV = getMeta(key_b);
@@ -323,12 +327,15 @@ public class RMap extends RCollection {
 
             commit();
         } finally {
+            lock.unlock(lockEntity);
             release();
         }
     }
 
     @Override
     public void ttl(String key, int ttl) throws Exception {
+        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+
         byte[] key_b = getKey(key);
 
         try {
@@ -345,6 +352,7 @@ public class RMap extends RCollection {
 
             commit();
         } finally {
+            lock.unlock(lockEntity);
             release();
         }
     }
