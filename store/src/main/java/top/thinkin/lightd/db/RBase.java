@@ -1,10 +1,12 @@
 package top.thinkin.lightd.db;
 
+import cn.hutool.core.util.ArrayUtil;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.SstColumnFamily;
 import top.thinkin.lightd.data.KeyEnum;
+import top.thinkin.lightd.kit.ArrayKits;
 
 import java.nio.charset.Charset;
 import java.util.List;
@@ -37,6 +39,33 @@ public abstract class RBase {
 
         TimerStore.put(this, keyEnum.getKey(), time, value);
 
+    }
+
+
+    public void setTimerCollection(KeyEnum keyEnum, int time, byte[] key_b, byte[] meta_b) {
+        byte[] key_b_size_b = ArrayKits.intToBytes(key_b.length);
+        TimerStore.put(this, keyEnum.getKey(), time, ArrayKits.addAll(key_b_size_b, key_b, meta_b));
+    }
+
+
+    public void delTimerCollection(KeyEnum keyEnum, int time, byte[] key_b, byte[] meta_b) {
+        byte[] key_b_size_b = ArrayKits.intToBytes(key_b.length);
+        TimerStore.del(this, keyEnum.getKey(), time, ArrayKits.addAll(key_b_size_b, key_b, meta_b));
+    }
+
+    public static class TimerCollection {
+        public byte[] key_b;
+        public byte[] meta_b;
+
+    }
+
+    public static TimerCollection getTimerCollection(byte[] value) {
+        byte[] key_b_size_b = ArrayUtil.sub(value, 0, 4);
+        int size = ArrayKits.bytesToInt(key_b_size_b, 0);
+        TimerCollection timerCollection = new TimerCollection();
+        timerCollection.key_b = ArrayUtil.sub(value, 4, 4 + size);
+        timerCollection.meta_b = ArrayUtil.sub(value, 4 + size, value.length);
+        return timerCollection;
     }
 
     public void delTimer(KeyEnum keyEnum, int time, byte[] value) {

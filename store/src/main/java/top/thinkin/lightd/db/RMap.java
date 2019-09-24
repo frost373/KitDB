@@ -24,8 +24,7 @@ public class RMap extends RCollection {
 
 
     public RMap(DB db) {
-        super(false, 128);
-        this.db = db;
+        super(db, false, 128);
     }
 
     protected byte[] getKey(String key) {

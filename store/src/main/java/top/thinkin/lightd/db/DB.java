@@ -137,17 +137,17 @@ public class DB extends DBAbs {
         try {
             int end = (int) (System.currentTimeMillis() / 1000);
             for (int i = 0; i < 10; i++) {
-                List<TimerStore.TData> outTimeKeys = TimerStore.rangeDel(this,
-                        KeyEnum.COLLECT_TIMER.getKey(), 0, end, 2000);
-                if (outTimeKeys.size() == 0) {
-                    return;
-                }
-                for (TimerStore.TData outTimeKey : outTimeKeys) {
-                    byte[] key_bs = outTimeKey.getValue();
-                    if (RList.HEAD_B[0] == key_bs[0]) {
-                        this.list.deleteFast(new String(ArrayUtil.sub(key_bs, 1, key_bs.length + 1), charset));
-                    }
-                }
+                TimerStore.rangeDel(this,
+                        KeyEnum.COLLECT_TIMER.getKey(), 0, end, 500, dataList -> {
+                            List<TimerStore.TData> outTimeKeys = dataList;
+                            for (TimerStore.TData outTimeKey : outTimeKeys) {
+                                byte[] value = outTimeKey.getValue();
+                                RBase.TimerCollection timerCollection = RBase.getTimerCollection(value);
+                                if (RList.HEAD_B[0] == timerCollection.meta_b[0]) {
+                                    this.list.deleteFast(timerCollection.key_b, timerCollection.meta_b);
+                                }
+                            }
+                        });
             }
         } catch (Exception e) {
             log.error("clearKV error", e);
@@ -251,11 +251,7 @@ public class DB extends DBAbs {
             DAssert.isTrue(BytesUtil.compare(version, DB_VERSION) == 0, ErrorType.STORE_VERSION,
                     "Store versions must be " + new String(DB_VERSION) + ", but now is " + new String(version));
         }
-        db.rKv = new RKv(db);
-        db.zSet = new ZSet(db);
-        db.set = new RSet(db);
-        db.list = new RList(db);
-        db.map = new RMap(db);
+
 
         db.writeOptions = new WriteOptions();
         if (autoclear) {
@@ -270,6 +266,13 @@ public class DB extends DBAbs {
         db.binLogDB = RocksDB.open(optionsBinLog, "D:\\temp\\logs");
         db.binLog = new BinLog(db.binLogDB);
         db.keySegmentLockManager = new KeySegmentLockManager(db.stp);
+
+        db.rKv = new RKv(db);
+        db.zSet = new ZSet(db);
+        db.set = new RSet(db);
+        db.list = new RList(db);
+        db.map = new RMap(db);
+
         return db;
     }
 

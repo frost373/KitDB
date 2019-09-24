@@ -30,8 +30,7 @@ public class RList extends RCollection {
 
 
     protected RList(DB db) {
-        super(false, 128);
-        this.db = db;
+        super(db, false, 128);
     }
 
     public void add(String key, byte[] v) throws Exception {
@@ -71,12 +70,20 @@ public class RList extends RCollection {
     }
 
 
-    protected MetaV getMeta(byte[] key_b) throws Exception {
-
+    private MetaV getMetaP(byte[] key_b) throws Exception {
         byte[] k_v = getDB(key_b, SstColumnFamily.META);
         if (k_v == null) return null;
 
         MetaV metaV = MetaVD.build(k_v).convertMeta();
+        return metaV;
+    }
+
+    protected MetaV getMeta(byte[] key_b) throws Exception {
+
+        MetaV metaV = getMetaP(key_b);
+        if (metaV == null) {
+            return null;
+        }
         if (metaV.getTimestamp() != -1 && (System.currentTimeMillis() / 1000) - metaV.getTimestamp() >= 0) {
             metaV = null;
         }
@@ -100,12 +107,14 @@ public class RList extends RCollection {
             MetaV metaV = getMeta(key_b);
 
             DAssert.notNull(metaV, ErrorType.NOT_EXIST, "The List does not exist.");
-            delTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
+            delTimerCollection(KeyEnum.COLLECT_TIMER,
+                    metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
 
             metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
 
             putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-            setTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
+            setTimerCollection(KeyEnum.COLLECT_TIMER,
+                    metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
             commit();
 
         } finally {
@@ -123,9 +132,10 @@ public class RList extends RCollection {
         }
         try {
             start();
+            delTimerCollection(KeyEnum.COLLECT_TIMER,
+                    metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
             metaV.setTimestamp(-1);
             putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-            delTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
             commit();
         } finally {
             lock.unlock(lockEntity);
@@ -337,10 +347,13 @@ public class RList extends RCollection {
                 }
                 //写入Meta
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+
+                if (ttl != -1) {
+                    setTimerCollection(KeyEnum.COLLECT_TIMER,
+                            metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                }
             }
-            if (ttl != -1) {
-                setTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
-            }
+
             commit();
         } finally {
             lock.unlock(lockEntity);
@@ -362,6 +375,11 @@ public class RList extends RCollection {
         } finally {
             lock.unlock(lockEntity);
         }
+    }
+
+
+    public void deleteFast(byte[] key_b, byte[] meta_b) throws Exception {
+        deleteFast(key_b, MetaVD.build(meta_b).convertMeta());
     }
 
 
@@ -403,11 +421,10 @@ public class RList extends RCollection {
 
                 //写入Meta
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-
-            }
-
-            if (ttl != -1) {
-                setTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
+                if (ttl != -1) {
+                    setTimerCollection(KeyEnum.COLLECT_TIMER,
+                            metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                }
             }
             commit();
         } finally {
@@ -544,6 +561,14 @@ public class RList extends RCollection {
 
         public byte[] toBytes() {
             byte[] value = ArrayKits.addAll(HEAD_B, this.size, this.left, this.right, this.timestamp, this.version);
+            return value;
+        }
+
+        public byte[] toBytesHead() {
+            byte[] value = ArrayKits.addAll(HEAD_B, ArrayKits.intToBytes(0),
+                    ArrayKits.longToBytes(0),
+                    ArrayKits.longToBytes(0),
+                    ArrayKits.intToBytes(0), this.version);
             return value;
         }
 

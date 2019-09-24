@@ -12,8 +12,9 @@ public abstract class RCollection extends RBase {
     protected final KeyDoubletLock lock;
 
 
-    public RCollection(boolean isLog, int lockSize) {
+    public RCollection(DB db, boolean isLog, int lockSize) {
         super(isLog);
+        this.db = db;
         this.lock = db.getKeySegmentLockManager().createLock(2000);
     }
 

@@ -26,8 +26,7 @@ public class RSet extends RCollection {
     public final static byte[] HEAD_V_B = KeyEnum.SET_V.getBytes();
 
     protected RSet(DB db) {
-        super(false, 128);
-        this.db = db;
+        super(db, false, 128);
     }
 
     protected byte[] getKey(String key) {

@@ -33,9 +33,7 @@ public class ZSet extends RCollection {
 
 
     protected ZSet(DB db) {
-        super(false, 128);
-
-        this.db = db;
+        super(db, false, 128);
     }
 
 

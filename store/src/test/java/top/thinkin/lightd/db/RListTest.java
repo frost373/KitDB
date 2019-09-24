@@ -2,6 +2,7 @@ package top.thinkin.lightd.db;
 
 import cn.hutool.core.collection.CollUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -28,6 +29,12 @@ public class RListTest {
             RocksDB.loadLibrary();
             db = DB.build("D:\\temp\\db", true);
         }
+    }
+
+
+    @After
+    public void after() throws InterruptedException {
+        Thread.sleep(5000);
     }
 
 
@@ -374,7 +381,7 @@ public class RListTest {
     public void ttl() throws Exception {
         String head = "isExist0";
         RList list = db.getList();
-        int num = 10 * 10000;
+        int num = 10000;
         try {
             for (int i = 0; i < num; i++) {
                 list.add(head, ("hello" + i).getBytes());
@@ -386,11 +393,21 @@ public class RListTest {
             }
 
             list.ttl(head, 1);
-            Thread.sleep(1000);
+            list.ttl(head, 2);
+            list.ttl(head, 3);
+            list.ttl(head, 5);
+            Thread.sleep(3000);
+            for (int i = 0; i < num; i++) {
+                byte[] bytes = list.get(head, i);
+                Assert.assertEquals(new String(bytes), ("hello" + i));
+            }
+
+            Thread.sleep(2000);
             for (int i = 0; i < num; i++) {
                 byte[] bytes = list.get(head, i);
                 Assert.assertNull(bytes);
             }
+
         } finally {
             //list.delete(head);
         }
@@ -400,7 +417,7 @@ public class RListTest {
     public void delTtl() throws Exception {
         String head = "delTtl0";
         RList list = db.getList();
-        int num = 10 * 10000;
+        int num = 1;
         try {
             for (int i = 0; i < num; i++) {
                 list.add(head, ("hello" + i).getBytes());
@@ -408,7 +425,7 @@ public class RListTest {
 
             list.ttl(head, 1);
             list.delTtl(head);
-            Thread.sleep(1000);
+            Thread.sleep(6000);
             for (int i = 0; i < num; i++) {
                 byte[] bytes = list.get(head, i);
                 Assert.assertEquals(new String(bytes), ("hello" + i));
@@ -431,8 +448,38 @@ public class RListTest {
 
 
     @Test
-    public void addAllMayTTL() {
+    public void addAllMayTTL() throws Exception {
+        String head = "addAllMayTTL0";
+        RList list = db.getList();
+        int num = 10;
+        List<byte[]> integers = new ArrayList<>();
+        for (int i = 0; i < num; i++) {
+            integers.add(("hello" + i).getBytes());
+        }
 
+        List<List<byte[]>> integers_splits = CollUtil.split(integers, 3000);
+        try {
+
+            for (List<byte[]> integers_split : integers_splits) {
+                list.addAllMayTTL(head, integers_split, 5);
+            }
+            Assert.assertEquals(num, list.size(head));
+            for (int i = 0; i < num; i++) {
+                byte[] bytes = list.get(head, i);
+                Assert.assertEquals(new String(bytes), ("hello" + i));
+            }
+            Thread.sleep(5000);
+
+            Assert.assertEquals(0, list.size(head));
+
+
+            for (int i = 0; i < num; i++) {
+                byte[] bytes = list.get(head, i);
+                Assert.assertNull(bytes);
+            }
+        } finally {
+            //list.delete(head);
+        }
     }
 
     @Test
@@ -459,6 +506,6 @@ public class RListTest {
 
     @Test
     public void set() {
-
+        //Not a necessary test
     }
 }
