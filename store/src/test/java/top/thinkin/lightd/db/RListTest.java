@@ -392,7 +392,7 @@ public class RListTest {
                 Assert.assertNull(bytes);
             }
         } finally {
-            list.delete(head);
+            //list.delete(head);
         }
     }
 
@@ -421,6 +421,7 @@ public class RListTest {
 
     @Test
     public void getTtl() {
+
     }
 
     @Test

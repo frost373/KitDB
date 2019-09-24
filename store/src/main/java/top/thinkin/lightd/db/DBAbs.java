@@ -28,19 +28,15 @@ public abstract class DBAbs {
     protected ColumnFamilyHandle metaHandle;
     protected ColumnFamilyHandle defHandle;
 
-
     protected ThreadLocal<ReadOptions> readOptionsThreadLocal = new ThreadLocal<>();
-
 
     public ReadOptions getSnapshot() {
         return readOptionsThreadLocal.get();
     }
 
-
     protected ThreadLocal<List<DBCommand>> threadLogs = new ThreadLocal<>();
 
     protected ThreadLocal<TransactionEntity> TRANSACTION_ENTITY = new ThreadLocal<>();
-
 
     public void startTran() {
         if (TRANSACTION_ENTITY.get() == null) {

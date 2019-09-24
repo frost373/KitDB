@@ -84,7 +84,6 @@ public class DB extends DBAbs {
         }
     }
 
-
     public RSnapshot createSnapshot() {
         return new RSnapshot(this.rocksDB.getSnapshot());
     }
@@ -92,7 +91,6 @@ public class DB extends DBAbs {
     public VersionSequence versionSequence() {
         return this.versionSequence;
     }
-
 
     public synchronized void clear() {
         try (RocksIterator iterator = this.rocksDB.newIterator()) {
@@ -164,7 +162,6 @@ public class DB extends DBAbs {
     public synchronized void checkKVTTL() {
 
     }
-
 
     public synchronized void clearKV() {
         try {
