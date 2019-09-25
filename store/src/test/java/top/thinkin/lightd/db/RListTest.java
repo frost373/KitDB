@@ -353,6 +353,74 @@ public class RListTest {
     }
 
     @Test
+    public void brpop() throws Exception {
+        String head = "brpop0";
+        RList list = db.getList();
+        try {
+            int num = 10 * 10000;
+            for (int i = 0; i < num; i++) {
+                list.add(head, ("hello" + i).getBytes());
+            }
+
+            int i1 = 1000;
+            int count = 0;
+            for (int i = 0; i < (num / i1); i++) {
+                List<byte[]> pops = list.brpop(head, i1);
+                Assert.assertEquals(i1, pops.size());
+                Assert.assertEquals(num - (i1 * (i + 1)), list.size(head));
+                for (int j = 0; j < i1; j++) {
+                    count++;
+                    Assert.assertEquals(("hello" + (num - count)), new String(pops.get(j)));
+                }
+            }
+
+
+            for (int k = 0; k < 10; k++) {
+                for (int i = 0; i < num; i++) {
+                    list.add(head, ("hello" + i).getBytes());
+                }
+
+                JoinFuture<List> joinFuture = JoinFuture.build(executorService, List.class);
+                for (int i = 0; i < 4; i++) {
+                    joinFuture.add(args -> {
+                        List<byte[]> listJoin = new ArrayList<>();
+                        try {
+                            while (true) {
+                                List<byte[]> pops = list.brpop(head, 1000);
+                                if (pops.size() == 0) {
+                                    break;
+                                }
+                                listJoin.addAll(pops);
+                            }
+
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                        return listJoin;
+                    });
+                }
+                List<List> joins = joinFuture.join();
+                List<String> all = new ArrayList<>();
+                for (List<byte[]> join : joins) {
+                    for (byte[] bytes : join) {
+                        all.add(new String(bytes));
+                    }
+                }
+                Assert.assertEquals(num, all.size());
+                Set<String> sets = new HashSet<>(all);
+                for (int i = 0; i < num; i++) {
+                    Assert.assertTrue(sets.contains("hello" + i));
+                }
+
+            }
+
+
+        } finally {
+            list.delete(head);
+        }
+    }
+
+    @Test
     public void isExist() throws Exception {
         String head = "isExist0";
         RList list = db.getList();
@@ -508,4 +576,6 @@ public class RListTest {
     public void set() {
         //Not a necessary test
     }
+
+
 }
