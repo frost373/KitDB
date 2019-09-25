@@ -38,7 +38,9 @@ public class DB extends DBAbs {
     private final static byte[] DEL_HEAD = "D".getBytes();
 
     private RocksDB binLogDB;
+
     private BinLog binLog;
+
     private KeySegmentLockManager keySegmentLockManager;
 
     ScheduledThreadPoolExecutor stp = new ScheduledThreadPoolExecutor(4);
@@ -207,7 +209,6 @@ public class DB extends DBAbs {
 
         TransactionDBOptions transactionDBOptions = new TransactionDBOptions();
         TransactionDB rocksDB = TransactionDB.open(options, transactionDBOptions, dir);
-
         db.rocksDB = rocksDB;
         db.openTransaction = true;
         db.versionSequence = new VersionSequence(db.rocksDB);
