@@ -1,7 +1,6 @@
 package top.thinkin.lightd.db;
 
 import cn.hutool.core.util.ArrayUtil;
-import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.SstColumnFamily;
@@ -75,17 +74,6 @@ public abstract class RBase {
 
     public void commit() throws Exception {
         db.commit();
-    }
-
-    private ColumnFamilyHandle findColumnFamilyHandle(final SstColumnFamily sstColumnFamily) {
-        switch (sstColumnFamily) {
-            case DEFAULT:
-                return this.db.defHandle;
-            case META:
-                return this.db.metaHandle;
-            default:
-                throw new IllegalArgumentException("illegal sstColumnFamily: " + sstColumnFamily.name());
-        }
     }
 
 

@@ -2,7 +2,6 @@ package top.thinkin.lightd.base;
 
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Key双层锁
@@ -10,7 +9,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * 1.短锁：Key分段锁
  * 2.长锁：Key锁
  */
-public class KeyDoubletLock {
+public class KeyDoubletLock implements KeyLock {
 
     private final ConcurrentHashMap<String, LockEntity> map;
     protected final SegmentStrLock lock;
@@ -26,54 +25,12 @@ public class KeyDoubletLock {
         this.map = new ConcurrentHashMap<>(maxSize * 3);
     }
 
-    public static class LockEntity {
-        final ReentrantLock reentrantLock = new ReentrantLock();
-        private volatile int time;
-        private final String key;
-        private int lockSize = 0;
 
-        public LockEntity(String key) {
-            this.key = key;
-        }
-
-        public void lock() {
-            reentrantLock.lock();
-        }
-
-        public void unlock() {
-            reentrantLock.unlock();
-        }
-
-        public void setTime() {
-            time = (int) (System.currentTimeMillis() / 1000);
-        }
-
-        public int getTime() {
-            return time;
-        }
-
-
-        public String getKey() {
-            return key;
-        }
-
-        public synchronized void addSize() {
-            this.lockSize++;
-        }
-
-        public synchronized void subSize() {
-            lockSize--;
-        }
-
-        public synchronized int getLockSize() {
-            return lockSize;
-        }
-    }
-
-
+    @Override
     public LockEntity lock(String key) {
         LockEntity reentrantLock;
-        lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
+
         try {
             reentrantLock = map.get(key);
             if (reentrantLock == null) {
@@ -82,15 +39,19 @@ public class KeyDoubletLock {
             }
             reentrantLock.addSize();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
+
         }
+
         reentrantLock.lock();
+
         reentrantLock.setTime();
         return reentrantLock;
     }
 
+    @Override
     public void unlock(LockEntity reentrantLock) {
-        lock.lock(reentrantLock.getKey());
+        LockEntity lockEntity = lock.lock(reentrantLock.getKey());
         try {
             reentrantLock.unlock();
             reentrantLock.subSize();
@@ -101,20 +62,20 @@ public class KeyDoubletLock {
                 }
             }
         } finally {
-            lock.unlock(reentrantLock.getKey());
+            lock.unlock(lockEntity);
         }
     }
 
 
     private void clear(int time, String key) {
-        lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
         try {
             LockEntity reentrantLock = map.get(key);
             if (reentrantLock != null && (time - reentrantLock.getTime()) > 30 && reentrantLock.getLockSize() == 0) {
                 map.remove(key);
             }
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
         }
     }
 

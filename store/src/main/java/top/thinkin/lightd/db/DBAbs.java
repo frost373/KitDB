@@ -1,19 +1,21 @@
 package top.thinkin.lightd.db;
 
 import org.rocksdb.*;
-import top.thinkin.lightd.base.DBCommand;
-import top.thinkin.lightd.base.SstColumnFamily;
-import top.thinkin.lightd.base.TableConfig;
-import top.thinkin.lightd.base.TransactionEntity;
+import top.thinkin.lightd.base.*;
+import top.thinkin.lightd.exception.DAssert;
+import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.kit.BytesUtil;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 
 public abstract class DBAbs {
     protected RocksDB rocksDB;
+    protected boolean openTransaction = false;
+    protected KeySegmentLockManager keySegmentLockManager;
 
     protected RocksDB getRocksDB() {
         return rocksDB;
@@ -24,72 +26,60 @@ public abstract class DBAbs {
     }
 
     protected WriteOptions writeOptions;
+    protected ReadOptions readOptions = new ReadOptions();
 
     protected ColumnFamilyHandle metaHandle;
     protected ColumnFamilyHandle defHandle;
-
-    protected ThreadLocal<ReadOptions> readOptionsThreadLocal = new ThreadLocal<>();
-
-    public ReadOptions getSnapshot() {
-        return readOptionsThreadLocal.get();
-    }
 
     protected ThreadLocal<List<DBCommand>> threadLogs = new ThreadLocal<>();
 
     protected ThreadLocal<TransactionEntity> TRANSACTION_ENTITY = new ThreadLocal<>();
 
-    public void startTran() {
-        if (TRANSACTION_ENTITY.get() == null) {
-            TRANSACTION_ENTITY.set(new TransactionEntity());
-        } else {
-            TRANSACTION_ENTITY.get().addCount();
-        }
+    protected ThreadLocal<Boolean> IS_STATR_TX = ThreadLocal.withInitial(() -> false);
+    protected final ReentrantLock TX_LOCK = new ReentrantLock(true);
+    protected KeyDoubletLock tx_lock;
+
+    protected DBAbs() {
+
     }
 
-    public void commitTran() throws Exception {
+    public void commitTX() throws Exception {
+        DAssert.isTrue(this.IS_STATR_TX.get(), ErrorType.TX_NOT_START, "Transaction have not started");
         TransactionEntity entity = TRANSACTION_ENTITY.get();
-        if (entity == null) {
-            return;
-        }
+
         if (entity.getCount() > 0) {
             //事务不需要提交，计数器减一
             entity.subCount();
         } else {
             try {
-                functionCommit.call(entity.getDbCommands());
-            } catch (Exception e) {
-                throw e;
+                entity.getTransaction().commit();
             } finally {
+                IS_STATR_TX.set(false);
                 entity.reset();
+                entity.unLock();
             }
         }
     }
 
 
-    public void releaseTran() {
+    public void rollbackTX() throws RocksDBException {
+        DAssert.isTrue(!this.IS_STATR_TX.get(), ErrorType.TX_NOT_START, "Transaction have not started");
+
         TransactionEntity entity = TRANSACTION_ENTITY.get();
-        if (entity == null) {
-            return;
+        if (entity.getCount() > 0) {
+            //事务不需要提交，计数器减一
+            entity.subCount();
+        } else {
+            try {
+                entity.getTransaction().rollback();
+            } finally {
+                IS_STATR_TX.set(false);
+                entity.reset();
+                entity.unLock();
+            }
         }
-        entity.reset();
+
     }
-
-    public void putDBTran(byte[] key, byte[] value, SstColumnFamily columnFamily) {
-        TransactionEntity entity = TRANSACTION_ENTITY.get();
-        entity.add(DBCommand.update(key, value, columnFamily));
-    }
-
-    public void deleteDBTran(byte[] key, SstColumnFamily columnFamily) {
-        TransactionEntity entity = TRANSACTION_ENTITY.get();
-        entity.add(DBCommand.delete(key, columnFamily));
-    }
-
-
-    protected void deleteRangeDBTran(byte[] start, byte[] end, SstColumnFamily columnFamily) {
-        TransactionEntity entity = TRANSACTION_ENTITY.get();
-        entity.add(DBCommand.deleteRange(start, end, columnFamily));
-    }
-
 
     public void start() {
         List<DBCommand> logs = threadLogs.get();
@@ -100,16 +90,57 @@ public abstract class DBAbs {
         logs.clear();
     }
 
-    public void commit(List<DBCommand> logs) throws Exception {
-        try (final WriteBatch batch = new WriteBatch()) {
-            setLogs(logs, batch);
-            this.rocksDB().write(this.writeOptions(), batch);
-        } catch (Exception e) {
-            throw e;
+
+    public void startTran(TxLock... lock) {
+        DAssert.isTrue(this.openTransaction, ErrorType.NOT_TX_DB, "this db is not a Transaction DB");
+        synchronized (this) {
+            if (!this.IS_STATR_TX.get()) {
+                TransactionEntity transactionEntity = new TransactionEntity();
+                TransactionDB rocksDB = (TransactionDB) this.rocksDB();
+                Transaction transaction = rocksDB.beginTransaction(this.writeOptions);
+                transactionEntity.setTransaction(transaction);
+                transactionEntity.setKeyDoubletLock(tx_lock);
+                try {
+
+                    for (TxLock txLock : lock) {
+                        KeyDoubletLock.LockEntity lockEntity = tx_lock.lock(txLock.getKey());
+                        transactionEntity.addLock(lockEntity);
+                    }
+                } catch (Exception e) {
+                    transactionEntity.unLock();
+                    throw e;
+                }
+                TRANSACTION_ENTITY.set(transactionEntity);
+                IS_STATR_TX.set(true);
+            } else {
+                TRANSACTION_ENTITY.get().addCount();
+            }
         }
     }
 
-    public void commit() throws Exception {
+    protected void commit(List<DBCommand> logs) throws Exception {
+
+        if (this.IS_STATR_TX.get()) {
+            Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
+            try (final WriteBatch batch = new WriteBatch()) {
+                setLogs(logs, batch);
+                transaction.rebuildFromWriteBatch(batch);
+            } catch (Exception e) {
+                throw e;
+            }
+        } else {
+            try (final WriteBatch batch = new WriteBatch()) {
+                setLogs(logs, batch);
+                this.rocksDB().write(this.writeOptions(), batch);
+            } catch (Exception e) {
+                throw e;
+            }
+        }
+
+
+    }
+
+    protected void commit() throws Exception {
         List<DBCommand> logs = threadLogs.get();
         try {
             functionCommit.call(logs);
@@ -121,26 +152,24 @@ public abstract class DBAbs {
     }
 
 
-
-
     protected WriteOptions writeOptions() {
         return this.writeOptions;
     }
 
 
-    public void release() {
+    protected void release() {
         List<DBCommand> logs = threadLogs.get();
         if (logs != null) {
             logs.clear();
         }
     }
 
-    public void putDB(byte[] key, byte[] value, SstColumnFamily columnFamily) {
+    protected void putDB(byte[] key, byte[] value, SstColumnFamily columnFamily) {
         List<DBCommand> logs = threadLogs.get();
         logs.add(DBCommand.update(key, value, columnFamily));
     }
 
-    public void deleteDB(byte[] key, SstColumnFamily columnFamily) {
+    protected void deleteDB(byte[] key, SstColumnFamily columnFamily) {
         List<DBCommand> logs = threadLogs.get();
         logs.add(DBCommand.delete(key, columnFamily));
     }
@@ -171,11 +200,12 @@ public abstract class DBAbs {
 
     public interface FunctionCommit {
         void call(List<DBCommand> logs) throws Exception;
+
     }
 
     public FunctionCommit functionCommit = logs -> commit(logs);
 
-    private static List<ColumnFamilyDescriptor> getColumnFamilyDescriptor() {
+    protected static List<ColumnFamilyDescriptor> getColumnFamilyDescriptor() {
         final ColumnFamilyOptions cfOptions = TableConfig.createColumnFamilyOptions();
         final ColumnFamilyOptions defCfOptions = TableConfig.createDefColumnFamilyOptions();
         final List<ColumnFamilyDescriptor> cfDescriptors = new ArrayList<>();
@@ -198,22 +228,22 @@ public abstract class DBAbs {
     }
 
 
-
-
-
-
     protected byte[] getDB(byte[] key, SstColumnFamily columnFamily) throws RocksDBException {
-        if (this.getSnapshot() != null) {
-            return this.rocksDB().get(findColumnFamilyHandle(columnFamily), this.getSnapshot(), key);
+        if (this.IS_STATR_TX.get()) {
+            Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
+            return transaction.get(findColumnFamilyHandle(columnFamily), readOptions, key);
         }
         return this.rocksDB().get(findColumnFamilyHandle(columnFamily), key);
     }
 
 
     protected RocksIterator newIterator(SstColumnFamily columnFamily) {
-        if (this.getSnapshot() != null) {
-            return this.rocksDB().newIterator(findColumnFamilyHandle(columnFamily), this.getSnapshot());
+
+        if (this.IS_STATR_TX.get()) {
+            Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
+            return transaction.getIterator(readOptions, findColumnFamilyHandle(columnFamily));
         }
+
         return this.rocksDB().newIterator(findColumnFamilyHandle(columnFamily));
     }
 
@@ -221,58 +251,32 @@ public abstract class DBAbs {
     protected Map<byte[], byte[]> multiGet(List<byte[]> keys, SstColumnFamily columnFamily) throws RocksDBException {
 
         List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>(keys.size());
-        for (byte[] key : keys) {
+        for (byte[] ignored : keys) {
             columnFamilyHandles.add(findColumnFamilyHandle(columnFamily));
         }
-        if (this.getSnapshot() != null) {
-
-            ReadOptions readOptions = new ReadOptions();
-            readOptions.setSnapshot(this.getSnapshot().snapshot());
+        if (this.IS_STATR_TX.get()) {
+            Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
+            byte[][] bytes = keys.toArray(new byte[keys.size()][]);
+            transaction.multiGet(readOptions, columnFamilyHandles, bytes);
             return this.rocksDB().multiGet(readOptions, Arrays.asList(findColumnFamilyHandle(columnFamily)), keys);
         }
         return this.rocksDB().multiGet(columnFamilyHandles, keys);
     }
 
 
-   /* protected void deleteHead2(byte[] head, SstColumnFamily columnFamily) {
-
-        ReadOptions readOptions = new ReadOptions();
-        readOptions.setPrefixSameAsStart(true);
-
-        try (final RocksIterator iterator = this.rocksDB().newIterator(findColumnFamilyHandle(columnFamily),readOptions)) {
-            iterator.seek(head);
-            byte[] start;
-            byte[] end;
-            if (iterator.isValid()) {
-                start = iterator.key();
-                if (BytesUtil.checkHead(head, start)) {
-                    iterator.seek(head);
-                    iterator.seekToLast();
-                    end = iterator.key();
-                    if (BytesUtil.checkHead(head, end)) {
-                        deleteRangeDB(start, end, columnFamily);
-                        deleteDB(end, columnFamily);
-                    } else {
-                        iterator.prev();
-                        end = iterator.key();
-                        if (BytesUtil.checkHead(head, end)) {
-                            deleteRangeDB(start, end, columnFamily);
-                            deleteDB(end, columnFamily);
-                        }{
-                            deleteDB(start, columnFamily);
-                        }
-                    }
-                }
-            }
-        }
-    }*/
-
-
     protected void deleteHead(byte[] head, SstColumnFamily columnFamily) {
-
+        final RocksIterator iterator;
         ReadOptions readOptions = new ReadOptions();
         readOptions.setPrefixSameAsStart(true);
-        try (final RocksIterator iterator = this.rocksDB().newIterator(findColumnFamilyHandle(columnFamily), readOptions)) {
+
+        if (this.IS_STATR_TX.get()) {
+            Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
+            iterator = transaction.getIterator(readOptions, findColumnFamilyHandle(columnFamily));
+        } else {
+            iterator = this.rocksDB().newIterator(findColumnFamilyHandle(columnFamily), readOptions);
+        }
+
+        try {
             iterator.seek(head);
             byte[] start;
             byte[] end = null;
@@ -288,6 +292,8 @@ public abstract class DBAbs {
                 deleteRangeDB(start, end, columnFamily);
             }
             deleteDB(end, columnFamily);
+        } finally {
+            iterator.close();
         }
     }
 

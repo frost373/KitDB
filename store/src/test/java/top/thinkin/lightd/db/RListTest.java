@@ -8,6 +8,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import top.thinkin.lightd.base.TxLock;
 import top.thinkin.lightd.benchmark.JoinFuture;
 
 import java.util.ArrayList;
@@ -27,7 +28,7 @@ public class RListTest {
     public void init() throws RocksDBException {
         if (db == null) {
             RocksDB.loadLibrary();
-            db = DB.build("D:\\temp\\db", true);
+            db = DB.buildTransactionDB("D:\\temp\\db", true);
         }
     }
 
@@ -301,12 +302,12 @@ public class RListTest {
 
     }
 
+
     @Test
     public void blpop() throws Exception {
         String head = "blpop0";
         RList list = db.getList();
-        int num = 10 * 10000;
-
+        int num = 10000;
         try {
             for (int k = 0; k < 10; k++) {
                 for (int i = 0; i < num; i++) {
@@ -319,7 +320,10 @@ public class RListTest {
                         List<byte[]> listJoin = new ArrayList<>();
                         try {
                             while (true) {
+                                db.startTran(new TxLock(head));
                                 List<byte[]> pops = list.blpop(head, 1000);
+                                Thread.sleep(50);
+                                db.commitTX();
                                 if (pops.size() == 0) {
                                     break;
                                 }
@@ -346,12 +350,42 @@ public class RListTest {
                 }
 
             }
+
         } finally {
             list.delete(head);
         }
 
     }
 
+    @Test
+    public void tx() throws Exception {
+        String head = "tx0";
+        RList list = db.getList();
+        try {
+            JoinFuture<List> joinFuture = JoinFuture.build(executorService, List.class);
+            for (int i = 0; i < 4; i++) {
+                joinFuture.add(args -> {
+                    List<byte[]> listJoin = new ArrayList<>();
+                    try {
+                        int num = 1;
+                        for (int j = 0; j < num; j++) {
+                            db.startTran();
+                            list.add(head + "A", ("hello" + j).getBytes());
+                            db.commitTX();
+                        }
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    return listJoin;
+                });
+            }
+            List<List> joins = joinFuture.join();
+        } finally {
+            list.delete(head + "A");
+            list.delete(head + "B");
+        }
+    }
     @Test
     public void brpop() throws Exception {
         String head = "brpop0";

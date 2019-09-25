@@ -1,12 +1,20 @@
 package top.thinkin.lightd.base;
 
-import java.util.ArrayList;
-import java.util.List;
+import lombok.extern.log4j.Log4j2;
+import org.rocksdb.Transaction;
 
+import java.util.HashSet;
+import java.util.Set;
+
+@Log4j2
 public class TransactionEntity {
     private int count = 0;
-    private List<DBCommand> dbCommands = new ArrayList<>(50);
 
+    private Transaction transaction;
+
+    private Set<KeyDoubletLock.LockEntity> lockEntities = new HashSet<>();
+
+    private KeyDoubletLock keyDoubletLock;
 
     public int addCount() {
         return count++;
@@ -18,7 +26,7 @@ public class TransactionEntity {
 
     public void reset() {
         count = 0;
-        dbCommands.clear();
+        transaction = null;
     }
 
 
@@ -26,11 +34,31 @@ public class TransactionEntity {
         return count;
     }
 
-    public List<DBCommand> getDbCommands() {
-        return dbCommands;
+
+    public Transaction getTransaction() {
+        return transaction;
     }
 
-    public void add(DBCommand dbCommand) {
-        dbCommands.add(dbCommand);
+    public void setTransaction(Transaction transaction) {
+        this.transaction = transaction;
+    }
+
+    public void addLock(KeyDoubletLock.LockEntity lockEntity) {
+        lockEntities.add(lockEntity);
+    }
+
+    public void unLock() {
+        for (KeyDoubletLock.LockEntity lockEntity : lockEntities) {
+            try {
+                keyDoubletLock.unlock(lockEntity);
+            } catch (Exception e) {
+                log.error("Tx unlock error", e);
+            }
+        }
+        lockEntities.clear();
+    }
+
+    public void setKeyDoubletLock(KeyDoubletLock keyDoubletLock) {
+        this.keyDoubletLock = keyDoubletLock;
     }
 }

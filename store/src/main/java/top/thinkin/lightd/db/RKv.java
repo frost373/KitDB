@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
+import top.thinkin.lightd.base.LockEntity;
 import top.thinkin.lightd.base.SegmentStrLock;
 import top.thinkin.lightd.base.SstColumnFamily;
 import top.thinkin.lightd.data.KeyEnum;
@@ -33,7 +34,7 @@ public class RKv extends RBase {
 
     public void set(String key, byte[] value) throws Exception {
         byte[] keyb = getKey(key);
-        lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
         try {
             start();
             byte[] key_b = ArrayKits.addAll(HEAD_B, keyb);
@@ -41,7 +42,7 @@ public class RKv extends RBase {
             deleteDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
@@ -53,7 +54,7 @@ public class RKv extends RBase {
 
     public long incr(String key, int step, int ttl) throws Exception {
         byte[] keyb = getKey(key);
-        lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
         try {
             start();
             byte[] key_b = ArrayKits.addAll(HEAD_B, keyb);
@@ -76,7 +77,7 @@ public class RKv extends RBase {
             commit();
             return seq;
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
@@ -84,7 +85,7 @@ public class RKv extends RBase {
 
     public long incr(String key, int step) throws Exception {
         byte[] keyb = getKey(key);
-        lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
         try {
             start();
             byte[] key_b = ArrayKits.addAll(HEAD_B, keyb);
@@ -101,7 +102,7 @@ public class RKv extends RBase {
             commit();
             return seq;
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
@@ -111,13 +112,13 @@ public class RKv extends RBase {
             start();
 
             for (Map.Entry<String, byte[]> entry : map.entrySet()) {
-                lock.lock(entry.getKey());
+                LockEntity lockEntity = lock.lock(entry.getKey());
                 try {
                     byte[] key_b = ArrayKits.addAll(HEAD_B, getKey(entry.getKey()));
                     putDB(key_b, entry.getValue(), SstColumnFamily.DEFAULT);
                     deleteDB(ArrayKits.addAll(HEAD_TTL, getKey(entry.getKey())), SstColumnFamily.DEFAULT);
                 } finally {
-                    lock.unlock(entry.getKey());
+                    lock.unlock(lockEntity);
                 }
             }
             commit();
@@ -132,7 +133,7 @@ public class RKv extends RBase {
             start();
             int i = 0;
             for (Map.Entry<String, byte[]> entry : map.entrySet()) {
-                lock.lock(entry.getKey());
+                LockEntity lockEntity = lock.lock(entry.getKey());
                 try {
                     byte[] key_b = ArrayKits.addAll(HEAD_B, getKey(entry.getKey()));
                     putDB(key_b, entry.getValue(), SstColumnFamily.DEFAULT);
@@ -140,7 +141,7 @@ public class RKv extends RBase {
                     setTimer(KeyEnum.KV_TIMER, time, key_b);
                     i++;
                 } finally {
-                    lock.unlock(entry.getKey());
+                    lock.unlock(lockEntity);
                 }
             }
             commit();
@@ -151,7 +152,7 @@ public class RKv extends RBase {
 
     public void set(String key, byte[] value, int ttl) throws Exception {
         byte[] keyb = getKey(key);
-        lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
         try {
             start();
             byte[] key_b = ArrayKits.addAll(HEAD_B, keyb);
@@ -161,14 +162,14 @@ public class RKv extends RBase {
             setTimer(KeyEnum.KV_TIMER, time, key_b);
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
 
     public void ttl(String key, int ttl) throws Exception {
         byte[] keyb = getKey(key);
-        lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
         try {
             start();
             byte[] key_b = ArrayKits.addAll(HEAD_B, keyb);
@@ -177,7 +178,7 @@ public class RKv extends RBase {
             setTimer(KeyEnum.KV_TIMER, time, key_b);
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
@@ -232,7 +233,7 @@ public class RKv extends RBase {
 
 
     protected void delCheckTTL(String key, int ztime) throws Exception {
-        lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
         byte[] keyb = getKey(key);
         try {
             List<byte[]> keys = new ArrayList<>();
@@ -255,7 +256,7 @@ public class RKv extends RBase {
             deleteDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
@@ -288,14 +289,14 @@ public class RKv extends RBase {
 
     public void del(String key) throws Exception {
         byte[] keyb = getKey(key);
-        lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
         try {
             start();
             deleteDB(ArrayKits.addAll(HEAD_B, keyb), SstColumnFamily.DEFAULT);
             deleteDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }
@@ -370,7 +371,7 @@ public class RKv extends RBase {
      */
 
     void delTtl(String key) throws Exception {
-        lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
         byte[] keyb = getKey(key);
 
         try {
@@ -378,7 +379,7 @@ public class RKv extends RBase {
             deleteDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
             commit();
         } finally {
-            lock.unlock(key);
+            lock.unlock(lockEntity);
             release();
         }
     }

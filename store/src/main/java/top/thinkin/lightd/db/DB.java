@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.rocksdb.*;
 import top.thinkin.lightd.base.BinLog;
 import top.thinkin.lightd.base.KeySegmentLockManager;
-import top.thinkin.lightd.base.TableConfig;
 import top.thinkin.lightd.base.VersionSequence;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
@@ -24,7 +23,6 @@ import java.util.concurrent.TimeUnit;
 public class DB extends DBAbs {
     static final byte[] DB_VERSION = "V0.0.2".getBytes();
 
-    private boolean openTransaction = false;
 
     protected static Charset charset = Charset.forName("UTF-8");
 
@@ -41,30 +39,10 @@ public class DB extends DBAbs {
 
     private BinLog binLog;
 
-    private KeySegmentLockManager keySegmentLockManager;
-
     ScheduledThreadPoolExecutor stp = new ScheduledThreadPoolExecutor(4);
 
 
-    private static List<ColumnFamilyDescriptor> getColumnFamilyDescriptor() {
-        final ColumnFamilyOptions cfOptions = TableConfig.createColumnFamilyOptions();
-        final ColumnFamilyOptions defCfOptions = TableConfig.createDefColumnFamilyOptions();
-        final List<ColumnFamilyDescriptor> cfDescriptors = new ArrayList<>();
-        cfDescriptors.add(new ColumnFamilyDescriptor("R_META".getBytes(), cfOptions));
-        cfDescriptors.add(new ColumnFamilyDescriptor(RocksDB.DEFAULT_COLUMN_FAMILY, defCfOptions));
 
-        return cfDescriptors;
-    }
-
-    public void setThreadSnapshot(RSnapshot rSnapshot) {
-        ReadOptions readOptions = new ReadOptions();
-        readOptions.setSnapshot(rSnapshot.getSnapshot());
-        readOptionsThreadLocal.set(readOptions);
-    }
-
-    public void clearThreadSnapshot() {
-        readOptionsThreadLocal.remove();
-    }
 
     public final ConcurrentHashMap map1 = new ConcurrentHashMap();
 
@@ -72,6 +50,10 @@ public class DB extends DBAbs {
         RocksDB.loadLibrary();
     }
 
+
+    private DB() {
+        super();
+    }
 
     public void close() {
         if (stp != null) {
@@ -202,45 +184,48 @@ public class DB extends DBAbs {
         }
     }
 
-    public synchronized static DB buildTransactionDB(String dir) throws RocksDBException {
-        DB db = new DB();
-        Options options = new Options();
-        options.setCreateIfMissing(true);
-
-        TransactionDBOptions transactionDBOptions = new TransactionDBOptions();
-        TransactionDB rocksDB = TransactionDB.open(options, transactionDBOptions, dir);
-        db.rocksDB = rocksDB;
-        db.openTransaction = true;
-        db.versionSequence = new VersionSequence(db.rocksDB);
-
-        db.rKv = new RKv(db);
-        db.zSet = new ZSet(db);
-        db.set = new RSet(db);
-        db.list = new RList(db);
-        db.map = new RMap(db);
-
-
-        db.writeOptions = new WriteOptions();
-        db.stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
-        //stp.scheduleWithFixedDelay(db::checkTTL, 2, 2, TimeUnit.SECONDS);
-
-        return db;
-    }
 
     public synchronized static DB build(String dir) throws RocksDBException {
         return build(dir, true);
     }
 
+
     public synchronized static DB build(String dir, boolean autoclear) throws RocksDBException {
         DB db = new DB();
-        DBOptions options = new DBOptions();
-        options.setCreateIfMissing(true);
-        options.setCreateMissingColumnFamilies(true);
+        DBOptions options = getDbOptions();
 
         final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
 
         db.rocksDB = RocksDB.open(options, dir, getColumnFamilyDescriptor(), cfHandles);
 
+        setDB(autoclear, db, cfHandles);
+
+        return db;
+    }
+
+    public synchronized static DB buildTransactionDB(String dir, boolean autoclear) throws RocksDBException {
+        DB db = new DB();
+        DBOptions options = getDbOptions();
+        final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
+
+        TransactionDBOptions transactionDBOptions = new TransactionDBOptions();
+        TransactionDB rocksDB = TransactionDB.open(options, transactionDBOptions, dir, getColumnFamilyDescriptor(), cfHandles);
+        db.openTransaction = true;
+
+        db.rocksDB = rocksDB;
+        setDB(autoclear, db, cfHandles);
+
+        return db;
+    }
+
+    private static DBOptions getDbOptions() {
+        DBOptions options = new DBOptions();
+        options.setCreateIfMissing(true);
+        options.setCreateMissingColumnFamilies(true);
+        return options;
+    }
+
+    private static void setDB(boolean autoclear, DB db, List<ColumnFamilyHandle> cfHandles) throws RocksDBException {
         db.metaHandle = cfHandles.get(0);
         db.defHandle = cfHandles.get(1);
 
@@ -267,14 +252,12 @@ public class DB extends DBAbs {
         db.binLogDB = RocksDB.open(optionsBinLog, "D:\\temp\\logs");
         db.binLog = new BinLog(db.binLogDB);
         db.keySegmentLockManager = new KeySegmentLockManager(db.stp);
-
+        db.tx_lock = db.keySegmentLockManager.createLock(2000);
         db.rKv = new RKv(db);
         db.zSet = new ZSet(db);
         db.set = new RSet(db);
         db.list = new RList(db);
         db.map = new RMap(db);
-
-        return db;
     }
 
 

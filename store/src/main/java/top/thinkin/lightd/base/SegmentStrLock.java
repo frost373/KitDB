@@ -6,7 +6,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReentrantLock;
 
 @Slf4j
-public class SegmentStrLock {
+public class SegmentStrLock implements KeyLock {
     private final CopyOnWriteArrayList<ReentrantLock> buckets = new CopyOnWriteArrayList();
     private final int size;
     public SegmentStrLock(int size) {
@@ -16,14 +16,19 @@ public class SegmentStrLock {
         }
     }
 
-    public ReentrantLock lock(String key) {
+    @Override
+    public LockEntity lock(String key) {
         int h = hash(key.hashCode());
         ReentrantLock lock = buckets.get(h);
         lock.lock();
-        return lock;
+
+        LockEntity lockEntity = new LockEntity(key);
+        return lockEntity;
     }
 
-    public void unlock(String key) {
+    @Override
+    public void unlock(LockEntity reentrantLock) {
+        String key = reentrantLock.getKey();
         int h = hash(key.hashCode());
         ReentrantLock lock = buckets.get(h);
         lock.unlock();
