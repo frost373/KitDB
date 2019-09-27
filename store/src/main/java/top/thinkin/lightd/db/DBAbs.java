@@ -1,5 +1,6 @@
 package top.thinkin.lightd.db;
 
+import lombok.extern.slf4j.Slf4j;
 import org.rocksdb.*;
 import top.thinkin.lightd.base.*;
 import top.thinkin.lightd.exception.DAssert;
@@ -7,11 +8,11 @@ import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.kit.BytesUtil;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 
+@Slf4j
 public abstract class DBAbs {
     protected RocksDB rocksDB;
     protected boolean openTransaction = false;
@@ -49,8 +50,10 @@ public abstract class DBAbs {
 
         if (entity.getCount() > 0) {
             //事务不需要提交，计数器减一
+            log.debug("-1:");
             entity.subCount();
         } else {
+            log.debug("commit");
             try {
                 entity.getTransaction().commit();
             } finally {
@@ -91,29 +94,47 @@ public abstract class DBAbs {
     }
 
 
-    public void startTran(TxLock... lock) {
+    public void startTran(TxLock... lock) throws InterruptedException {
         DAssert.isTrue(this.openTransaction, ErrorType.NOT_TX_DB, "this db is not a Transaction DB");
+        TransactionEntity transactionEntity;
         synchronized (this) {
             if (!this.IS_STATR_TX.get()) {
-                TransactionEntity transactionEntity = new TransactionEntity();
+                log.debug("STATR_TX");
+                transactionEntity = new TransactionEntity();
                 TransactionDB rocksDB = (TransactionDB) this.rocksDB();
                 Transaction transaction = rocksDB.beginTransaction(this.writeOptions);
                 transactionEntity.setTransaction(transaction);
                 transactionEntity.setKeyDoubletLock(tx_lock);
-                try {
-
-                    for (TxLock txLock : lock) {
-                        KeyDoubletLock.LockEntity lockEntity = tx_lock.lock(txLock.getKey());
-                        transactionEntity.addLock(lockEntity);
-                    }
-                } catch (Exception e) {
-                    transactionEntity.unLock();
-                    throw e;
-                }
                 TRANSACTION_ENTITY.set(transactionEntity);
                 IS_STATR_TX.set(true);
+                log.debug("STATR_TX_LOCKED");
             } else {
+                log.debug("STATR_TX_Count");
                 TRANSACTION_ENTITY.get().addCount();
+                return;
+            }
+        }
+        //if(TX_LOCK.tryLock(5, TimeUnit.SECONDS)){
+        try {
+            this.wait(100);
+            for (TxLock txLock : lock) {
+                LockEntity lockEntity = tx_lock.lock(txLock.getKey());
+                transactionEntity.addLock(lockEntity);
+            }
+        } catch (Exception e) {
+            transactionEntity.unLock();
+            throw e;
+        }
+        //}
+
+
+    }
+
+    public void checkKey(TxLock... lock) {
+        DAssert.isTrue(this.openTransaction, ErrorType.NOT_TX_DB, "this db is not a Transaction DB");
+        synchronized (this) {
+            for (TxLock txLock : lock) {
+                DAssert.isTrue(!tx_lock.keyInLock(txLock.getKey()), ErrorType.DATA_LOCK, "this Key is in a Transaction");
             }
         }
     }
@@ -258,7 +279,7 @@ public abstract class DBAbs {
             Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
             byte[][] bytes = keys.toArray(new byte[keys.size()][]);
             transaction.multiGet(readOptions, columnFamilyHandles, bytes);
-            return this.rocksDB().multiGet(readOptions, Arrays.asList(findColumnFamilyHandle(columnFamily)), keys);
+            return this.rocksDB().multiGet(readOptions, columnFamilyHandles, keys);
         }
         return this.rocksDB().multiGet(columnFamilyHandles, keys);
     }
@@ -268,13 +289,7 @@ public abstract class DBAbs {
         final RocksIterator iterator;
         ReadOptions readOptions = new ReadOptions();
         readOptions.setPrefixSameAsStart(true);
-
-        if (this.IS_STATR_TX.get()) {
-            Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
-            iterator = transaction.getIterator(readOptions, findColumnFamilyHandle(columnFamily));
-        } else {
-            iterator = this.rocksDB().newIterator(findColumnFamilyHandle(columnFamily), readOptions);
-        }
+        iterator = this.rocksDB().newIterator(findColumnFamilyHandle(columnFamily), readOptions);
 
         try {
             iterator.seek(head);

@@ -91,7 +91,7 @@ public class RListTest {
     public void addAll() throws Exception {
         String head = "addAllA";
         RList list = db.getList();
-        int num = 10 * 10000;
+        int num = 10;
         List<byte[]> integers = new ArrayList<>();
         for (int i = 0; i < num; i++) {
             integers.add(("hello" + i).getBytes());
@@ -270,7 +270,7 @@ public class RListTest {
     }
 
 
-    @Test
+   /* @Test
     public void iterator2() throws Exception {
         String head = "iterator0";
         RList list = db.getList();
@@ -282,7 +282,7 @@ public class RListTest {
             }
         }
 
-    }
+    }*/
 
     @Test
     public void range() throws Exception {
@@ -369,7 +369,7 @@ public class RListTest {
                     try {
                         int num = 1;
                         for (int j = 0; j < num; j++) {
-                            db.startTran();
+                            db.startTran(list.getTxLock(head + "A"));
                             list.add(head + "A", ("hello" + j).getBytes());
                             db.commitTX();
                         }

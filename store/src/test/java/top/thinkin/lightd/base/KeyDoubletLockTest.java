@@ -43,7 +43,7 @@ public class KeyDoubletLockTest {
             int fj = i;
             joinFuture.add(args -> {
                 String key = "hello" + r.nextInt(10 * 10000);
-                KeyDoubletLock.LockEntity lockEntity = keyDoubletLock.lock(key);
+                LockEntity lockEntity = keyDoubletLock.lock(key);
                 Integer ran1 = r.nextInt(10000);
                 map.put(key, ran1);
 
@@ -65,7 +65,7 @@ public class KeyDoubletLockTest {
         System.out.println("程序运行时间：" + (endTime - startTime) + "ms");
     }
 
-
+/*
     @Test
     public void lock2() {
         SegmentStrLock segmentStrLock = new SegmentStrLock(16);
@@ -98,5 +98,5 @@ public class KeyDoubletLockTest {
         long endTime = System.currentTimeMillis();
 
         System.out.println("程序运行时间：" + (endTime - startTime) + "ms");
-    }
+    }*/
 }

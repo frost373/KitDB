@@ -6,7 +6,7 @@ public class LockEntity {
     final ReentrantLock reentrantLock = new ReentrantLock();
     private volatile int time;
     private final String key;
-    private int lockSize = 0;
+    private volatile int lockSize = 0;
 
     public LockEntity(String key) {
         this.key = key;

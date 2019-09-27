@@ -4,11 +4,13 @@ package top.thinkin.lightd.db;
 import cn.hutool.core.util.ArrayUtil;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.LockEntity;
 import top.thinkin.lightd.base.SegmentStrLock;
 import top.thinkin.lightd.base.SstColumnFamily;
+import top.thinkin.lightd.base.TxLock;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
@@ -19,6 +21,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+@Slf4j
 
 public class RKv extends RBase {
     public final static String HEAD = KeyEnum.KV_KEY.getKey();
@@ -33,17 +37,24 @@ public class RKv extends RBase {
     }
 
     public void set(String key, byte[] value) throws Exception {
-        byte[] keyb = getKey(key);
-        LockEntity lockEntity = lock.lock(key);
+        checkTxStart(key);
         try {
-            start();
-            byte[] key_b = ArrayKits.addAll(HEAD_B, keyb);
-            putDB(key_b, value, SstColumnFamily.DEFAULT);
-            deleteDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
-            commit();
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+            byte[] keyb = getKey(key);
+            LockEntity lockEntity = lock.lock(key);
+            try {
+                start();
+                byte[] key_b = ArrayKits.addAll(HEAD_B, keyb);
+                putDB(key_b, value, SstColumnFamily.DEFAULT);
+                deleteDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
+            }
+            checkTxCommit();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
@@ -53,133 +64,184 @@ public class RKv extends RBase {
     }
 
     public long incr(String key, int step, int ttl) throws Exception {
-        byte[] keyb = getKey(key);
-        LockEntity lockEntity = lock.lock(key);
+        checkTxStart(key);
         try {
-            start();
-            byte[] key_b = ArrayKits.addAll(HEAD_B, keyb);
+            byte[] keyb = getKey(key);
+            LockEntity lockEntity = lock.lock(key);
+            try {
+                start();
+                byte[] key_b = ArrayKits.addAll(HEAD_B, keyb);
 
-            byte[] value = get(key);
-            long seq;
-            if (value == null) {
-                seq = step;
-            } else {
-                DAssert.isTrue(value.length == 8, ErrorType.DATA_LOCK, "value not a incr");
-                seq = ArrayKits.bytesToLong(value) + step;
+                byte[] value = get(key);
+                long seq;
+                if (value == null) {
+                    seq = step;
+                } else {
+                    DAssert.isTrue(value.length == 8, ErrorType.DATA_LOCK, "value not a incr");
+                    seq = ArrayKits.bytesToLong(value) + step;
+                }
+
+                putDB(key_b, ArrayKits.longToBytes(seq), SstColumnFamily.DEFAULT);
+                int time = (int) (System.currentTimeMillis() / 1000 + ttl);
+                putDB(ArrayKits.addAll(HEAD_TTL, keyb), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
+
+                setTimer(KeyEnum.KV_TIMER, time, key_b);
+
+                commit();
+                checkTxCommit();
+                return seq;
+            } finally {
+                lock.unlock(lockEntity);
+                release();
             }
-
-            putDB(key_b, ArrayKits.longToBytes(seq), SstColumnFamily.DEFAULT);
-            int time = (int) (System.currentTimeMillis() / 1000 + ttl);
-            putDB(ArrayKits.addAll(HEAD_TTL, keyb), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
-
-            setTimer(KeyEnum.KV_TIMER, time, key_b);
-
-            commit();
-            return seq;
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
 
     public long incr(String key, int step) throws Exception {
-        byte[] keyb = getKey(key);
-        LockEntity lockEntity = lock.lock(key);
+        checkTxStart(key);
         try {
-            start();
-            byte[] key_b = ArrayKits.addAll(HEAD_B, keyb);
+            byte[] keyb = getKey(key);
+            LockEntity lockEntity = lock.lock(key);
+            try {
+                start();
+                byte[] key_b = ArrayKits.addAll(HEAD_B, keyb);
 
-            byte[] value = get(key);
-            long seq;
-            if (value == null) {
-                seq = step;
-            } else {
-                DAssert.isTrue(value.length == 8, ErrorType.DATA_LOCK, "value not a incr");
-                seq = ArrayKits.bytesToLong(value) + step;
+                byte[] value = get(key);
+                long seq;
+                if (value == null) {
+                    seq = step;
+                } else {
+                    DAssert.isTrue(value.length == 8, ErrorType.DATA_LOCK, "value not a incr");
+                    seq = ArrayKits.bytesToLong(value) + step;
+                }
+                putDB(key_b, ArrayKits.longToBytes(seq), SstColumnFamily.DEFAULT);
+                commit();
+                checkTxCommit();
+                return seq;
+            } finally {
+                lock.unlock(lockEntity);
+                release();
             }
-            putDB(key_b, ArrayKits.longToBytes(seq), SstColumnFamily.DEFAULT);
-            commit();
-            return seq;
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
     public void set(Map<String, byte[]> map) throws Exception {
+        String[] locks = new String[map.size()];
+        map.keySet().toArray(locks);
+        checkTxStart(locks);
         try {
-            start();
+            try {
+                start();
 
-            for (Map.Entry<String, byte[]> entry : map.entrySet()) {
-                LockEntity lockEntity = lock.lock(entry.getKey());
-                try {
-                    byte[] key_b = ArrayKits.addAll(HEAD_B, getKey(entry.getKey()));
-                    putDB(key_b, entry.getValue(), SstColumnFamily.DEFAULT);
-                    deleteDB(ArrayKits.addAll(HEAD_TTL, getKey(entry.getKey())), SstColumnFamily.DEFAULT);
-                } finally {
-                    lock.unlock(lockEntity);
+                for (Map.Entry<String, byte[]> entry : map.entrySet()) {
+                    LockEntity lockEntity = lock.lock(entry.getKey());
+                    try {
+                        byte[] key_b = ArrayKits.addAll(HEAD_B, getKey(entry.getKey()));
+                        putDB(key_b, entry.getValue(), SstColumnFamily.DEFAULT);
+                        deleteDB(ArrayKits.addAll(HEAD_TTL, getKey(entry.getKey())), SstColumnFamily.DEFAULT);
+                    } finally {
+                        lock.unlock(lockEntity);
+                    }
                 }
+                commit();
+            } finally {
+                release();
             }
-            commit();
-        } finally {
-            release();
+            checkTxCommit();
+
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
     public void set(Map<String, byte[]> map, int ttl) throws Exception {
-        int time = (int) (System.currentTimeMillis() / 1000 + ttl);
+        String[] locks = new String[map.size()];
+        map.keySet().toArray(locks);
+        checkTxStart(locks);
         try {
-            start();
-            int i = 0;
-            for (Map.Entry<String, byte[]> entry : map.entrySet()) {
-                LockEntity lockEntity = lock.lock(entry.getKey());
-                try {
-                    byte[] key_b = ArrayKits.addAll(HEAD_B, getKey(entry.getKey()));
-                    putDB(key_b, entry.getValue(), SstColumnFamily.DEFAULT);
-                    putDB(ArrayKits.addAll(HEAD_TTL, getKey(entry.getKey())), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
-                    setTimer(KeyEnum.KV_TIMER, time, key_b);
-                    i++;
-                } finally {
-                    lock.unlock(lockEntity);
+            int time = (int) (System.currentTimeMillis() / 1000 + ttl);
+            try {
+                start();
+                int i = 0;
+                for (Map.Entry<String, byte[]> entry : map.entrySet()) {
+                    LockEntity lockEntity = lock.lock(entry.getKey());
+                    try {
+                        byte[] key_b = ArrayKits.addAll(HEAD_B, getKey(entry.getKey()));
+                        putDB(key_b, entry.getValue(), SstColumnFamily.DEFAULT);
+                        putDB(ArrayKits.addAll(HEAD_TTL, getKey(entry.getKey())), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
+                        setTimer(KeyEnum.KV_TIMER, time, key_b);
+                        i++;
+                    } finally {
+                        lock.unlock(lockEntity);
+                    }
                 }
+                commit();
+            } finally {
+                release();
             }
-            commit();
-        } finally {
-            release();
+            checkTxCommit();
+
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
     public void set(String key, byte[] value, int ttl) throws Exception {
-        byte[] keyb = getKey(key);
-        LockEntity lockEntity = lock.lock(key);
+        checkTxStart(key);
         try {
-            start();
-            byte[] key_b = ArrayKits.addAll(HEAD_B, keyb);
-            putDB(key_b, value, SstColumnFamily.DEFAULT);
-            int time = (int) (System.currentTimeMillis() / 1000) + ttl;
-            putDB(ArrayKits.addAll(HEAD_TTL, keyb), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
-            setTimer(KeyEnum.KV_TIMER, time, key_b);
-            commit();
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+            byte[] keyb = getKey(key);
+            LockEntity lockEntity = lock.lock(key);
+            try {
+                start();
+                byte[] key_b = ArrayKits.addAll(HEAD_B, keyb);
+                putDB(key_b, value, SstColumnFamily.DEFAULT);
+                int time = (int) (System.currentTimeMillis() / 1000) + ttl;
+                putDB(ArrayKits.addAll(HEAD_TTL, keyb), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
+                setTimer(KeyEnum.KV_TIMER, time, key_b);
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
+            }
+            checkTxCommit();
+
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
+
     }
 
     public void ttl(String key, int ttl) throws Exception {
-        byte[] keyb = getKey(key);
-        LockEntity lockEntity = lock.lock(key);
+        checkTxStart(key);
         try {
-            start();
-            byte[] key_b = ArrayKits.addAll(HEAD_B, keyb);
-            int time = (int) (System.currentTimeMillis() / 1000) + ttl;
-            putDB(ArrayKits.addAll(HEAD_TTL, keyb), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
-            setTimer(KeyEnum.KV_TIMER, time, key_b);
-            commit();
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+            byte[] keyb = getKey(key);
+            LockEntity lockEntity = lock.lock(key);
+            try {
+                start();
+                byte[] key_b = ArrayKits.addAll(HEAD_B, keyb);
+                int time = (int) (System.currentTimeMillis() / 1000) + ttl;
+                putDB(ArrayKits.addAll(HEAD_TTL, keyb), ArrayKits.intToBytes(time), SstColumnFamily.DEFAULT);
+                setTimer(KeyEnum.KV_TIMER, time, key_b);
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
+            }
+            checkTxCommit();
+
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
@@ -233,31 +295,42 @@ public class RKv extends RBase {
 
 
     protected void delCheckTTL(String key, int ztime) throws Exception {
-        LockEntity lockEntity = lock.lock(key);
-        byte[] keyb = getKey(key);
+        checkTxStart(key);
         try {
-            List<byte[]> keys = new ArrayList<>();
-            keys.add(ArrayKits.addAll(HEAD_TTL, keyb));
-            keys.add(ArrayKits.addAll(HEAD_B, keyb));
+            LockEntity lockEntity = lock.lock(key);
+            byte[] keyb = getKey(key);
+            try {
+                List<byte[]> keys = new ArrayList<>();
+                keys.add(ArrayKits.addAll(HEAD_TTL, keyb));
+                keys.add(ArrayKits.addAll(HEAD_B, keyb));
 
-            Map<String, byte[]> resMap = transMap(multiGet(keys, SstColumnFamily.DEFAULT));
-            byte[] ttl_bs = resMap.get(new String(ArrayKits.addAll(HEAD_TTL, keyb)));
-            if (ttl_bs == null) {
-                return;
+                Map<String, byte[]> resMap = transMap(multiGet(keys, SstColumnFamily.DEFAULT));
+                byte[] ttl_bs = resMap.get(new String(ArrayKits.addAll(HEAD_TTL, keyb)));
+                if (ttl_bs == null) {
+                    checkTxCommit();
+                    return;
+                }
+                int time = ArrayKits.bytesToInt(ttl_bs, 0);
+
+                if (ztime < time) {
+                    checkTxCommit();
+                    return;
+                }
+
+                start();
+                deleteDB(ArrayKits.addAll(HEAD_B, keyb), SstColumnFamily.DEFAULT);
+                deleteDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
             }
-            int time = ArrayKits.bytesToInt(ttl_bs, 0);
+            checkTxCommit();
 
-            if (ztime < time) {
-                return;
-            }
-
-            start();
-            deleteDB(ArrayKits.addAll(HEAD_B, keyb), SstColumnFamily.DEFAULT);
-            deleteDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
-            commit();
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+        } catch (Exception e) {
+            log.error("error", e);
+            checkTxRollBack();
+            throw e;
         }
     }
 
@@ -288,21 +361,29 @@ public class RKv extends RBase {
     }
 
     public void del(String key) throws Exception {
-        byte[] keyb = getKey(key);
-        LockEntity lockEntity = lock.lock(key);
+        checkTxStart(key);
         try {
-            start();
-            deleteDB(ArrayKits.addAll(HEAD_B, keyb), SstColumnFamily.DEFAULT);
-            deleteDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
-            commit();
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+            byte[] keyb = getKey(key);
+            LockEntity lockEntity = lock.lock(key);
+            try {
+                start();
+                deleteDB(ArrayKits.addAll(HEAD_B, keyb), SstColumnFamily.DEFAULT);
+                deleteDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
+            }
+            checkTxCommit();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
 
     public void delPrefix(String key_) throws Exception {
+
         byte[] keyb_ = getKey(key_);
         try {
             start();
@@ -371,17 +452,29 @@ public class RKv extends RBase {
      */
 
     void delTtl(String key) throws Exception {
-        LockEntity lockEntity = lock.lock(key);
-        byte[] keyb = getKey(key);
-
+        checkTxStart(key);
         try {
-            start();
-            deleteDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
-            commit();
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+            LockEntity lockEntity = lock.lock(key);
+            byte[] keyb = getKey(key);
+
+            try {
+                start();
+                deleteDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
+            }
+            checkTxCommit();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
+    }
+
+    @Override
+    protected TxLock getTxLock(String key) {
+        return new TxLock(String.join(":", HEAD, key));
     }
 
 
@@ -391,13 +484,6 @@ public class RKv extends RBase {
         private String key;
         private byte[] value;
     }
-
-
-
-
-
-
-
 
 
 }

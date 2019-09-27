@@ -9,10 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
-import top.thinkin.lightd.base.KeyDoubletLock;
-import top.thinkin.lightd.base.MetaAbs;
-import top.thinkin.lightd.base.MetaDAbs;
-import top.thinkin.lightd.base.SstColumnFamily;
+import top.thinkin.lightd.base.*;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
@@ -28,6 +25,11 @@ public class ZSet extends RCollection {
     public static byte[] HEAD_B = HEAD.getBytes();
     public static byte[] HEAD_SCORE_B = KeyEnum.ZSET_S.getBytes();
     public static byte[] HEAD_V_B = KeyEnum.ZSET_V.getBytes();
+
+    @Override
+    protected TxLock getTxLock(String key) {
+        return new TxLock(String.join(":", HEAD, key));
+    }
 
     TimedCache<String, String> timedCache = CacheUtil.newTimedCache(4);
 
@@ -56,7 +58,7 @@ public class ZSet extends RCollection {
 
     public synchronized void addMayTTL(final String key, int ttl, Entry... entrys) throws Exception {
         DAssert.notEmpty(entrys, ErrorType.EMPTY, "entrys is empty");
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
 
@@ -153,7 +155,7 @@ public class ZSet extends RCollection {
      */
     public synchronized List<Entry> rangeDel(String key, long start, long end, int limit) throws Exception {
         byte[] key_b = getKey(key);
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
         List<Entry> entries = new ArrayList<>();
         try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
             MetaV metaV = getMeta(key_b);
@@ -229,7 +231,7 @@ public class ZSet extends RCollection {
      */
     private synchronized void incrby(String key, int increment, byte[]... vs) throws Exception {
         DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
         try {
@@ -262,7 +264,7 @@ public class ZSet extends RCollection {
      */
     public synchronized void remove(String key, byte[]... vs) throws Exception {
         DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
         start();
@@ -374,7 +376,7 @@ public class ZSet extends RCollection {
 
     @Override
     public synchronized void delete(String key) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
         byte[] key_b = getKey(key);
         try {
             start();
@@ -395,7 +397,7 @@ public class ZSet extends RCollection {
 
 
     public synchronized void deleteFast(String key) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
@@ -419,7 +421,7 @@ public class ZSet extends RCollection {
 
     @Override
     public synchronized void delTtl(String key) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
         try {
@@ -438,7 +440,7 @@ public class ZSet extends RCollection {
 
     @Override
     public void ttl(String key, int ttl) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
         try {

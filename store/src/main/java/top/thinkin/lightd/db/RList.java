@@ -4,12 +4,10 @@ import cn.hutool.core.util.ArrayUtil;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
-import top.thinkin.lightd.base.KeyDoubletLock;
-import top.thinkin.lightd.base.MetaAbs;
-import top.thinkin.lightd.base.MetaDAbs;
-import top.thinkin.lightd.base.SstColumnFamily;
+import top.thinkin.lightd.base.*;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
@@ -22,12 +20,17 @@ import java.util.List;
 /**
  * A List
  */
+@Slf4j
 public class RList extends RCollection {
 
     public final static String HEAD = KeyEnum.LIST.getKey();
     public final static byte[] HEAD_VALUE_B = KeyEnum.LIST_VALUE.getBytes();
     public final static byte[] HEAD_B = HEAD.getBytes();
 
+    @Override
+    protected TxLock getTxLock(String key) {
+        return new TxLock(String.join(":", HEAD, key));
+    }
 
     protected RList(DB db) {
         super(db, false, 128);
@@ -100,46 +103,61 @@ public class RList extends RCollection {
     }
 
     public void ttl(String key, int ttl) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
-        byte[] key_b = getKey(key);
+        checkTxStart(key);
         try {
-            start();
-            MetaV metaV = getMeta(key_b);
+            LockEntity lockEntity = lock.lock(key);
+            byte[] key_b = getKey(key);
+            try {
+                start();
+                MetaV metaV = getMeta(key_b);
 
-            DAssert.notNull(metaV, ErrorType.NOT_EXIST, "The List does not exist.");
-            delTimerCollection(KeyEnum.COLLECT_TIMER,
-                    metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                DAssert.notNull(metaV, ErrorType.NOT_EXIST, "The List does not exist.");
+                delTimerCollection(KeyEnum.COLLECT_TIMER,
+                        metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
 
-            metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
+                metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
 
-            putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-            setTimerCollection(KeyEnum.COLLECT_TIMER,
-                    metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
-            commit();
+                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+                setTimerCollection(KeyEnum.COLLECT_TIMER,
+                        metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                commit();
 
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
+            }
+            checkTxCommit();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
     public void delTtl(String key) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
-        byte[] key_b = getKey(key);
-        MetaV metaV = getMeta(key_b);
-        if (metaV == null) {
-            return;
-        }
+        checkTxStart(key);
         try {
-            start();
-            delTimerCollection(KeyEnum.COLLECT_TIMER,
-                    metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
-            metaV.setTimestamp(-1);
-            putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-            commit();
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+            LockEntity lockEntity = lock.lock(key);
+            byte[] key_b = getKey(key);
+            MetaV metaV = getMeta(key_b);
+            if (metaV == null) {
+                checkTxCommit();
+                return;
+            }
+            try {
+                start();
+                delTimerCollection(KeyEnum.COLLECT_TIMER,
+                        metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                metaV.setTimestamp(-1);
+                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
+            }
+            checkTxCommit();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
@@ -179,9 +197,9 @@ public class RList extends RCollection {
 
 
     public void delete(String key) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        checkTxRange(key);
+        LockEntity lockEntity = lock.lock(key);
         byte[] key_b = getKey(key);
-
         MetaV metaV = getMeta(key_b);
         if (metaV == null) {
             return;
@@ -195,6 +213,7 @@ public class RList extends RCollection {
             lock.unlock(lockEntity);
             release();
         }
+
     }
 
     @Override
@@ -258,173 +277,204 @@ public class RList extends RCollection {
     }
 
     public List<byte[]> blpop(String key, int num) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        checkTxStart(key);
         try {
-            byte[] key_b = getKey(key);
+            LockEntity lockEntity = lock.lock(key);
+            try {
+                byte[] key_b = getKey(key);
 
-            List<byte[]> list = new ArrayList<>();
-            MetaV metaV = getMeta(key_b);
-            if (metaV == null) {
-                return list;
-            }
-            try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
-                final int maxCount = num > 0 ? num : Integer.MAX_VALUE;
-                ValueK valueK_seek = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.left);
-                List<byte[]> delete_keys = new ArrayList<>();
-                ValueKD valueKD = valueK_seek.convertValueBytes();
-                byte[] heads = valueKD.toHeadBytes();
-                iterator.seek(valueKD.toBytes());
-                int count = 0;
-                while (iterator.isValid() && count++ < maxCount) {
-                    byte[] ikey = iterator.key();
-                    if (!BytesUtil.checkHead(heads, ikey)) break;
-                    ValueKD key_bytes = ValueKD.build(ikey);
-                    delete_keys.add(ikey);
-                    list.add(iterator.value());
-                    metaV.setLeft(key_bytes.getIndexV());
-                    iterator.next();
+                List<byte[]> list = new ArrayList<>();
+                MetaV metaV = getMeta(key_b);
+                if (metaV == null) {
+                    checkTxCommit();
+                    return list;
                 }
+                try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
+                    final int maxCount = num > 0 ? num : Integer.MAX_VALUE;
+                    ValueK valueK_seek = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.left);
+                    List<byte[]> delete_keys = new ArrayList<>();
+                    ValueKD valueKD = valueK_seek.convertValueBytes();
+                    byte[] heads = valueKD.toHeadBytes();
+                    iterator.seek(valueKD.toBytes());
+                    int count = 0;
+                    while (iterator.isValid() && count++ < maxCount) {
+                        byte[] ikey = iterator.key();
+                        if (!BytesUtil.checkHead(heads, ikey)) break;
+                        ValueKD key_bytes = ValueKD.build(ikey);
+                        delete_keys.add(ikey);
+                        list.add(iterator.value());
+                        metaV.setLeft(key_bytes.getIndexV());
+                        iterator.next();
+                    }
 
-                metaV.setSize(metaV.getSize() - delete_keys.size());
-                if (metaV.getSize() != 0) {
-                    byte[] ikey = iterator.key();
-                    ValueKD key_bytes = ValueKD.build(ikey);
-                    metaV.setLeft(key_bytes.getIndexV());
+                    metaV.setSize(metaV.getSize() - delete_keys.size());
+                    if (metaV.getSize() != 0) {
+                        byte[] ikey = iterator.key();
+                        ValueKD key_bytes = ValueKD.build(ikey);
+                        metaV.setLeft(key_bytes.getIndexV());
+                    }
+                    start();
+                    putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+                    for (byte[] delete_key : delete_keys) {
+                        deleteDB(delete_key, SstColumnFamily.DEFAULT);
+                    }
+                    commit();
+                    checkTxCommit();
+                    return list;
+                } catch (Exception e) {
+                    throw e;
+                } finally {
+                    release();
                 }
-                start();
-                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-                for (byte[] delete_key : delete_keys) {
-                    deleteDB(delete_key, SstColumnFamily.DEFAULT);
-                }
-                commit();
-                return list;
-            } catch (Exception e) {
-                throw e;
             } finally {
-                release();
+                lock.unlock(lockEntity);
             }
-        } finally {
-            lock.unlock(lockEntity);
+
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
 
     public List<byte[]> brpop(String key, int num) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        checkTxStart(key);
         try {
-            byte[] key_b = getKey(key);
+            LockEntity lockEntity = lock.lock(key);
+            try {
+                byte[] key_b = getKey(key);
+                List<byte[]> list = new ArrayList<>();
+                MetaV metaV = getMeta(key_b);
+                if (metaV == null) {
+                    checkTxCommit();
+                    return list;
+                }
+                try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
+                    final int maxCount = num > 0 ? num : Integer.MAX_VALUE;
+                    ValueK valueK_seek = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.right);
+                    List<byte[]> delete_keys = new ArrayList<>();
+                    ValueKD valueKD = valueK_seek.convertValueBytes();
+                    byte[] heads = valueKD.toHeadBytes();
+                    iterator.seekForPrev(valueKD.toBytes());
+                    int count = 0;
+                    while (iterator.isValid() && count++ < maxCount) {
+                        byte[] ikey = iterator.key();
+                        if (!BytesUtil.checkHead(heads, ikey)) break;
+                        delete_keys.add(ikey);
+                        list.add(iterator.value());
+                        iterator.prev();
+                    }
 
-            List<byte[]> list = new ArrayList<>();
-            MetaV metaV = getMeta(key_b);
-            if (metaV == null) {
-                return list;
-            }
-            try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
-                final int maxCount = num > 0 ? num : Integer.MAX_VALUE;
-                ValueK valueK_seek = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.right);
-                List<byte[]> delete_keys = new ArrayList<>();
-                ValueKD valueKD = valueK_seek.convertValueBytes();
-                byte[] heads = valueKD.toHeadBytes();
-                iterator.seekForPrev(valueKD.toBytes());
-                int count = 0;
-                while (iterator.isValid() && count++ < maxCount) {
-                    byte[] ikey = iterator.key();
-                    if (!BytesUtil.checkHead(heads, ikey)) break;
-                    delete_keys.add(ikey);
-                    list.add(iterator.value());
-                    iterator.prev();
+                    metaV.setSize(metaV.getSize() - delete_keys.size());
+                    if (metaV.getSize() != 0) {
+                        byte[] ikey = iterator.key();
+                        ValueKD key_bytes = ValueKD.build(ikey);
+                        metaV.setRight(key_bytes.getIndexV());
+                    }
+                    start();
+                    putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+                    for (byte[] delete_key : delete_keys) {
+                        deleteDB(delete_key, SstColumnFamily.DEFAULT);
+                    }
+                    commit();
+                    checkTxCommit();
+                    return list;
+                } finally {
+                    release();
                 }
 
-                metaV.setSize(metaV.getSize() - delete_keys.size());
-                if (metaV.getSize() != 0) {
-                    byte[] ikey = iterator.key();
-                    ValueKD key_bytes = ValueKD.build(ikey);
-                    metaV.setRight(key_bytes.getIndexV());
-                }
-                start();
-                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-                for (byte[] delete_key : delete_keys) {
-                    deleteDB(delete_key, SstColumnFamily.DEFAULT);
-                }
-                commit();
-                return list;
             } finally {
-                release();
+                lock.unlock(lockEntity);
             }
-        } finally {
-            lock.unlock(lockEntity);
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
 
-
     public void addAllMayTTL(String key, List<byte[]> vs, int ttl) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        checkTxStart(key);
         try {
-            byte[] key_b = getKey(key);
-            start();
-            byte[] k_v = getDB(key_b, SstColumnFamily.META);
-            MetaV metaV = addCheck(k_v);
+            LockEntity lockEntity = lock.lock(key);
+            try {
+                byte[] key_b = getKey(key);
+                start();
+                byte[] k_v = getDB(key_b, SstColumnFamily.META);
+                MetaV metaV = addCheck(k_v);
 
-            if (metaV != null) {
-                //写入Value
-                for (byte[] v : vs) {
-                    metaV.size = metaV.size + 1;
-                    metaV.right = metaV.right + 1;
-                    if (metaV.size == 1) {
-                        metaV.left = metaV.right;
+                if (metaV != null) {
+                    //写入Value
+                    for (byte[] v : vs) {
+                        metaV.size = metaV.size + 1;
+                        metaV.right = metaV.right + 1;
+                        if (metaV.size == 1) {
+                            metaV.left = metaV.right;
+                        }
+                        ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.right);
+                        ValueKD valueKD = valueK.convertValueBytes();
+                        putDB(valueKD.toBytes(), v, SstColumnFamily.DEFAULT);
                     }
-                    ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.right);
-                    ValueKD valueKD = valueK.convertValueBytes();
-                    putDB(valueKD.toBytes(), v, SstColumnFamily.DEFAULT);
-                }
-                //写入Meta
-                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-            } else {
+                    //写入Meta
+                    putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+                } else {
 
-                if (ttl != -1) {
-                    ttl = (int) (System.currentTimeMillis() / 1000 + ttl);
-                }
-                metaV = new MetaV(0, 0, -1, ttl, db.versionSequence().incr());
-                //写入Value
-                for (byte[] v : vs) {
-                    metaV.size = metaV.size + 1;
-                    metaV.right = metaV.right + 1;
-                    if (metaV.size == 1) {
-                        metaV.left = metaV.right;
+                    if (ttl != -1) {
+                        ttl = (int) (System.currentTimeMillis() / 1000 + ttl);
                     }
-                    ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.right);
-                    putDB(valueK.convertValueBytes().toBytes(), v, SstColumnFamily.DEFAULT);
-                }
-                //写入Meta
-                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+                    metaV = new MetaV(0, 0, -1, ttl, db.versionSequence().incr());
+                    //写入Value
+                    for (byte[] v : vs) {
+                        metaV.size = metaV.size + 1;
+                        metaV.right = metaV.right + 1;
+                        if (metaV.size == 1) {
+                            metaV.left = metaV.right;
+                        }
+                        ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.right);
+                        putDB(valueK.convertValueBytes().toBytes(), v, SstColumnFamily.DEFAULT);
+                    }
+                    //写入Meta
+                    putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
 
-                if (ttl != -1) {
-                    setTimerCollection(KeyEnum.COLLECT_TIMER,
-                            metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                    if (ttl != -1) {
+                        setTimerCollection(KeyEnum.COLLECT_TIMER,
+                                metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                    }
                 }
+
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
             }
-
-            commit();
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+            checkTxCommit();
+        } catch (Exception e) {
+            log.error("error", e);
+            checkTxRollBack();
+            throw e;
         }
     }
 
 
     public void deleteFast(String key) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
-        byte[] key_b = getKey(key);
-
-        MetaV metaV = getMeta(key_b);
-        if (metaV == null) {
-            return;
-        }
+        checkTxStart(key);
         try {
-            deleteFast(key_b, metaV);
-        } finally {
-            lock.unlock(lockEntity);
+            LockEntity lockEntity = lock.lock(key);
+            byte[] key_b = getKey(key);
+            MetaV metaV = getMeta(key_b);
+            if (metaV == null) {
+                checkTxCommit();
+                return;
+            }
+            try {
+                deleteFast(key_b, metaV);
+            } finally {
+                lock.unlock(lockEntity);
+            }
+            checkTxCommit();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
@@ -432,7 +482,6 @@ public class RList extends RCollection {
     public void deleteFast(byte[] key_b, byte[] meta_b) throws Exception {
         deleteFast(key_b, MetaVD.build(meta_b).convertMeta());
     }
-
 
 
     /**
@@ -443,47 +492,53 @@ public class RList extends RCollection {
      * @throws RocksDBException
      */
     public void addMayTTL(String key, byte[] v, int ttl) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        checkTxStart(key);
         try {
-            byte[] key_b = getKey(key);
-            start();
-            byte[] k_v = getDB(key_b, SstColumnFamily.META);
-            MetaV metaV = addCheck(k_v);
-            if (metaV != null) {
-                metaV.size = metaV.size + 1;
-                metaV.right = metaV.right + 1;
-                if (metaV.size == 1) {
-                    metaV.left = metaV.right;
-                }
-                ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.right);
-                ValueKD valueKD = valueK.convertValueBytes();
-                //写入Value
-                putDB(valueKD.toBytes(), v, SstColumnFamily.DEFAULT);
-                //写入Meta
-                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-            } else {
-                if (ttl != -1) {
-                    ttl = (int) (System.currentTimeMillis() / 1000 + ttl);
-                }
-                metaV = new MetaV(1, 0, 0, ttl, db.versionSequence().incr());
-                ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.right);
-                //写入Value
-                putDB(valueK.convertValueBytes().toBytes(), v, SstColumnFamily.DEFAULT);
+            LockEntity lockEntity = lock.lock(key);
+            try {
+                byte[] key_b = getKey(key);
+                start();
+                byte[] k_v = getDB(key_b, SstColumnFamily.META);
+                MetaV metaV = addCheck(k_v);
+                if (metaV != null) {
+                    metaV.size = metaV.size + 1;
+                    metaV.right = metaV.right + 1;
+                    if (metaV.size == 1) {
+                        metaV.left = metaV.right;
+                    }
+                    ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.right);
+                    ValueKD valueKD = valueK.convertValueBytes();
+                    //写入Value
+                    putDB(valueKD.toBytes(), v, SstColumnFamily.DEFAULT);
+                    //写入Meta
+                    putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+                } else {
+                    if (ttl != -1) {
+                        ttl = (int) (System.currentTimeMillis() / 1000 + ttl);
+                    }
+                    metaV = new MetaV(1, 0, 0, ttl, db.versionSequence().incr());
+                    ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.right);
+                    //写入Value
+                    putDB(valueK.convertValueBytes().toBytes(), v, SstColumnFamily.DEFAULT);
 
-                //写入Meta
-                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-                if (ttl != -1) {
-                    setTimerCollection(KeyEnum.COLLECT_TIMER,
-                            metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                    //写入Meta
+                    putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+                    if (ttl != -1) {
+                        setTimerCollection(KeyEnum.COLLECT_TIMER,
+                                metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                    }
                 }
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
             }
-            commit();
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+            checkTxCommit();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
-
 
 
     public byte[] get(String key, long i) throws Exception {
@@ -534,24 +589,32 @@ public class RList extends RCollection {
     }
 
     public void set(String key, long i, byte[] v) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        checkTxStart(key);
         try {
-            byte[] key_b = getKey(key);
-            MetaV metaV = getMeta(key_b);
-            if (metaV == null) {
-                return;
-            }
-            DAssert.isTrue(i >= metaV.left && i <= metaV.right, ErrorType.EMPTY, "index not exist");
-            start();
+            LockEntity lockEntity = lock.lock(key);
+            try {
+                byte[] key_b = getKey(key);
+                MetaV metaV = getMeta(key_b);
+                if (metaV == null) {
+                    checkTxCommit();
+                    return;
+                }
+                DAssert.isTrue(i >= metaV.left && i <= metaV.right, ErrorType.EMPTY, "index not exist");
+                start();
 
-            ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), i);
-            ValueKD valueKD = valueK.convertValueBytes();
-            //写入Value
-            putDB(valueKD.toBytes(), v, SstColumnFamily.DEFAULT);
-            commit();
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+                ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), i);
+                ValueKD valueKD = valueK.convertValueBytes();
+                //写入Value
+                putDB(valueKD.toBytes(), v, SstColumnFamily.DEFAULT);
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
+            }
+            checkTxCommit();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 

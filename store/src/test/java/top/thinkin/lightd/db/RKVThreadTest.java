@@ -16,11 +16,14 @@ public class RKVThreadTest {
         rKvTest.init();
         log.info("start1");
 
-        int i = 10000;
+        int i = 10;
         JoinFuture<String> joinFuture = JoinFuture.build(executorService, String.class);
         joinFuture.add(a -> {
+
             try {
                 for (int i1 = 0; i1 < i; i1++) {
+                    log.info("del");
+
                     rKvTest.del();
                 }
             } catch (Exception e) {
@@ -30,10 +33,11 @@ public class RKVThreadTest {
             return "";
         });
 
-        joinFuture.add(a -> {
-            log.info("delPrefix");
+        /*joinFuture.add(a -> {
             try {
                 for (int i1 = 0; i1 < i; i1++) {
+                    log.info("delPrefix");
+
                     rKvTest.delPrefix();
                 }
             } catch (Exception e) {
@@ -41,12 +45,15 @@ public class RKVThreadTest {
             }
 
             return "";
-        });
+        });*/
 
 
         joinFuture.add(a -> {
+
             try {
                 for (int i1 = 0; i1 < i; i1++) {
+                    log.info("delTtl");
+
                     rKvTest.delTtl();
                 }
             } catch (Exception e) {
@@ -60,6 +67,8 @@ public class RKVThreadTest {
         joinFuture.add(a -> {
             try {
                 for (int i1 = 0; i1 < i; i1++) {
+                    log.info("get");
+
                     rKvTest.get();
                 }
             } catch (Exception e) {
@@ -73,6 +82,8 @@ public class RKVThreadTest {
         joinFuture.add(a -> {
             try {
                 for (int i1 = 0; i1 < i; i1++) {
+                    log.info("get1");
+
                     rKvTest.get1();
                 }
             } catch (Exception e) {
@@ -86,6 +97,8 @@ public class RKVThreadTest {
         joinFuture.add(a -> {
             try {
                 for (int i1 = 0; i1 < i; i1++) {
+                    log.info("getNoTTL");
+
                     rKvTest.getNoTTL();
                 }
             } catch (Exception e) {
@@ -99,6 +112,8 @@ public class RKVThreadTest {
         joinFuture.add(a -> {
             try {
                 for (int i1 = 0; i1 < i; i1++) {
+                    log.info("getTtl");
+
                     rKvTest.getTtl();
                 }
             } catch (Exception e) {
@@ -111,6 +126,8 @@ public class RKVThreadTest {
         joinFuture.add(a -> {
             try {
                 for (int i1 = 0; i1 < i; i1++) {
+                    log.info("incr");
+
                     rKvTest.incr();
                 }
             } catch (Exception e) {
@@ -123,6 +140,8 @@ public class RKVThreadTest {
         joinFuture.add(a -> {
             try {
                 for (int i1 = 0; i1 < i; i1++) {
+                    log.info("keys");
+
                     rKvTest.keys();
                 }
             } catch (Exception e) {
@@ -136,6 +155,8 @@ public class RKVThreadTest {
         joinFuture.add(a -> {
             try {
                 for (int i1 = 0; i1 < i; i1++) {
+                    log.info("set2");
+
                     rKvTest.set2();
                 }
             } catch (Exception e) {

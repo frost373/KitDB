@@ -26,7 +26,7 @@ public class RKvTest {
     public void init() throws RocksDBException {
         if (db == null) {
             RocksDB.loadLibrary();
-            db = DB.build("D:\\temp\\db", true);
+            db = DB.buildTransactionDB("D:\\temp\\db", true);
         }
         log.info("outTimeKeysL:{}", 1111111);
     }
@@ -43,7 +43,7 @@ public class RKvTest {
         RKv kv = db.getrKv();
         try {
             JoinFuture<String> joinFuture = JoinFuture.build(executorService, String.class);
-            for (int i = 0; i < 100 * 10000; i++) {
+            for (int i = 0; i < 10 * 10000; i++) {
                 int fj = i;
                 joinFuture.add(args -> {
                     try {
@@ -56,7 +56,7 @@ public class RKvTest {
             }
             joinFuture.join();
 
-            for (int i = 0; i < 100 * 10000; i++) {
+            for (int i = 0; i < 10 * 10000; i++) {
                 byte[] bytes = kv.get(head + i);
                 Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
             }
@@ -77,7 +77,7 @@ public class RKvTest {
         RKv kv = db.getrKv();
         try {
             JoinFuture<String> joinFuture = JoinFuture.build(executorService, String.class);
-            for (int i = 0; i < 100 * 10000; i++) {
+            for (int i = 0; i < 10 * 10000; i++) {
                 int fj = i;
                 joinFuture.add(args -> {
                     try {
@@ -89,7 +89,7 @@ public class RKvTest {
                 });
             }
             joinFuture.join();
-            Assert.assertArrayEquals(ArrayKits.longToBytes(100 * 10000), kv.get(head));
+            Assert.assertArrayEquals(ArrayKits.longToBytes(10 * 10000), kv.get(head));
         } finally {
             kv.delPrefix(head);
         }
@@ -104,7 +104,7 @@ public class RKvTest {
         RKv kv = db.getrKv();
         try {
             JoinFuture<String> joinFuture = JoinFuture.build(executorService, String.class);
-            for (int i1 = 0; i1 < 100; i1++) {
+            for (int i1 = 0; i1 < 10; i1++) {
                 int finalI = i1;
                 joinFuture.add(args -> {
                     try {
@@ -122,7 +122,7 @@ public class RKvTest {
             }
             joinFuture.join();
 
-            for (int i = 0; i < 100 * 10000; i++) {
+            for (int i = 0; i < 10 * 10000; i++) {
                 byte[] bytes = kv.get(head + i);
                 Assert.assertArrayEquals(("test" + i).getBytes(), bytes);
             }
@@ -145,7 +145,7 @@ public class RKvTest {
 
         try {
             JoinFuture<String> joinFuture = JoinFuture.build(executorService, String.class);
-            for (int i1 = 0; i1 < 100; i1++) {
+            for (int i1 = 0; i1 < 10; i1++) {
                 int finalI = i1;
                 joinFuture.add(args -> {
                     try {
@@ -162,14 +162,14 @@ public class RKvTest {
             }
             joinFuture.join();
 
-            for (int i = 0; i < 100 * num; i++) {
+            for (int i = 0; i < 10 * num; i++) {
                 byte[] bytes = kv.get(head + i);
                 Assert.assertArrayEquals(("test" + i).getBytes(), bytes);
             }
 
             Thread.sleep(3 * 1000);
 
-            for (int i = 0; i < 100 * num; i++) {
+            for (int i = 0; i < 10 * num; i++) {
                 byte[] bytes = kv.get(head + i);
                 Assert.assertNull(bytes);
             }
@@ -188,18 +188,18 @@ public class RKvTest {
         RKv kv = db.getrKv();
         String head = "setTTLA";
         try {
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 kv.set(head + i, ("test" + i).getBytes(), 3);
             }
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 byte[] bytes = kv.get(head + i);
                 Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
             }
 
             Thread.sleep(3 * 1000);
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 byte[] bytes = kv.get(head + i);
                 Assert.assertNull(bytes);
             }
@@ -215,15 +215,15 @@ public class RKvTest {
         RKv kv = db.getrKv();
         String head = "ttlandPut";
         try {
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 kv.set(head + i, ("test" + i).getBytes(), 1);
             }
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 kv.set(head + i, ("test" + i).getBytes());
             }
             Thread.sleep(2 * 1000);
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 byte[] bytes = kv.get(head + i);
                 Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
             }
@@ -240,38 +240,38 @@ public class RKvTest {
         RKv kv = db.getrKv();
         String head = "ttlA";
         try {
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 kv.set(head + i, ("test" + i).getBytes());
             }
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 byte[] bytes = kv.get(head + i);
                 Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
             }
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 kv.ttl(head + i, 1);
             }
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 byte[] bytes = kv.get(head + i);
                 Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
             }
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 kv.ttl(head + i, 4);
             }
 
             Thread.sleep(3 * 1000);
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 byte[] bytes = kv.get(head + i);
                 Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
             }
 
             Thread.sleep(1 * 1000);
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 byte[] bytes = kv.get(head + i);
                 Assert.assertNull(bytes);
             }
@@ -318,28 +318,28 @@ public class RKvTest {
 
             List<String> strings = new ArrayList<>();
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 kv.set(head + i, ("test" + i).getBytes());
                 strings.add(head + i);
             }
             Map<String, byte[]> map = kv.get(strings);
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 byte[] bytes = map.get(head + i);
                 Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
             }
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 kv.ttl(head + i, 3);
             }
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 byte[] bytes = map.get(head + i);
                 Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
             }
 
             Thread.sleep(3 * 1000);
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 1000; i++) {
                 byte[] bytes = kv.get(head + i);
                 Assert.assertNull(bytes);
             }
@@ -360,18 +360,18 @@ public class RKvTest {
 
         try {
 
-            for (int i = 0; i < 1; i++) {
+            for (int i = 0; i < 10000; i++) {
                 kv.set(head + i, ("test" + i).getBytes(), 1);
             }
 
-            for (int i = 0; i < 1; i++) {
+            for (int i = 0; i < 10000; i++) {
                 byte[] bytes = kv.getNoTTL(head + i);
                 Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
             }
 
             Thread.sleep(5 * 1000);
 
-            for (int i = 0; i < 1; i++) {
+            for (int i = 0; i < 10000; i++) {
                 byte[] bytes = kv.getNoTTL(head + i);
                 Assert.assertNull(bytes);
             }
@@ -488,7 +488,7 @@ public class RKvTest {
 
             Thread.sleep(3 * 1000);
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 10000; i++) {
                 byte[] bytes = kv.get(head + i);
                 Assert.assertNotNull(bytes);
             }

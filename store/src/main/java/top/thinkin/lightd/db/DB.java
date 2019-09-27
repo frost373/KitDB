@@ -42,8 +42,6 @@ public class DB extends DBAbs {
     ScheduledThreadPoolExecutor stp = new ScheduledThreadPoolExecutor(4);
 
 
-
-
     public final ConcurrentHashMap map1 = new ConcurrentHashMap();
 
     static {

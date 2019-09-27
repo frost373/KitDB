@@ -6,10 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
-import top.thinkin.lightd.base.KeyDoubletLock;
-import top.thinkin.lightd.base.MetaAbs;
-import top.thinkin.lightd.base.MetaDAbs;
-import top.thinkin.lightd.base.SstColumnFamily;
+import top.thinkin.lightd.base.*;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
@@ -24,6 +21,11 @@ public class RSet extends RCollection {
 
     public final static byte[] HEAD_B = HEAD.getBytes();
     public final static byte[] HEAD_V_B = KeyEnum.SET_V.getBytes();
+
+    @Override
+    protected TxLock getTxLock(String key) {
+        return new TxLock(String.join(":", HEAD, key));
+    }
 
     protected RSet(DB db) {
         super(db, false, 128);
@@ -43,7 +45,7 @@ public class RSet extends RCollection {
      * @throws Exception
      */
     public List<byte[]> pop(String key, int num) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
 
         List<byte[]> values = new ArrayList<>();
         byte[] key_b = getKey(key);
@@ -83,7 +85,7 @@ public class RSet extends RCollection {
      */
     public void remove(String key, byte[]... values) throws Exception {
         DAssert.notEmpty(values, ErrorType.EMPTY, "values is empty");
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
@@ -125,7 +127,7 @@ public class RSet extends RCollection {
     public void addMayTTL(String key, int ttl, byte[]... values) throws Exception {
         DAssert.notEmpty(values, ErrorType.EMPTY, "values is empty");
         DAssert.isTrue(ArrayKits.noRepeate(values), ErrorType.REPEATED_KEY, "Repeated memebers");
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
         start();
@@ -167,7 +169,7 @@ public class RSet extends RCollection {
 
     @Override
     public void delete(String key) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
         try {
@@ -187,7 +189,7 @@ public class RSet extends RCollection {
     }
 
     public void deleteFast(String key) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
         byte[] k_v = getDB(key_b, SstColumnFamily.META);
@@ -225,7 +227,7 @@ public class RSet extends RCollection {
 
     @Override
     public void delTtl(String key) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
         try {
             byte[] key_b = getKey(key);
             MetaV metaV = getMeta(key_b);
@@ -243,7 +245,7 @@ public class RSet extends RCollection {
 
     @Override
     public void ttl(String key, int ttl) throws Exception {
-        KeyDoubletLock.LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock.lock(key);
         try {
             byte[] key_b = getKey(key);
             MetaV metaV = getMeta(key_b);

@@ -12,8 +12,13 @@ public class TransactionEntity {
 
     private Transaction transaction;
 
-    private Set<KeyDoubletLock.LockEntity> lockEntities = new HashSet<>();
+    private Set<LockEntity> lockEntities = new HashSet<>();
 
+    public Set<String> getLockKeys() {
+        return lockKeys;
+    }
+
+    private Set<String> lockKeys = new HashSet<>();
     private KeyDoubletLock keyDoubletLock;
 
     public int addCount() {
@@ -43,12 +48,14 @@ public class TransactionEntity {
         this.transaction = transaction;
     }
 
-    public void addLock(KeyDoubletLock.LockEntity lockEntity) {
+    public void addLock(LockEntity lockEntity) {
         lockEntities.add(lockEntity);
+        lockKeys.add(lockEntity.getKey());
     }
 
+
     public void unLock() {
-        for (KeyDoubletLock.LockEntity lockEntity : lockEntities) {
+        for (LockEntity lockEntity : lockEntities) {
             try {
                 keyDoubletLock.unlock(lockEntity);
             } catch (Exception e) {
@@ -56,6 +63,12 @@ public class TransactionEntity {
             }
         }
         lockEntities.clear();
+        lockKeys.clear();
+    }
+
+
+    public boolean checkKey(String key) {
+        return lockKeys.contains(key);
     }
 
     public void setKeyDoubletLock(KeyDoubletLock keyDoubletLock) {

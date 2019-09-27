@@ -26,6 +26,23 @@ public class KeyDoubletLock implements KeyLock {
     }
 
 
+    public boolean keyInLock(String key) {
+        LockEntity lockEntity = lock.lock(key);
+        LockEntity reentrantLock;
+        try {
+            reentrantLock = map.get(key);
+            if (reentrantLock == null) {
+                return false;
+            }
+            if (reentrantLock.getLockSize() == 0) {
+                return false;
+            }
+        } finally {
+            lock.unlock(lockEntity);
+        }
+        return true;
+    }
+
     @Override
     public LockEntity lock(String key) {
         LockEntity reentrantLock;
