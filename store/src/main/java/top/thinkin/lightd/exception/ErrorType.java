@@ -12,7 +12,7 @@ public enum ErrorType {
     EMPTY(3, "EMPTY"),
     NULL(4, "NULL"),
     STORE_VERSION(5, "STORE_VERSION"), NOT_EXIST(6, "NOT_EXIST"),
-    NOT_TX_DB(7, "NOT_TX_DB"), TX_NOT_START(7, "TX_NOT_START"), TX_ERROR(8, "TX_ERROR");
+    NOT_TX_DB(7, "NOT_TX_DB"), TX_NOT_START(7, "TX_NOT_START"), TX_ERROR(8, "TX_ERROR"), TX_GET_TIMEOUT(9, "TX_GET_TIMEOUT");
 
     private final String type;
     static final Set<String> ALL;

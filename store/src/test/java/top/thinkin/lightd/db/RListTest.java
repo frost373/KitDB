@@ -2,13 +2,12 @@ package top.thinkin.lightd.db;
 
 import cn.hutool.core.collection.CollUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
-import top.thinkin.lightd.base.TxLock;
 import top.thinkin.lightd.benchmark.JoinFuture;
 
 import java.util.ArrayList;
@@ -28,13 +27,13 @@ public class RListTest {
     public void init() throws RocksDBException {
         if (db == null) {
             RocksDB.loadLibrary();
-            db = DB.buildTransactionDB("D:\\temp\\db", true);
+            db = DB.build("D:\\temp\\db", true);
         }
     }
 
 
-    @After
-    public void after() throws InterruptedException {
+    @AfterClass
+    public static void after() throws InterruptedException {
         Thread.sleep(5000);
     }
 
@@ -43,7 +42,7 @@ public class RListTest {
     public void add() throws Exception {
         String head = "setA";
         RList list = db.getList();
-        int num = 100 * 10000;
+        int num = 10 * 10000;
         try {
 
             for (int i = 0; i < num; i++) {
@@ -320,10 +319,8 @@ public class RListTest {
                         List<byte[]> listJoin = new ArrayList<>();
                         try {
                             while (true) {
-                                db.startTran(new TxLock(head));
                                 List<byte[]> pops = list.blpop(head, 1000);
                                 Thread.sleep(50);
-                                db.commitTX();
                                 if (pops.size() == 0) {
                                     break;
                                 }
@@ -369,9 +366,15 @@ public class RListTest {
                     try {
                         int num = 1;
                         for (int j = 0; j < num; j++) {
-                            db.startTran(list.getTxLock(head + "A"));
-                            list.add(head + "A", ("hello" + j).getBytes());
-                            db.commitTX();
+
+                            try {
+                                db.startTran(5000);
+                                list.add(head + "A", ("hello" + j).getBytes());
+                                db.commitTX();
+                            } catch (Exception e) {
+                                log.error("Exception", e);
+                                db.rollbackTX();
+                            }
                         }
 
                     } catch (Exception e) {

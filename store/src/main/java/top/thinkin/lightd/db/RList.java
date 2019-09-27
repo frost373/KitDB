@@ -103,7 +103,7 @@ public class RList extends RCollection {
     }
 
     public void ttl(String key, int ttl) throws Exception {
-        checkTxStart(key);
+        checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
             byte[] key_b = getKey(key);
@@ -134,7 +134,7 @@ public class RList extends RCollection {
     }
 
     public void delTtl(String key) throws Exception {
-        checkTxStart(key);
+        checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
             byte[] key_b = getKey(key);
@@ -197,7 +197,7 @@ public class RList extends RCollection {
 
 
     public void delete(String key) throws Exception {
-        checkTxRange(key);
+        checkTxRange();
         LockEntity lockEntity = lock.lock(key);
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
@@ -277,7 +277,7 @@ public class RList extends RCollection {
     }
 
     public List<byte[]> blpop(String key, int num) throws Exception {
-        checkTxStart(key);
+        checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
             try {
@@ -338,7 +338,7 @@ public class RList extends RCollection {
 
 
     public List<byte[]> brpop(String key, int num) throws Exception {
-        checkTxStart(key);
+        checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
             try {
@@ -394,7 +394,7 @@ public class RList extends RCollection {
 
 
     public void addAllMayTTL(String key, List<byte[]> vs, int ttl) throws Exception {
-        checkTxStart(key);
+        checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
             try {
@@ -457,7 +457,7 @@ public class RList extends RCollection {
 
 
     public void deleteFast(String key) throws Exception {
-        checkTxStart(key);
+        checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
             byte[] key_b = getKey(key);
@@ -492,7 +492,7 @@ public class RList extends RCollection {
      * @throws RocksDBException
      */
     public void addMayTTL(String key, byte[] v, int ttl) throws Exception {
-        checkTxStart(key);
+        checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
             try {
@@ -589,7 +589,7 @@ public class RList extends RCollection {
     }
 
     public void set(String key, long i, byte[] v) throws Exception {
-        checkTxStart(key);
+        checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
             try {

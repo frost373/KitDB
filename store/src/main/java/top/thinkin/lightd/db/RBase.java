@@ -9,7 +9,6 @@ import top.thinkin.lightd.base.TxLock;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
-import top.thinkin.lightd.exception.LightDException;
 import top.thinkin.lightd.kit.ArrayKits;
 
 import java.nio.charset.Charset;
@@ -26,6 +25,7 @@ public abstract class RBase {
 
     protected static Charset charset = Charset.forName("UTF-8");
 
+    protected int DEF_TX_TIME_OUT = 5000;
 
     public RBase(boolean isLog) {
         this.isLog = isLog;
@@ -66,57 +66,21 @@ public abstract class RBase {
     }
 
 
-    protected void checkTxStart(String key) throws Exception {
-        if (db.openTransaction) {
-            TxLock lock = getTxLock(key);
-            db.startTran(lock);
-            try {
-                DAssert.isTrue(db.TRANSACTION_ENTITY.get().checkKey(lock.getKey()),
-                        ErrorType.TX_ERROR, lock.getKey() + " is not registered with the TX");
-            } catch (LightDException e) {
-                for (String lockKey : db.TRANSACTION_ENTITY.get().getLockKeys()) {
-                    log.debug(lockKey);
-                }
-                log.error("error", e);
-                db.rollbackTX();
-                throw e;
-            }
-        }
-    }
-
-    protected void checkTxRange(String key) throws Exception {
+    protected void checkTxRange() throws Exception {
         if (!db.openTransaction) {
             return;
         }
         DAssert.isTrue(!this.db.IS_STATR_TX.get(), ErrorType.TX_ERROR,
                 "This operation can't execute  in a transaction");
-        db.checkKey(getTxLock(key));
+        db.checkKey();
     }
 
-
-    protected void checkTxStart(String... keys) throws Exception {
+    protected void checkTxStart() throws Exception {
 
         if (db.openTransaction) {
-            TxLock[] locks = new TxLock[keys.length];
-            for (int i = 0; i < keys.length; i++) {
-                locks[i] = getTxLock(keys[i]);
-            }
-
-            db.startTran(locks);
-
-            try {
-
-                for (TxLock lock : locks) {
-                    DAssert.isTrue(db.TRANSACTION_ENTITY.get().checkKey(lock.getKey()),
-                            ErrorType.TX_ERROR, lock.getKey() + " is not registered with the TX");
-                }
-            } catch (LightDException e) {
-                db.rollbackTX();
-                throw e;
-            }
+            db.startTran(DEF_TX_TIME_OUT);
         }
     }
-
 
     protected void checkTxCommit() throws Exception {
         if (db.openTransaction) {

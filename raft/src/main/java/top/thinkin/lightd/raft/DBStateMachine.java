@@ -51,7 +51,7 @@ public class DBStateMachine extends StateMachineAdapter {
                 }
 
                 try {
-                    rBase.commit(logs);
+                    //rBase.commit(logs);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }

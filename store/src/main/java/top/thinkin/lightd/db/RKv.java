@@ -37,7 +37,7 @@ public class RKv extends RBase {
     }
 
     public void set(String key, byte[] value) throws Exception {
-        checkTxStart(key);
+        checkTxStart();
         try {
             byte[] keyb = getKey(key);
             LockEntity lockEntity = lock.lock(key);
@@ -64,7 +64,7 @@ public class RKv extends RBase {
     }
 
     public long incr(String key, int step, int ttl) throws Exception {
-        checkTxStart(key);
+        checkTxStart();
         try {
             byte[] keyb = getKey(key);
             LockEntity lockEntity = lock.lock(key);
@@ -102,7 +102,7 @@ public class RKv extends RBase {
 
 
     public long incr(String key, int step) throws Exception {
-        checkTxStart(key);
+        checkTxStart();
         try {
             byte[] keyb = getKey(key);
             LockEntity lockEntity = lock.lock(key);
@@ -133,9 +133,7 @@ public class RKv extends RBase {
     }
 
     public void set(Map<String, byte[]> map) throws Exception {
-        String[] locks = new String[map.size()];
-        map.keySet().toArray(locks);
-        checkTxStart(locks);
+        checkTxStart();
         try {
             try {
                 start();
@@ -163,9 +161,7 @@ public class RKv extends RBase {
     }
 
     public void set(Map<String, byte[]> map, int ttl) throws Exception {
-        String[] locks = new String[map.size()];
-        map.keySet().toArray(locks);
-        checkTxStart(locks);
+        checkTxStart();
         try {
             int time = (int) (System.currentTimeMillis() / 1000 + ttl);
             try {
@@ -196,7 +192,7 @@ public class RKv extends RBase {
     }
 
     public void set(String key, byte[] value, int ttl) throws Exception {
-        checkTxStart(key);
+        checkTxStart();
         try {
             byte[] keyb = getKey(key);
             LockEntity lockEntity = lock.lock(key);
@@ -222,7 +218,7 @@ public class RKv extends RBase {
     }
 
     public void ttl(String key, int ttl) throws Exception {
-        checkTxStart(key);
+        checkTxStart();
         try {
             byte[] keyb = getKey(key);
             LockEntity lockEntity = lock.lock(key);
@@ -295,7 +291,7 @@ public class RKv extends RBase {
 
 
     protected void delCheckTTL(String key, int ztime) throws Exception {
-        checkTxStart(key);
+        checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
             byte[] keyb = getKey(key);
@@ -361,7 +357,7 @@ public class RKv extends RBase {
     }
 
     public void del(String key) throws Exception {
-        checkTxStart(key);
+        checkTxStart();
         try {
             byte[] keyb = getKey(key);
             LockEntity lockEntity = lock.lock(key);
@@ -452,7 +448,7 @@ public class RKv extends RBase {
      */
 
     void delTtl(String key) throws Exception {
-        checkTxStart(key);
+        checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
             byte[] keyb = getKey(key);

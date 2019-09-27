@@ -250,7 +250,6 @@ public class DB extends DBAbs {
         db.binLogDB = RocksDB.open(optionsBinLog, "D:\\temp\\logs");
         db.binLog = new BinLog(db.binLogDB);
         db.keySegmentLockManager = new KeySegmentLockManager(db.stp);
-        db.tx_lock = db.keySegmentLockManager.createLock(2000);
         db.rKv = new RKv(db);
         db.zSet = new ZSet(db);
         db.set = new RSet(db);

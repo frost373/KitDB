@@ -10,6 +10,7 @@ import top.thinkin.lightd.kit.BytesUtil;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
 @Slf4j
@@ -38,7 +39,6 @@ public abstract class DBAbs {
 
     protected ThreadLocal<Boolean> IS_STATR_TX = ThreadLocal.withInitial(() -> false);
     protected final ReentrantLock TX_LOCK = new ReentrantLock(true);
-    protected KeyDoubletLock tx_lock;
 
     protected DBAbs() {
 
@@ -50,24 +50,23 @@ public abstract class DBAbs {
 
         if (entity.getCount() > 0) {
             //事务不需要提交，计数器减一
-            log.debug("-1:");
             entity.subCount();
         } else {
-            log.debug("commit");
             try {
                 entity.getTransaction().commit();
             } finally {
                 IS_STATR_TX.set(false);
+                TX_LOCK.unlock();
                 entity.reset();
-                entity.unLock();
             }
         }
     }
 
 
     public void rollbackTX() throws RocksDBException {
-        DAssert.isTrue(!this.IS_STATR_TX.get(), ErrorType.TX_NOT_START, "Transaction have not started");
-
+        if (!this.IS_STATR_TX.get()) {
+            return;
+        }
         TransactionEntity entity = TRANSACTION_ENTITY.get();
         if (entity.getCount() > 0) {
             //事务不需要提交，计数器减一
@@ -77,8 +76,8 @@ public abstract class DBAbs {
                 entity.getTransaction().rollback();
             } finally {
                 IS_STATR_TX.set(false);
+                TX_LOCK.unlock();
                 entity.reset();
-                entity.unLock();
             }
         }
 
@@ -94,49 +93,27 @@ public abstract class DBAbs {
     }
 
 
-    public void startTran(TxLock... lock) throws InterruptedException {
+    public void startTran(int waitTime) throws InterruptedException {
         DAssert.isTrue(this.openTransaction, ErrorType.NOT_TX_DB, "this db is not a Transaction DB");
-        TransactionEntity transactionEntity;
-        synchronized (this) {
-            if (!this.IS_STATR_TX.get()) {
-                log.debug("STATR_TX");
-                transactionEntity = new TransactionEntity();
+        if (!this.IS_STATR_TX.get()) {
+            if (TX_LOCK.tryLock(waitTime, TimeUnit.MILLISECONDS)) {
+                TransactionEntity transactionEntity = new TransactionEntity();
                 TransactionDB rocksDB = (TransactionDB) this.rocksDB();
                 Transaction transaction = rocksDB.beginTransaction(this.writeOptions);
                 transactionEntity.setTransaction(transaction);
-                transactionEntity.setKeyDoubletLock(tx_lock);
                 TRANSACTION_ENTITY.set(transactionEntity);
                 IS_STATR_TX.set(true);
-                log.debug("STATR_TX_LOCKED");
             } else {
-                log.debug("STATR_TX_Count");
-                TRANSACTION_ENTITY.get().addCount();
-                return;
+                DAssert.isTrue(false, ErrorType.TX_GET_TIMEOUT, "Waiting to get Transaction timed out");
             }
+        } else {
+            TRANSACTION_ENTITY.get().addCount();
         }
-        //if(TX_LOCK.tryLock(5, TimeUnit.SECONDS)){
-        try {
-            this.wait(100);
-            for (TxLock txLock : lock) {
-                LockEntity lockEntity = tx_lock.lock(txLock.getKey());
-                transactionEntity.addLock(lockEntity);
-            }
-        } catch (Exception e) {
-            transactionEntity.unLock();
-            throw e;
-        }
-        //}
-
-
     }
 
-    public void checkKey(TxLock... lock) {
+    public void checkKey() {
         DAssert.isTrue(this.openTransaction, ErrorType.NOT_TX_DB, "this db is not a Transaction DB");
-        synchronized (this) {
-            for (TxLock txLock : lock) {
-                DAssert.isTrue(!tx_lock.keyInLock(txLock.getKey()), ErrorType.DATA_LOCK, "this Key is in a Transaction");
-            }
-        }
+        DAssert.isTrue(!TX_LOCK.isLocked(), ErrorType.TX_ERROR, "a Transaction is being executed");
     }
 
     protected void commit(List<DBCommand> logs) throws Exception {
