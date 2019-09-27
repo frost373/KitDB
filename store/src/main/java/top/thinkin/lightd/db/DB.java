@@ -126,7 +126,7 @@ public class DB extends DBAbs {
                                 byte[] value = outTimeKey.getValue();
                                 RBase.TimerCollection timerCollection = RBase.getTimerCollection(value);
                                 if (RList.HEAD_B[0] == timerCollection.meta_b[0]) {
-                                    this.list.deleteFast(timerCollection.key_b, timerCollection.meta_b);
+                                    this.list.deleteTTL(timerCollection.key_b, timerCollection.meta_b);
                                 }
                             }
                         });

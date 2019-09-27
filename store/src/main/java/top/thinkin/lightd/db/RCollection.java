@@ -34,6 +34,18 @@ public abstract class RCollection extends RBase {
     }
 
 
+    protected void deleteTTL(byte[] key_b, MetaAbs metaV) throws Exception {
+        this.start();
+        try {
+            MetaDAbs metaVD = metaV.convertMetaBytes();
+            this.putDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()), metaVD.toBytes(), SstColumnFamily.DEFAULT);
+            this.commit();
+        } finally {
+            this.release();
+        }
+    }
+
+
     protected KeyIterator getKeyIterator(byte[] head) {
         RocksIterator iterator = newIterator(SstColumnFamily.META);
         iterator.seek(head);

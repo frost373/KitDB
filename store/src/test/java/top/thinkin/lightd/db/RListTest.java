@@ -141,7 +141,36 @@ public class RListTest {
         }
     }
 
+    @Test
+    public void deleteTTL() throws Exception {
+        String head = "deleteTTL0";
+        RList list = db.getList();
+        int num = 10 * 10000;
 
+        try {
+
+            for (int i = 0; i < num; i++) {
+                list.add(head, ("hello" + i).getBytes());
+            }
+
+            list.ttl(head, 1);
+
+            Thread.sleep(1000);
+            for (int i = 0; i < num; i++) {
+                list.add(head, ("hello" + i).getBytes());
+            }
+            Thread.sleep(3000);
+            for (int i = 0; i < num; i++) {
+                byte[] bytes = list.get(head, i);
+                Assert.assertEquals(new String(bytes), ("hello" + i));
+            }
+
+
+        } finally {
+
+        }
+
+    }
     @Test
     public void size() throws Exception {
         String head = "sizeA";

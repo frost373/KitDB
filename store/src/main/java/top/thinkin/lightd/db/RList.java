@@ -479,8 +479,8 @@ public class RList extends RCollection {
     }
 
 
-    public void deleteFast(byte[] key_b, byte[] meta_b) throws Exception {
-        deleteFast(key_b, MetaVD.build(meta_b).convertMeta());
+    public void deleteTTL(byte[] key_b, byte[] meta_b) throws Exception {
+        deleteTTL(key_b, MetaVD.build(meta_b).convertMeta());
     }
 
 
