@@ -5,6 +5,7 @@ import org.rocksdb.*;
 import top.thinkin.lightd.base.*;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
+import top.thinkin.lightd.exception.LightDException;
 import top.thinkin.lightd.kit.BytesUtil;
 
 import java.util.ArrayList;
@@ -44,41 +45,49 @@ public abstract class DBAbs {
 
     }
 
-    public void commitTX() throws Exception {
-        DAssert.isTrue(this.IS_STATR_TX.get(), ErrorType.TX_NOT_START, "Transaction have not started");
-        TransactionEntity entity = TRANSACTION_ENTITY.get();
+    public void commitTX() throws LightDException {
+        try {
+            DAssert.isTrue(this.IS_STATR_TX.get(), ErrorType.TX_NOT_START, "Transaction have not started");
+            TransactionEntity entity = TRANSACTION_ENTITY.get();
 
-        if (entity.getCount() > 0) {
-            //事务不需要提交，计数器减一
-            entity.subCount();
-        } else {
-            try {
-                entity.getTransaction().commit();
-            } finally {
-                IS_STATR_TX.set(false);
-                TX_LOCK.unlock();
-                entity.reset();
+            if (entity.getCount() > 0) {
+                //事务不需要提交，计数器减一
+                entity.subCount();
+            } else {
+                try {
+                    entity.getTransaction().commit();
+                } finally {
+                    IS_STATR_TX.set(false);
+                    TX_LOCK.unlock();
+                    entity.reset();
+                }
             }
+        } catch (RocksDBException e) {
+            throw new LightDException(ErrorType.STROE_ERROR, e);
         }
     }
 
 
-    public void rollbackTX() throws RocksDBException {
-        if (!this.IS_STATR_TX.get()) {
-            return;
-        }
-        TransactionEntity entity = TRANSACTION_ENTITY.get();
-        if (entity.getCount() > 0) {
-            //事务不需要提交，计数器减一
-            entity.subCount();
-        } else {
-            try {
-                entity.getTransaction().rollback();
-            } finally {
-                IS_STATR_TX.set(false);
-                TX_LOCK.unlock();
-                entity.reset();
+    public void rollbackTX() throws LightDException {
+        try {
+            if (!this.IS_STATR_TX.get()) {
+                return;
             }
+            TransactionEntity entity = TRANSACTION_ENTITY.get();
+            if (entity.getCount() > 0) {
+                //事务不需要提交，计数器减一
+                entity.subCount();
+            } else {
+                try {
+                    entity.getTransaction().rollback();
+                } finally {
+                    IS_STATR_TX.set(false);
+                    TX_LOCK.unlock();
+                    entity.reset();
+                }
+            }
+        } catch (RocksDBException e) {
+            throw new LightDException(ErrorType.STROE_ERROR, e);
         }
 
     }
@@ -93,59 +102,62 @@ public abstract class DBAbs {
     }
 
 
-    public void startTran(int waitTime) throws InterruptedException {
+    public void startTran(int waitTime) throws LightDException {
         DAssert.isTrue(this.openTransaction, ErrorType.NOT_TX_DB, "this db is not a Transaction DB");
         if (!this.IS_STATR_TX.get()) {
-            if (TX_LOCK.tryLock(waitTime, TimeUnit.MILLISECONDS)) {
-                TransactionEntity transactionEntity = new TransactionEntity();
-                TransactionDB rocksDB = (TransactionDB) this.rocksDB();
-                Transaction transaction = rocksDB.beginTransaction(this.writeOptions);
-                transactionEntity.setTransaction(transaction);
-                TRANSACTION_ENTITY.set(transactionEntity);
-                IS_STATR_TX.set(true);
-            } else {
-                DAssert.isTrue(false, ErrorType.TX_GET_TIMEOUT, "Waiting to get Transaction timed out");
+            try {
+                if (TX_LOCK.tryLock(waitTime, TimeUnit.MILLISECONDS)) {
+                    TransactionEntity transactionEntity = new TransactionEntity();
+                    TransactionDB rocksDB = (TransactionDB) this.rocksDB();
+                    Transaction transaction = rocksDB.beginTransaction(this.writeOptions);
+                    transactionEntity.setTransaction(transaction);
+                    TRANSACTION_ENTITY.set(transactionEntity);
+                    IS_STATR_TX.set(true);
+                } else {
+                    DAssert.isTrue(false, ErrorType.TX_GET_TIMEOUT, "Waiting to get Transaction timed out");
+                }
+            } catch (InterruptedException e) {
+                throw new LightDException(ErrorType.TX_GET_TIMEOUT, e);
             }
         } else {
             TRANSACTION_ENTITY.get().addCount();
         }
     }
 
-    public void checkKey() {
+    public void checkKey() throws LightDException {
         DAssert.isTrue(this.openTransaction, ErrorType.NOT_TX_DB, "this db is not a Transaction DB");
         DAssert.isTrue(!TX_LOCK.isLocked(), ErrorType.TX_ERROR, "a Transaction is being executed");
     }
 
-    protected void commit(List<DBCommand> logs) throws Exception {
-
-        if (this.IS_STATR_TX.get()) {
-            Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
-            try (final WriteBatch batch = new WriteBatch()) {
-                setLogs(logs, batch);
-                transaction.rebuildFromWriteBatch(batch);
-            } catch (Exception e) {
-                throw e;
+    protected void commit(List<DBCommand> logs) throws LightDException {
+        try {
+            if (this.IS_STATR_TX.get()) {
+                Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
+                try (final WriteBatch batch = new WriteBatch()) {
+                    setLogs(logs, batch);
+                    transaction.rebuildFromWriteBatch(batch);
+                }
+            } else {
+                try (final WriteBatch batch = new WriteBatch()) {
+                    setLogs(logs, batch);
+                    this.rocksDB().write(this.writeOptions(), batch);
+                }
             }
-        } else {
-            try (final WriteBatch batch = new WriteBatch()) {
-                setLogs(logs, batch);
-                this.rocksDB().write(this.writeOptions(), batch);
-            } catch (Exception e) {
-                throw e;
-            }
+        } catch (RocksDBException e) {
+            throw new LightDException(ErrorType.STROE_ERROR, e);
         }
-
-
     }
 
-    protected void commit() throws Exception {
-        List<DBCommand> logs = threadLogs.get();
+    protected void commit() throws LightDException {
         try {
-            functionCommit.call(logs);
+            List<DBCommand> logs = threadLogs.get();
+            try {
+                functionCommit.call(logs);
+            } finally {
+                logs.clear();
+            }
         } catch (Exception e) {
-            throw e;
-        } finally {
-            logs.clear();
+            throw new LightDException(ErrorType.STROE_ERROR, e);
         }
     }
 
@@ -179,19 +191,23 @@ public abstract class DBAbs {
     }
 
 
-    private void setLogs(List<DBCommand> logs, WriteBatch batch) throws RocksDBException {
-        for (DBCommand log : logs) {
-            switch (log.getType()) {
-                case DELETE:
-                    batch.delete(findColumnFamilyHandle(log.getFamily()), log.getKey());
-                    break;
-                case UPDATE:
-                    batch.put(findColumnFamilyHandle(log.getFamily()), log.getKey(), log.getValue());
-                    break;
-                case DELETE_RANGE:
-                    batch.deleteRange(findColumnFamilyHandle(log.getFamily()), log.getStart(), log.getEnd());
-                    break;
+    private void setLogs(List<DBCommand> logs, WriteBatch batch) throws LightDException {
+        try {
+            for (DBCommand log : logs) {
+                switch (log.getType()) {
+                    case DELETE:
+                        batch.delete(findColumnFamilyHandle(log.getFamily()), log.getKey());
+                        break;
+                    case UPDATE:
+                        batch.put(findColumnFamilyHandle(log.getFamily()), log.getKey(), log.getValue());
+                        break;
+                    case DELETE_RANGE:
+                        batch.deleteRange(findColumnFamilyHandle(log.getFamily()), log.getStart(), log.getEnd());
+                        break;
+                }
             }
+        } catch (RocksDBException e) {
+            throw new LightDException(ErrorType.STROE_ERROR, e);
         }
     }
 
@@ -201,7 +217,7 @@ public abstract class DBAbs {
 
     }
 
-    public FunctionCommit functionCommit = logs -> commit(logs);
+    public FunctionCommit functionCommit = this::commit;
 
     protected static List<ColumnFamilyDescriptor> getColumnFamilyDescriptor() {
         final ColumnFamilyOptions cfOptions = TableConfig.createColumnFamilyOptions();
@@ -226,12 +242,16 @@ public abstract class DBAbs {
     }
 
 
-    protected byte[] getDB(byte[] key, SstColumnFamily columnFamily) throws RocksDBException {
-        if (this.IS_STATR_TX.get()) {
-            Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
-            return transaction.get(findColumnFamilyHandle(columnFamily), readOptions, key);
+    protected byte[] getDB(byte[] key, SstColumnFamily columnFamily) throws LightDException {
+        try {
+            if (this.IS_STATR_TX.get()) {
+                Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
+                return transaction.get(findColumnFamilyHandle(columnFamily), readOptions, key);
+            }
+            return this.rocksDB().get(findColumnFamilyHandle(columnFamily), key);
+        } catch (RocksDBException e) {
+            throw new LightDException(ErrorType.STROE_ERROR, e);
         }
-        return this.rocksDB().get(findColumnFamilyHandle(columnFamily), key);
     }
 
 
@@ -246,19 +266,23 @@ public abstract class DBAbs {
     }
 
 
-    protected Map<byte[], byte[]> multiGet(List<byte[]> keys, SstColumnFamily columnFamily) throws RocksDBException {
+    protected Map<byte[], byte[]> multiGet(List<byte[]> keys, SstColumnFamily columnFamily) throws LightDException {
 
-        List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>(keys.size());
-        for (byte[] ignored : keys) {
-            columnFamilyHandles.add(findColumnFamilyHandle(columnFamily));
+        try {
+            List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>(keys.size());
+            for (byte[] ignored : keys) {
+                columnFamilyHandles.add(findColumnFamilyHandle(columnFamily));
+            }
+            if (this.IS_STATR_TX.get()) {
+                Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
+                byte[][] bytes = keys.toArray(new byte[keys.size()][]);
+                transaction.multiGet(readOptions, columnFamilyHandles, bytes);
+                return this.rocksDB().multiGet(readOptions, columnFamilyHandles, keys);
+            }
+            return this.rocksDB().multiGet(columnFamilyHandles, keys);
+        } catch (RocksDBException e) {
+            throw new LightDException(ErrorType.STROE_ERROR, e);
         }
-        if (this.IS_STATR_TX.get()) {
-            Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
-            byte[][] bytes = keys.toArray(new byte[keys.size()][]);
-            transaction.multiGet(readOptions, columnFamilyHandles, bytes);
-            return this.rocksDB().multiGet(readOptions, columnFamilyHandles, keys);
-        }
-        return this.rocksDB().multiGet(columnFamilyHandles, keys);
     }
 
 

@@ -9,6 +9,7 @@ import top.thinkin.lightd.base.VersionSequence;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
+import top.thinkin.lightd.exception.LightDException;
 import top.thinkin.lightd.kit.BytesUtil;
 
 import java.io.File;
@@ -183,36 +184,45 @@ public class DB extends DBAbs {
     }
 
 
-    public synchronized static DB build(String dir) throws RocksDBException {
+    public synchronized static DB build(String dir) throws RocksDBException, LightDException {
         return build(dir, true);
     }
 
 
-    public synchronized static DB build(String dir, boolean autoclear) throws RocksDBException {
-        DB db = new DB();
-        DBOptions options = getDbOptions();
+    public synchronized static DB build(String dir, boolean autoclear) throws LightDException {
+        DB db;
+        try {
+            db = new DB();
+            DBOptions options = getDbOptions();
 
-        final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
+            final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
 
-        db.rocksDB = RocksDB.open(options, dir, getColumnFamilyDescriptor(), cfHandles);
+            db.rocksDB = RocksDB.open(options, dir, getColumnFamilyDescriptor(), cfHandles);
 
-        setDB(autoclear, db, cfHandles);
+            setDB(autoclear, db, cfHandles);
+        } catch (RocksDBException e) {
+            throw new LightDException(ErrorType.STROE_ERROR, e);
+        }
 
         return db;
     }
 
-    public synchronized static DB buildTransactionDB(String dir, boolean autoclear) throws RocksDBException {
-        DB db = new DB();
-        DBOptions options = getDbOptions();
-        final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
+    public synchronized static DB buildTransactionDB(String dir, boolean autoclear) throws LightDException {
+        DB db;
+        try {
+            db = new DB();
+            DBOptions options = getDbOptions();
+            final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
 
-        TransactionDBOptions transactionDBOptions = new TransactionDBOptions();
-        TransactionDB rocksDB = TransactionDB.open(options, transactionDBOptions, dir, getColumnFamilyDescriptor(), cfHandles);
-        db.openTransaction = true;
+            TransactionDBOptions transactionDBOptions = new TransactionDBOptions();
+            TransactionDB rocksDB = TransactionDB.open(options, transactionDBOptions, dir, getColumnFamilyDescriptor(), cfHandles);
+            db.openTransaction = true;
 
-        db.rocksDB = rocksDB;
-        setDB(autoclear, db, cfHandles);
-
+            db.rocksDB = rocksDB;
+            setDB(autoclear, db, cfHandles);
+        } catch (RocksDBException e) {
+            throw new LightDException(ErrorType.STROE_ERROR, e);
+        }
         return db;
     }
 
@@ -223,7 +233,7 @@ public class DB extends DBAbs {
         return options;
     }
 
-    private static void setDB(boolean autoclear, DB db, List<ColumnFamilyHandle> cfHandles) throws RocksDBException {
+    private static void setDB(boolean autoclear, DB db, List<ColumnFamilyHandle> cfHandles) throws RocksDBException, LightDException {
         db.metaHandle = cfHandles.get(0);
         db.defHandle = cfHandles.get(1);
 

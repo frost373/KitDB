@@ -2,13 +2,13 @@ package top.thinkin.lightd.db;
 
 import cn.hutool.core.util.ArrayUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.SstColumnFamily;
 import top.thinkin.lightd.base.TxLock;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
+import top.thinkin.lightd.exception.LightDException;
 import top.thinkin.lightd.kit.ArrayKits;
 
 import java.nio.charset.Charset;
@@ -66,7 +66,7 @@ public abstract class RBase {
     }
 
 
-    protected void checkTxRange() throws Exception {
+    protected void checkTxRange() throws LightDException {
         if (!db.openTransaction) {
             return;
         }
@@ -75,20 +75,20 @@ public abstract class RBase {
         db.checkKey();
     }
 
-    protected void checkTxStart() throws Exception {
+    protected void checkTxStart() throws LightDException {
 
         if (db.openTransaction) {
             db.startTran(DEF_TX_TIME_OUT);
         }
     }
 
-    protected void checkTxCommit() throws Exception {
+    protected void checkTxCommit() throws LightDException {
         if (db.openTransaction) {
             db.commitTX();
         }
     }
 
-    protected void checkTxRollBack() throws Exception {
+    protected void checkTxRollBack() throws LightDException {
         if (db.openTransaction) {
             db.rollbackTX();
         }
@@ -110,7 +110,7 @@ public abstract class RBase {
     }
 
 
-    public void commit() throws Exception {
+    public void commit() throws LightDException {
         db.commit();
     }
 
@@ -134,7 +134,7 @@ public abstract class RBase {
     }
 
 
-    protected byte[] getDB(byte[] key, SstColumnFamily columnFamily) throws RocksDBException {
+    protected byte[] getDB(byte[] key, SstColumnFamily columnFamily) throws LightDException {
         return db.getDB(key, columnFamily);
     }
 
@@ -144,7 +144,7 @@ public abstract class RBase {
     }
 
 
-    protected Map<byte[], byte[]> multiGet(List<byte[]> keys, SstColumnFamily columnFamily) throws RocksDBException {
+    protected Map<byte[], byte[]> multiGet(List<byte[]> keys, SstColumnFamily columnFamily) throws LightDException {
         return db.multiGet(keys, columnFamily);
     }
 

@@ -5,8 +5,8 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.rocksdb.RocksDB;
-import org.rocksdb.RocksDBException;
 import top.thinkin.lightd.benchmark.JoinFuture;
+import top.thinkin.lightd.exception.LightDException;
 import top.thinkin.lightd.kit.ArrayKits;
 
 import java.util.*;
@@ -23,7 +23,7 @@ public class RKvTest {
     static DB db;
 
     @Before
-    public void init() throws RocksDBException {
+    public void init() throws LightDException {
         if (db == null) {
             RocksDB.loadLibrary();
             db = DB.buildTransactionDB("D:\\temp\\db", true);
@@ -461,13 +461,17 @@ public class RKvTest {
     }
 
     @Test
-    public void getTtl() throws Exception {
-       /* RKv kv = db.getrKv();
+    public void getTtl() {
+        RKv kv = db.getrKv();
         String head = "delTtlA";
 
-        for (int i = 0; i < 199999999; i++) {
-            kv.set(head+i, ("test" + i).getBytes(),3);
-        }*/
+        try {
+            for (int i = 0; i < 1; i++) {
+                kv.set(head + i, ("test" + i).getBytes(), 3);
+            }
+        } catch (LightDException e) {
+            log.error("e", e);
+        }
 
 
     }

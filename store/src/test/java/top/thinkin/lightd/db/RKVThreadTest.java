@@ -3,6 +3,7 @@ package top.thinkin.lightd.db;
 import lombok.extern.log4j.Log4j2;
 import org.rocksdb.RocksDBException;
 import top.thinkin.lightd.benchmark.JoinFuture;
+import top.thinkin.lightd.exception.LightDException;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -11,7 +12,7 @@ import java.util.concurrent.Executors;
 public class RKVThreadTest {
     static ExecutorService executorService = Executors.newFixedThreadPool(50);
 
-    public static void main(String[] args) throws RocksDBException {
+    public static void main(String[] args) throws RocksDBException, LightDException {
         RKvTest rKvTest = new RKvTest();
         rKvTest.init();
         log.info("start1");

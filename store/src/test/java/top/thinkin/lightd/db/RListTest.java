@@ -27,7 +27,12 @@ public class RListTest {
     public void init() throws RocksDBException {
         if (db == null) {
             RocksDB.loadLibrary();
-            db = DB.build("D:\\temp\\db", true);
+            try {
+                db = DB.build("D:\\temp\\db", true);
+            } catch (Exception e) {
+                log.error("error", e);
+                e.printStackTrace();
+            }
         }
     }
 

@@ -4,12 +4,12 @@ import cn.hutool.core.util.ArrayUtil;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.*;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
+import top.thinkin.lightd.exception.LightDException;
 import top.thinkin.lightd.kit.ArrayKits;
 
 import java.util.*;
@@ -28,13 +28,13 @@ public class RMap extends RCollection {
         super(db, false, 128);
     }
 
-    protected byte[] getKey(String key) {
+    protected byte[] getKey(String key) throws LightDException {
         DAssert.notNull(key, ErrorType.NULL, "Key is null");
         return ArrayKits.addAll(HEAD_B, key.getBytes(charset));
     }
 
 
-    private Meta addCheck(byte[] key_b, byte[] k_v) throws RocksDBException {
+    private Meta addCheck(byte[] key_b, byte[] k_v) {
         Meta metaV = null;
         if (k_v != null) {
             MetaD metaVD = MetaD.build(k_v);
@@ -56,11 +56,11 @@ public class RMap extends RCollection {
         }
     }
 
-    public void put(String key, byte[] mkey, byte[] value) throws Exception {
+    public void put(String key, byte[] mkey, byte[] value) throws LightDException {
         putTTL(key, mkey, value, -1);
     }
 
-    public void putTTL(String key, byte[] mkey, byte[] value, int ttl) throws Exception {
+    public void putTTL(String key, byte[] mkey, byte[] value, int ttl) throws LightDException {
         byte[] key_b = getKey(key);
         LockEntity lockEntity = lock.lock(key);
         try {
@@ -98,7 +98,7 @@ public class RMap extends RCollection {
     }
 
 
-    public void putMayTTL(String key, int ttl, Entry... entries) throws Exception {
+    public void putMayTTL(String key, int ttl, Entry... entries) throws LightDException {
         byte[] key_b = getKey(key);
         LockEntity lockEntity = lock.lock(key);
         DAssert.notEmpty(entries, ErrorType.EMPTY, "entries is empty");
@@ -138,7 +138,7 @@ public class RMap extends RCollection {
     }
 
 
-    public Map<byte[], byte[]> get(String key, byte[]... keys) throws Exception {
+    public Map<byte[], byte[]> get(String key, byte[]... keys) throws LightDException {
         byte[] key_b = getKey(key);
         DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
         Meta metaV = getMeta(key_b);
@@ -164,7 +164,7 @@ public class RMap extends RCollection {
     }
 
 
-    public byte[] get(String key, byte[] mkey) throws Exception {
+    public byte[] get(String key, byte[] mkey) throws LightDException {
         byte[] key_b = getKey(key);
         Meta metaV = getMeta(key_b);
         if (metaV == null) {
@@ -176,7 +176,7 @@ public class RMap extends RCollection {
     }
 
 
-    protected Meta getMeta(byte[] key_b) throws Exception {
+    protected Meta getMeta(byte[] key_b) throws LightDException {
         byte[] k_v = this.getDB(key_b, SstColumnFamily.META);
         if (k_v == null) {
             return null;
@@ -184,13 +184,13 @@ public class RMap extends RCollection {
         Meta metaV = MetaD.build(k_v).convertMeta();
         long nowTime = System.currentTimeMillis();
         if (metaV.getTimestamp() != -1 && nowTime > metaV.getTimestamp()) {
-            throw new Exception("List do not exist");
+            throw new LightDException(ErrorType.NOT_EXIST, "List do not exist");
         }
         return metaV;
     }
 
 
-    public void remove(String key, byte[]... keys) throws Exception {
+    public void remove(String key, byte[]... keys) throws LightDException {
         DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
         LockEntity lockEntity = lock.lock(key);
 
@@ -229,7 +229,7 @@ public class RMap extends RCollection {
     }
 
     @Override
-    public void delete(String key) throws Exception {
+    public void delete(String key) throws LightDException {
         LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
@@ -247,12 +247,12 @@ public class RMap extends RCollection {
     }
 
     @Override
-    public KeyIterator getKeyIterator() throws Exception {
+    public KeyIterator getKeyIterator() {
         return getKeyIterator(HEAD_B);
     }
 
 
-    public void deleteFast(String key) throws Exception {
+    public void deleteFast(String key) throws LightDException {
         LockEntity lockEntity = lock.lock(key);
         try {
             byte[] key_b = getKey(key);
@@ -267,7 +267,7 @@ public class RMap extends RCollection {
     }
 
     @Override
-    RIterator<RMap> iterator(String key) throws Exception {
+    RIterator<RMap> iterator(String key) throws LightDException {
         byte[] key_b = getKey(key);
         Meta metaV = getMeta(key_b);
         if (metaV == null) {
@@ -296,7 +296,7 @@ public class RMap extends RCollection {
 
 
     @Override
-    public int getTtl(String key) throws Exception {
+    public int getTtl(String key) throws LightDException {
         byte[] key_b = getKey(key);
 
         Meta meta = getMeta(key_b);
@@ -310,7 +310,7 @@ public class RMap extends RCollection {
     }
 
     @Override
-    public void delTtl(String key) throws Exception {
+    public void delTtl(String key) throws LightDException {
         LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
@@ -333,7 +333,7 @@ public class RMap extends RCollection {
     }
 
     @Override
-    public void ttl(String key, int ttl) throws Exception {
+    public void ttl(String key, int ttl) throws LightDException {
         LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
@@ -358,7 +358,7 @@ public class RMap extends RCollection {
     }
 
     @Override
-    public boolean isExist(String key) throws RocksDBException {
+    public boolean isExist(String key) throws LightDException {
         byte[] key_b = getKey(key);
 
         byte[] k_v = getDB(key_b, SstColumnFamily.META);
@@ -367,7 +367,7 @@ public class RMap extends RCollection {
     }
 
     @Override
-    public int size(String key) throws Exception {
+    public int size(String key) throws LightDException {
         byte[] key_b = getKey(key);
         Meta metaV = getMeta(key_b);
         if (metaV == null) {

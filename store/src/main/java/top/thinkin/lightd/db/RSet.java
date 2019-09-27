@@ -4,12 +4,12 @@ import cn.hutool.core.util.ArrayUtil;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.*;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
+import top.thinkin.lightd.exception.LightDException;
 import top.thinkin.lightd.kit.ArrayKits;
 import top.thinkin.lightd.kit.BytesUtil;
 
@@ -31,7 +31,7 @@ public class RSet extends RCollection {
         super(db, false, 128);
     }
 
-    protected byte[] getKey(String key) {
+    protected byte[] getKey(String key) throws LightDException {
         DAssert.notNull(key, ErrorType.NULL, "Key is null");
         return ArrayKits.addAll(HEAD_B, key.getBytes(charset));
     }
@@ -42,9 +42,9 @@ public class RSet extends RCollection {
      *
      * @param num
      * @return
-     * @throws Exception
+     * @throws LightDException
      */
-    public List<byte[]> pop(String key, int num) throws Exception {
+    public List<byte[]> pop(String key, int num) throws LightDException {
         LockEntity lockEntity = lock.lock(key);
 
         List<byte[]> values = new ArrayList<>();
@@ -81,9 +81,9 @@ public class RSet extends RCollection {
      * 移除集合中一个或多个成员
      *
      * @param values
-     * @throws Exception
+     * @throws LightDException
      */
-    public void remove(String key, byte[]... values) throws Exception {
+    public void remove(String key, byte[]... values) throws LightDException {
         DAssert.notEmpty(values, ErrorType.EMPTY, "values is empty");
         LockEntity lockEntity = lock.lock(key);
 
@@ -109,7 +109,7 @@ public class RSet extends RCollection {
         }
     }
 
-    public boolean isMember(String key, byte[] value) throws RocksDBException {
+    public boolean isMember(String key, byte[] value) throws LightDException {
         byte[] key_b = getKey(key);
         byte[] k_v = getDB(key_b, SstColumnFamily.META);
         MetaV metaV = addCheck(key_b, k_v);
@@ -122,9 +122,9 @@ public class RSet extends RCollection {
      *
      * @param ttl
      * @param values
-     * @throws Exception
+     * @throws LightDException
      */
-    public void addMayTTL(String key, int ttl, byte[]... values) throws Exception {
+    public void addMayTTL(String key, int ttl, byte[]... values) throws LightDException {
         DAssert.notEmpty(values, ErrorType.EMPTY, "values is empty");
         DAssert.isTrue(ArrayKits.noRepeate(values), ErrorType.REPEATED_KEY, "Repeated memebers");
         LockEntity lockEntity = lock.lock(key);
@@ -159,16 +159,16 @@ public class RSet extends RCollection {
      * 向集合添加一个或多个成员
      *
      * @param values
-     * @throws Exception
+     * @throws LightDException
      */
-    public synchronized void add(String key, byte[]... values) throws Exception {
+    public synchronized void add(String key, byte[]... values) throws LightDException {
 
         addMayTTL(key, -1, values);
     }
 
 
     @Override
-    public void delete(String key) throws Exception {
+    public void delete(String key) throws LightDException {
         LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
@@ -184,11 +184,11 @@ public class RSet extends RCollection {
     }
 
     @Override
-    public KeyIterator getKeyIterator() throws Exception {
+    public KeyIterator getKeyIterator() throws LightDException {
         return null;
     }
 
-    public void deleteFast(String key) throws Exception {
+    public void deleteFast(String key) throws LightDException {
         LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
@@ -205,7 +205,7 @@ public class RSet extends RCollection {
     }
 
     @Override
-    public RIterator<RSet> iterator(String key) throws Exception {
+    public RIterator<RSet> iterator(String key) throws LightDException {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         SData sData = new SData(key_b.length, key_b, metaV.getVersion(), "".getBytes());
@@ -216,7 +216,7 @@ public class RSet extends RCollection {
 
 
     @Override
-    public int getTtl(String key) throws Exception {
+    public int getTtl(String key) throws LightDException {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         if (metaV.getTimestamp() == -1) {
@@ -226,7 +226,7 @@ public class RSet extends RCollection {
     }
 
     @Override
-    public void delTtl(String key) throws Exception {
+    public void delTtl(String key) throws LightDException {
         LockEntity lockEntity = lock.lock(key);
         try {
             byte[] key_b = getKey(key);
@@ -244,7 +244,7 @@ public class RSet extends RCollection {
     }
 
     @Override
-    public void ttl(String key, int ttl) throws Exception {
+    public void ttl(String key, int ttl) throws LightDException {
         LockEntity lockEntity = lock.lock(key);
         try {
             byte[] key_b = getKey(key);
@@ -262,7 +262,7 @@ public class RSet extends RCollection {
     }
 
     @Override
-    public boolean isExist(String key) throws RocksDBException {
+    public boolean isExist(String key) throws LightDException {
         byte[] key_b = getKey(key);
         byte[] k_v = getDB(key_b, SstColumnFamily.META);
         MetaV meta = addCheck(key_b, k_v);
@@ -270,7 +270,7 @@ public class RSet extends RCollection {
     }
 
     @Override
-    public int size(String key) throws Exception {
+    public int size(String key) throws LightDException {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         return metaV.getSize();
@@ -287,7 +287,7 @@ public class RSet extends RCollection {
         return entry;
     }
 
-    private MetaV addCheck(byte[] key_b, byte[] k_v) throws RocksDBException {
+    private MetaV addCheck(byte[] key_b, byte[] k_v) {
         MetaV metaV = null;
         if (k_v != null) {
             MetaD metaD = MetaD.build(k_v);
@@ -308,7 +308,7 @@ public class RSet extends RCollection {
     }
 
 
-    private void setEntry(byte[] key_b, MetaV metaV, byte[][] values) throws RocksDBException {
+    private void setEntry(byte[] key_b, MetaV metaV, byte[][] values) throws LightDException {
         for (byte[] value : values) {
             SData sData = new SData(key_b.length, key_b, metaV.getVersion(), value);
             byte[] member = sData.convertBytes().toBytes();
@@ -329,15 +329,15 @@ public class RSet extends RCollection {
     }
 
     @Override
-    protected MetaV getMeta(byte[] key_b) throws Exception {
+    protected MetaV getMeta(byte[] key_b) throws LightDException {
         byte[] k_v = this.getDB(key_b, SstColumnFamily.META);
         if (k_v == null) {
-            throw new Exception("List do not exist");
+            throw new LightDException(ErrorType.NOT_EXIST, "Set do not exist");
         }
         MetaV metaV = MetaD.build(k_v).convertMetaV();
         long nowTime = System.currentTimeMillis();
         if (metaV.getTimestamp() != -1 && nowTime > metaV.getTimestamp()) {
-            throw new Exception("List do not exist");
+            throw new LightDException(ErrorType.NOT_EXIST, "Set do not exist");
         }
         return metaV;
     }
