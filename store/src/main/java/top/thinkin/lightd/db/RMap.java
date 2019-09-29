@@ -9,7 +9,7 @@ import top.thinkin.lightd.base.*;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
-import top.thinkin.lightd.exception.LightDException;
+import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.ArrayKits;
 
 import java.util.*;
@@ -28,7 +28,7 @@ public class RMap extends RCollection {
         super(db, false, 128);
     }
 
-    protected byte[] getKey(String key) throws LightDException {
+    protected byte[] getKey(String key) throws KitDBException {
         DAssert.notNull(key, ErrorType.NULL, "Key is null");
         return ArrayKits.addAll(HEAD_B, key.getBytes(charset));
     }
@@ -56,11 +56,11 @@ public class RMap extends RCollection {
         }
     }
 
-    public void put(String key, byte[] mkey, byte[] value) throws LightDException {
+    public void put(String key, byte[] mkey, byte[] value) throws KitDBException {
         putTTL(key, mkey, value, -1);
     }
 
-    public void putTTL(String key, byte[] mkey, byte[] value, int ttl) throws LightDException {
+    public void putTTL(String key, byte[] mkey, byte[] value, int ttl) throws KitDBException {
         byte[] key_b = getKey(key);
         LockEntity lockEntity = lock.lock(key);
         try {
@@ -98,7 +98,7 @@ public class RMap extends RCollection {
     }
 
 
-    public void putMayTTL(String key, int ttl, Entry... entries) throws LightDException {
+    public void putMayTTL(String key, int ttl, Entry... entries) throws KitDBException {
         byte[] key_b = getKey(key);
         LockEntity lockEntity = lock.lock(key);
         DAssert.notEmpty(entries, ErrorType.EMPTY, "entries is empty");
@@ -138,7 +138,7 @@ public class RMap extends RCollection {
     }
 
 
-    public Map<byte[], byte[]> get(String key, byte[]... keys) throws LightDException {
+    public Map<byte[], byte[]> get(String key, byte[]... keys) throws KitDBException {
         byte[] key_b = getKey(key);
         DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
         Meta metaV = getMeta(key_b);
@@ -164,7 +164,7 @@ public class RMap extends RCollection {
     }
 
 
-    public byte[] get(String key, byte[] mkey) throws LightDException {
+    public byte[] get(String key, byte[] mkey) throws KitDBException {
         byte[] key_b = getKey(key);
         Meta metaV = getMeta(key_b);
         if (metaV == null) {
@@ -176,7 +176,7 @@ public class RMap extends RCollection {
     }
 
 
-    protected Meta getMeta(byte[] key_b) throws LightDException {
+    protected Meta getMeta(byte[] key_b) throws KitDBException {
         byte[] k_v = this.getDB(key_b, SstColumnFamily.META);
         if (k_v == null) {
             return null;
@@ -184,13 +184,13 @@ public class RMap extends RCollection {
         Meta metaV = MetaD.build(k_v).convertMeta();
         long nowTime = System.currentTimeMillis();
         if (metaV.getTimestamp() != -1 && nowTime > metaV.getTimestamp()) {
-            throw new LightDException(ErrorType.NOT_EXIST, "List do not exist");
+            throw new KitDBException(ErrorType.NOT_EXIST, "List do not exist");
         }
         return metaV;
     }
 
 
-    public void remove(String key, byte[]... keys) throws LightDException {
+    public void remove(String key, byte[]... keys) throws KitDBException {
         DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
         LockEntity lockEntity = lock.lock(key);
 
@@ -229,7 +229,7 @@ public class RMap extends RCollection {
     }
 
     @Override
-    public void delete(String key) throws LightDException {
+    public void delete(String key) throws KitDBException {
         LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
@@ -252,7 +252,7 @@ public class RMap extends RCollection {
     }
 
 
-    public void deleteFast(String key) throws LightDException {
+    public void deleteFast(String key) throws KitDBException {
         LockEntity lockEntity = lock.lock(key);
         try {
             byte[] key_b = getKey(key);
@@ -267,7 +267,7 @@ public class RMap extends RCollection {
     }
 
     @Override
-    RIterator<RMap> iterator(String key) throws LightDException {
+    RIterator<RMap> iterator(String key) throws KitDBException {
         byte[] key_b = getKey(key);
         Meta metaV = getMeta(key_b);
         if (metaV == null) {
@@ -296,7 +296,7 @@ public class RMap extends RCollection {
 
 
     @Override
-    public int getTtl(String key) throws LightDException {
+    public int getTtl(String key) throws KitDBException {
         byte[] key_b = getKey(key);
 
         Meta meta = getMeta(key_b);
@@ -310,7 +310,7 @@ public class RMap extends RCollection {
     }
 
     @Override
-    public void delTtl(String key) throws LightDException {
+    public void delTtl(String key) throws KitDBException {
         LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
@@ -333,7 +333,7 @@ public class RMap extends RCollection {
     }
 
     @Override
-    public void ttl(String key, int ttl) throws LightDException {
+    public void ttl(String key, int ttl) throws KitDBException {
         LockEntity lockEntity = lock.lock(key);
 
         byte[] key_b = getKey(key);
@@ -358,7 +358,7 @@ public class RMap extends RCollection {
     }
 
     @Override
-    public boolean isExist(String key) throws LightDException {
+    public boolean isExist(String key) throws KitDBException {
         byte[] key_b = getKey(key);
 
         byte[] k_v = getDB(key_b, SstColumnFamily.META);
@@ -367,7 +367,7 @@ public class RMap extends RCollection {
     }
 
     @Override
-    public int size(String key) throws LightDException {
+    public int size(String key) throws KitDBException {
         byte[] key_b = getKey(key);
         Meta metaV = getMeta(key_b);
         if (metaV == null) {

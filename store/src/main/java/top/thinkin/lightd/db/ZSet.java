@@ -13,7 +13,7 @@ import top.thinkin.lightd.base.*;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
-import top.thinkin.lightd.exception.LightDException;
+import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.ArrayKits;
 import top.thinkin.lightd.kit.BytesUtil;
 
@@ -40,7 +40,7 @@ public class ZSet extends RCollection {
     }
 
 
-    protected byte[] getKey(String key) throws LightDException {
+    protected byte[] getKey(String key) throws KitDBException {
         DAssert.notNull(key, ErrorType.NULL, "Key is null");
         return ArrayKits.addAll(HEAD_B, key.getBytes(charset));
     }
@@ -460,7 +460,7 @@ public class ZSet extends RCollection {
     }
 
     @Override
-    public boolean isExist(String key) throws RocksDBException, LightDException {
+    public boolean isExist(String key) throws RocksDBException, KitDBException {
         byte[] key_b = getKey(key);
         byte[] k_v = getDB(key_b, SstColumnFamily.META);
         MetaV meta = addCheck(key_b, k_v);

@@ -13,7 +13,7 @@ import top.thinkin.lightd.base.TxLock;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
-import top.thinkin.lightd.exception.LightDException;
+import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.ArrayKits;
 import top.thinkin.lightd.kit.BytesUtil;
 
@@ -36,7 +36,7 @@ public class RKv extends RBase {
         this.db = db;
     }
 
-    public void set(String key, byte[] value) throws LightDException {
+    public void set(String key, byte[] value) throws KitDBException {
         checkTxStart();
         try {
             byte[] keyb = getKey(key);
@@ -58,12 +58,12 @@ public class RKv extends RBase {
         }
     }
 
-    protected byte[] getKey(String key) throws LightDException {
+    protected byte[] getKey(String key) throws KitDBException {
         DAssert.notNull(key, ErrorType.NULL, "Key is null");
         return key.getBytes(charset);
     }
 
-    public long incr(String key, int step, int ttl) throws LightDException {
+    public long incr(String key, int step, int ttl) throws KitDBException {
         checkTxStart();
         try {
             byte[] keyb = getKey(key);
@@ -101,7 +101,7 @@ public class RKv extends RBase {
     }
 
 
-    public long incr(String key, int step) throws LightDException {
+    public long incr(String key, int step) throws KitDBException {
         checkTxStart();
         try {
             byte[] keyb = getKey(key);
@@ -132,7 +132,7 @@ public class RKv extends RBase {
         }
     }
 
-    public void set(Map<String, byte[]> map) throws LightDException {
+    public void set(Map<String, byte[]> map) throws KitDBException {
         checkTxStart();
         try {
             try {
@@ -160,7 +160,7 @@ public class RKv extends RBase {
         }
     }
 
-    public void set(Map<String, byte[]> map, int ttl) throws LightDException {
+    public void set(Map<String, byte[]> map, int ttl) throws KitDBException {
         checkTxStart();
         try {
             int time = (int) (System.currentTimeMillis() / 1000 + ttl);
@@ -191,7 +191,7 @@ public class RKv extends RBase {
         }
     }
 
-    public void set(String key, byte[] value, int ttl) throws LightDException {
+    public void set(String key, byte[] value, int ttl) throws KitDBException {
         checkTxStart();
         try {
             byte[] keyb = getKey(key);
@@ -217,7 +217,7 @@ public class RKv extends RBase {
 
     }
 
-    public void ttl(String key, int ttl) throws LightDException {
+    public void ttl(String key, int ttl) throws KitDBException {
         checkTxStart();
         try {
             byte[] keyb = getKey(key);
@@ -242,7 +242,7 @@ public class RKv extends RBase {
     }
 
 
-    public Map<String, byte[]> get(List<String> keys) throws LightDException {
+    public Map<String, byte[]> get(List<String> keys) throws KitDBException {
         DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
 
         byte[][] keybs = new byte[keys.size()][];
@@ -290,7 +290,7 @@ public class RKv extends RBase {
     }
 
 
-    protected void delCheckTTL(String key, int ztime) throws LightDException {
+    protected void delCheckTTL(String key, int ztime) throws KitDBException {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
@@ -331,7 +331,7 @@ public class RKv extends RBase {
     }
 
 
-    public byte[] get(String key) throws LightDException {
+    public byte[] get(String key) throws KitDBException {
         byte[] keyb = getKey(key);
         List<byte[]> keys = new ArrayList<>();
         keys.add(ArrayKits.addAll(HEAD_TTL, keyb));
@@ -350,13 +350,13 @@ public class RKv extends RBase {
         }
     }
 
-    public byte[] getNoTTL(String key) throws LightDException {
+    public byte[] getNoTTL(String key) throws KitDBException {
         byte[] keyb = getKey(key);
 
         return getDB(ArrayKits.addAll(HEAD_B, keyb), SstColumnFamily.DEFAULT);
     }
 
-    public void del(String key) throws LightDException {
+    public void del(String key) throws KitDBException {
         checkTxStart();
         try {
             byte[] keyb = getKey(key);
@@ -378,7 +378,7 @@ public class RKv extends RBase {
     }
 
 
-    public void delPrefix(String key_) throws LightDException {
+    public void delPrefix(String key_) throws KitDBException {
 
         byte[] keyb_ = getKey(key_);
         try {
@@ -392,7 +392,7 @@ public class RKv extends RBase {
     }
 
 
-    public List<String> keys(String key_, int start, int limit) throws LightDException {
+    public List<String> keys(String key_, int start, int limit) throws KitDBException {
         byte[] keyb_ = getKey(key_);
         List<String> list = new ArrayList<>();
         int index = 0;
@@ -419,14 +419,14 @@ public class RKv extends RBase {
      * 获取过期时间戳(秒)
      *
      * @return
-     * @throws LightDException <p>
+     * @throws KitDBException <p>
      *                   删除过期时间
-     * @throws LightDException <p>
+     * @throws KitDBException <p>
      *                   设置新的过期时间戳(秒)
-     * @throws LightDException
+     * @throws KitDBException
      */
 
-    int getTtl(String key) throws LightDException {
+    int getTtl(String key) throws KitDBException {
         byte[] keyb = getKey(key);
         byte[] value_bs = getDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
         if (value_bs != null) {
@@ -444,10 +444,10 @@ public class RKv extends RBase {
      * 删除过期时间
      *
      * @return
-     * @throws LightDException
+     * @throws KitDBException
      */
 
-    void delTtl(String key) throws LightDException {
+    void delTtl(String key) throws KitDBException {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);

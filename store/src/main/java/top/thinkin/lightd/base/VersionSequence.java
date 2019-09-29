@@ -1,21 +1,21 @@
 package top.thinkin.lightd.base;
 
-import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import top.thinkin.lightd.db.DB;
 import top.thinkin.lightd.exception.ErrorType;
-import top.thinkin.lightd.exception.LightDException;
+import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.ArrayKits;
 
 
 public class VersionSequence {
     private byte[] key_b = "VersionSequence".getBytes();
-    private RocksDB rocksDB;
+    private DB db;
     private Integer version;
 
-    public synchronized int incr() throws LightDException {
+    public synchronized int incr() throws KitDBException {
         try {
             if (version == null) {
-                byte[] value = rocksDB.get(key_b);
+                byte[] value = db.rocksDB().get(key_b);
                 if (value == null) {
                     version = 0;
                 } else {
@@ -26,9 +26,9 @@ public class VersionSequence {
             if (version == Integer.MAX_VALUE) {
                 version = 1;
             }
-            rocksDB.put(key_b, ArrayKits.intToBytes(version));
+            db.simplePut(key_b, ArrayKits.intToBytes(version), SstColumnFamily.META);
         } catch (RocksDBException e) {
-            throw new LightDException(ErrorType.STROE_ERROR, e);
+            throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
         return version;
     }
@@ -37,7 +37,7 @@ public class VersionSequence {
         return version;
     }
 
-    public VersionSequence(RocksDB rocksDB) {
-        this.rocksDB = rocksDB;
+    public VersionSequence(DB db) {
+        this.db = db;
     }
 }

@@ -5,8 +5,9 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
 import top.thinkin.lightd.benchmark.JoinFuture;
-import top.thinkin.lightd.exception.LightDException;
+import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.ArrayKits;
 
 import java.util.*;
@@ -23,12 +24,35 @@ public class RKvTest {
     static DB db;
 
     @Before
-    public void init() throws LightDException {
+    public void init() throws KitDBException {
         if (db == null) {
             RocksDB.loadLibrary();
-            db = DB.buildTransactionDB("D:\\temp\\db", true);
+            db = DB.build("D:\\temp\\sp\\tempsp542", true);
+            //db = DB.build("D:\\temp\\db", true);
+
         }
         log.info("outTimeKeysL:{}", 1111111);
+    }
+
+    @Test
+    public void writeSnapshot() throws RocksDBException, KitDBException {
+        String head = "writeSnapshot0";
+        RKv kv = db.getrKv();
+
+       /* for (int i = 0; i < 100*10000; i++) {
+            kv.set(head + i, ("hello world" + i).getBytes());
+        }*/
+        db.backupDB("D:/temp/sp");
+
+        //db.writeSnapshot("D:/temp/sp");
+        //DB.releaseSnapshot("D:\\temp\\sp\\156957632384686.kitp","D:\\temp\\sp\\sp1");
+        /*DB db2 = DB.build("D:\\temp\\sp\\sp1", true);
+        RKv kv2 = db2.getrKv();*/
+
+       /*for (int i = 0; i < 100*10000; i++) {
+            byte[] bytes = kv.get(head + i);
+            Assert.assertArrayEquals(bytes, ("hello world" + i).getBytes());
+        }*/
     }
 
     /**
@@ -460,21 +484,7 @@ public class RKvTest {
         }
     }
 
-    @Test
-    public void getTtl() {
-        RKv kv = db.getrKv();
-        String head = "delTtlA";
 
-        try {
-            for (int i = 0; i < 1; i++) {
-                kv.set(head + i, ("test" + i).getBytes(), 3);
-            }
-        } catch (LightDException e) {
-            log.error("e", e);
-        }
-
-
-    }
 
     @Test
     public void delTtl() throws Exception {

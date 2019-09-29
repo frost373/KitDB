@@ -5,7 +5,7 @@ import org.rocksdb.*;
 import top.thinkin.lightd.base.*;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
-import top.thinkin.lightd.exception.LightDException;
+import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.BytesUtil;
 
 import java.util.ArrayList;
@@ -45,7 +45,7 @@ public abstract class DBAbs {
 
     }
 
-    public void commitTX() throws LightDException {
+    public void commitTX() throws KitDBException {
         try {
             DAssert.isTrue(this.IS_STATR_TX.get(), ErrorType.TX_NOT_START, "Transaction have not started");
             TransactionEntity entity = TRANSACTION_ENTITY.get();
@@ -63,12 +63,12 @@ public abstract class DBAbs {
                 }
             }
         } catch (RocksDBException e) {
-            throw new LightDException(ErrorType.STROE_ERROR, e);
+            throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
     }
 
 
-    public void rollbackTX() throws LightDException {
+    public void rollbackTX() throws KitDBException {
         try {
             if (!this.IS_STATR_TX.get()) {
                 return;
@@ -87,7 +87,7 @@ public abstract class DBAbs {
                 }
             }
         } catch (RocksDBException e) {
-            throw new LightDException(ErrorType.STROE_ERROR, e);
+            throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
 
     }
@@ -102,7 +102,7 @@ public abstract class DBAbs {
     }
 
 
-    public void startTran(int waitTime) throws LightDException {
+    public void startTran(int waitTime) throws KitDBException {
         DAssert.isTrue(this.openTransaction, ErrorType.NOT_TX_DB, "this db is not a Transaction DB");
         if (!this.IS_STATR_TX.get()) {
             try {
@@ -117,19 +117,20 @@ public abstract class DBAbs {
                     DAssert.isTrue(false, ErrorType.TX_GET_TIMEOUT, "Waiting to get Transaction timed out");
                 }
             } catch (InterruptedException e) {
-                throw new LightDException(ErrorType.TX_GET_TIMEOUT, e);
+                throw new KitDBException(ErrorType.TX_GET_TIMEOUT, e);
             }
         } else {
             TRANSACTION_ENTITY.get().addCount();
         }
     }
 
-    public void checkKey() throws LightDException {
+    public void checkKey() throws KitDBException {
         DAssert.isTrue(this.openTransaction, ErrorType.NOT_TX_DB, "this db is not a Transaction DB");
         DAssert.isTrue(!TX_LOCK.isLocked(), ErrorType.TX_ERROR, "a Transaction is being executed");
     }
 
-    protected void commit(List<DBCommand> logs) throws LightDException {
+
+    protected void commit(List<DBCommand> logs) throws KitDBException {
         try {
             if (this.IS_STATR_TX.get()) {
                 Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
@@ -138,17 +139,21 @@ public abstract class DBAbs {
                     transaction.rebuildFromWriteBatch(batch);
                 }
             } else {
-                try (final WriteBatch batch = new WriteBatch()) {
-                    setLogs(logs, batch);
-                    this.rocksDB().write(this.writeOptions(), batch);
-                }
+                simpleCommit(logs);
             }
         } catch (RocksDBException e) {
-            throw new LightDException(ErrorType.STROE_ERROR, e);
+            throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
     }
 
-    protected void commit() throws LightDException {
+    private void simpleCommit(List<DBCommand> logs) throws KitDBException, RocksDBException {
+        try (final WriteBatch batch = new WriteBatch()) {
+            setLogs(logs, batch);
+            this.rocksDB().write(this.writeOptions(), batch);
+        }
+    }
+
+    protected void commit() throws KitDBException {
         try {
             List<DBCommand> logs = threadLogs.get();
             try {
@@ -157,7 +162,7 @@ public abstract class DBAbs {
                 logs.clear();
             }
         } catch (Exception e) {
-            throw new LightDException(ErrorType.STROE_ERROR, e);
+            throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
     }
 
@@ -171,6 +176,21 @@ public abstract class DBAbs {
         List<DBCommand> logs = threadLogs.get();
         if (logs != null) {
             logs.clear();
+        }
+    }
+
+
+    public void simplePut(byte[] key, byte[] value, SstColumnFamily columnFamily) throws KitDBException {
+        List<DBCommand> logs = new ArrayList<>(1);
+        logs.add(DBCommand.update(key, value, columnFamily));
+        try {
+            try {
+                simpleCommit(logs);
+            } finally {
+                logs.clear();
+            }
+        } catch (Exception e) {
+            throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
     }
 
@@ -191,7 +211,7 @@ public abstract class DBAbs {
     }
 
 
-    private void setLogs(List<DBCommand> logs, WriteBatch batch) throws LightDException {
+    private void setLogs(List<DBCommand> logs, WriteBatch batch) throws KitDBException {
         try {
             for (DBCommand log : logs) {
                 switch (log.getType()) {
@@ -207,7 +227,7 @@ public abstract class DBAbs {
                 }
             }
         } catch (RocksDBException e) {
-            throw new LightDException(ErrorType.STROE_ERROR, e);
+            throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
     }
 
@@ -242,7 +262,7 @@ public abstract class DBAbs {
     }
 
 
-    protected byte[] getDB(byte[] key, SstColumnFamily columnFamily) throws LightDException {
+    protected byte[] getDB(byte[] key, SstColumnFamily columnFamily) throws KitDBException {
         try {
             if (this.IS_STATR_TX.get()) {
                 Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
@@ -250,7 +270,7 @@ public abstract class DBAbs {
             }
             return this.rocksDB().get(findColumnFamilyHandle(columnFamily), key);
         } catch (RocksDBException e) {
-            throw new LightDException(ErrorType.STROE_ERROR, e);
+            throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
     }
 
@@ -266,7 +286,7 @@ public abstract class DBAbs {
     }
 
 
-    protected Map<byte[], byte[]> multiGet(List<byte[]> keys, SstColumnFamily columnFamily) throws LightDException {
+    protected Map<byte[], byte[]> multiGet(List<byte[]> keys, SstColumnFamily columnFamily) throws KitDBException {
 
         try {
             List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>(keys.size());
@@ -281,7 +301,7 @@ public abstract class DBAbs {
             }
             return this.rocksDB().multiGet(columnFamilyHandles, keys);
         } catch (RocksDBException e) {
-            throw new LightDException(ErrorType.STROE_ERROR, e);
+            throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
     }
 

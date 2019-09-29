@@ -8,7 +8,7 @@ import top.thinkin.lightd.base.TxLock;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
-import top.thinkin.lightd.exception.LightDException;
+import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.ArrayKits;
 
 import java.nio.charset.Charset;
@@ -66,7 +66,7 @@ public abstract class RBase {
     }
 
 
-    protected void checkTxRange() throws LightDException {
+    protected void checkTxRange() throws KitDBException {
         if (!db.openTransaction) {
             return;
         }
@@ -75,20 +75,20 @@ public abstract class RBase {
         db.checkKey();
     }
 
-    protected void checkTxStart() throws LightDException {
+    protected void checkTxStart() throws KitDBException {
 
         if (db.openTransaction) {
             db.startTran(DEF_TX_TIME_OUT);
         }
     }
 
-    protected void checkTxCommit() throws LightDException {
+    protected void checkTxCommit() throws KitDBException {
         if (db.openTransaction) {
             db.commitTX();
         }
     }
 
-    protected void checkTxRollBack() throws LightDException {
+    protected void checkTxRollBack() throws KitDBException {
         if (db.openTransaction) {
             db.rollbackTX();
         }
@@ -110,7 +110,7 @@ public abstract class RBase {
     }
 
 
-    public void commit() throws LightDException {
+    public void commit() throws KitDBException {
         db.commit();
     }
 
@@ -134,7 +134,7 @@ public abstract class RBase {
     }
 
 
-    protected byte[] getDB(byte[] key, SstColumnFamily columnFamily) throws LightDException {
+    protected byte[] getDB(byte[] key, SstColumnFamily columnFamily) throws KitDBException {
         return db.getDB(key, columnFamily);
     }
 
@@ -144,7 +144,7 @@ public abstract class RBase {
     }
 
 
-    protected Map<byte[], byte[]> multiGet(List<byte[]> keys, SstColumnFamily columnFamily) throws LightDException {
+    protected Map<byte[], byte[]> multiGet(List<byte[]> keys, SstColumnFamily columnFamily) throws KitDBException {
         return db.multiGet(keys, columnFamily);
     }
 

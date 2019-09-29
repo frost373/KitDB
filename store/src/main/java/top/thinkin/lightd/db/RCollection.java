@@ -6,7 +6,7 @@ import top.thinkin.lightd.base.KeyDoubletLock;
 import top.thinkin.lightd.base.MetaAbs;
 import top.thinkin.lightd.base.MetaDAbs;
 import top.thinkin.lightd.base.SstColumnFamily;
-import top.thinkin.lightd.exception.LightDException;
+import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.ArrayKits;
 
 public abstract class RCollection extends RBase {
@@ -22,7 +22,7 @@ public abstract class RCollection extends RBase {
 
     protected abstract <T extends MetaAbs> T getMeta(byte[] key_b) throws Exception;
 
-    protected void deleteFast(byte[] key_b, MetaAbs metaV) throws LightDException {
+    protected void deleteFast(byte[] key_b, MetaAbs metaV) throws KitDBException {
         this.start();
         try {
             MetaDAbs metaVD = metaV.convertMetaBytes();
@@ -35,7 +35,7 @@ public abstract class RCollection extends RBase {
     }
 
 
-    protected void deleteTTL(byte[] key_b, MetaAbs metaV) throws LightDException {
+    protected void deleteTTL(byte[] key_b, MetaAbs metaV) throws KitDBException {
         this.start();
         try {
             MetaDAbs metaVD = metaV.convertMetaBytes();
@@ -85,7 +85,7 @@ public abstract class RCollection extends RBase {
      */
     abstract void ttl(String key, int ttl) throws Exception;
 
-    abstract boolean isExist(String key) throws RocksDBException, LightDException;
+    abstract boolean isExist(String key) throws RocksDBException, KitDBException;
 
     abstract int size(String key) throws Exception;
 

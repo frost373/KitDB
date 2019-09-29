@@ -11,7 +11,7 @@ import top.thinkin.lightd.base.*;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
-import top.thinkin.lightd.exception.LightDException;
+import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.ArrayKits;
 import top.thinkin.lightd.kit.BytesUtil;
 
@@ -37,22 +37,22 @@ public class RList extends RCollection {
         super(db, false, 128);
     }
 
-    public void add(String key, byte[] v) throws LightDException {
+    public void add(String key, byte[] v) throws KitDBException {
         addMayTTL(key, v, -1);
     }
 
 
-    public void addAll(String key, List<byte[]> vs) throws LightDException {
+    public void addAll(String key, List<byte[]> vs) throws KitDBException {
         addAllMayTTL(key, vs, -1);
     }
 
 
-    protected byte[] getKey(String key) throws LightDException {
+    protected byte[] getKey(String key) throws KitDBException {
         DAssert.notNull(key, ErrorType.NULL, "Key is null");
         return ArrayKits.addAll(HEAD_B, key.getBytes(charset));
     }
 
-    public int size(String key) throws LightDException {
+    public int size(String key) throws KitDBException {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         if (metaV == null) {
@@ -74,7 +74,7 @@ public class RList extends RCollection {
     }
 
 
-    private MetaV getMetaP(byte[] key_b) throws LightDException {
+    private MetaV getMetaP(byte[] key_b) throws KitDBException {
         byte[] k_v = getDB(key_b, SstColumnFamily.META);
         if (k_v == null) return null;
 
@@ -82,7 +82,7 @@ public class RList extends RCollection {
         return metaV;
     }
 
-    protected MetaV getMeta(byte[] key_b) throws LightDException {
+    protected MetaV getMeta(byte[] key_b) throws KitDBException {
 
         MetaV metaV = getMetaP(key_b);
         if (metaV == null) {
@@ -95,7 +95,7 @@ public class RList extends RCollection {
         return metaV;
     }
 
-    public boolean isExist(String key) throws LightDException {
+    public boolean isExist(String key) throws KitDBException {
         byte[] key_b = getKey(key);
         byte[] k_v = getDB(key_b, SstColumnFamily.META);
         MetaV metaV = addCheck(k_v);
@@ -103,7 +103,7 @@ public class RList extends RCollection {
         return metaV != null;
     }
 
-    public void ttl(String key, int ttl) throws LightDException {
+    public void ttl(String key, int ttl) throws KitDBException {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
@@ -134,7 +134,7 @@ public class RList extends RCollection {
         }
     }
 
-    public void delTtl(String key) throws LightDException {
+    public void delTtl(String key) throws KitDBException {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
@@ -162,7 +162,7 @@ public class RList extends RCollection {
         }
     }
 
-    public int getTtl(String key) throws LightDException {
+    public int getTtl(String key) throws KitDBException {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         if (metaV == null) {
@@ -175,7 +175,7 @@ public class RList extends RCollection {
     }
 
 
-    private void delete(byte[] key_b, MetaV metaV) throws LightDException {
+    private void delete(byte[] key_b, MetaV metaV) throws KitDBException {
         ValueK valueK_seek = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.left);
         MetaVD metaVD = metaV.convertMetaBytes();
         ValueKD valueKD = valueK_seek.convertValueBytes();
@@ -186,7 +186,7 @@ public class RList extends RCollection {
     }
 
 
-    protected synchronized void deleteByClear(byte[] key_b, MetaV metaV) throws LightDException {
+    protected synchronized void deleteByClear(byte[] key_b, MetaV metaV) throws KitDBException {
         try {
             start();
             delete(key_b, metaV);
@@ -197,7 +197,7 @@ public class RList extends RCollection {
     }
 
 
-    public void delete(String key) throws LightDException {
+    public void delete(String key) throws KitDBException {
         checkTxRange();
         LockEntity lockEntity = lock.lock(key);
         byte[] key_b = getKey(key);
@@ -218,12 +218,12 @@ public class RList extends RCollection {
     }
 
     @Override
-    public KeyIterator getKeyIterator() throws LightDException {
+    public KeyIterator getKeyIterator() throws KitDBException {
         return getKeyIterator(HEAD_B);
     }
 
 
-    public List<byte[]> range(String key, long start, long end) throws LightDException {
+    public List<byte[]> range(String key, long start, long end) throws KitDBException {
         byte[] key_b = getKey(key);
 
         List<byte[]> list = new ArrayList<>();
@@ -253,7 +253,7 @@ public class RList extends RCollection {
     }
 
     @SuppressWarnings("unchecked")
-    public RIterator<RList> iterator(String key) throws LightDException {
+    public RIterator<RList> iterator(String key) throws KitDBException {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         if (metaV == null) {
@@ -277,7 +277,7 @@ public class RList extends RCollection {
         return entry;
     }
 
-    public List<byte[]> blpop(String key, int num) throws LightDException {
+    public List<byte[]> blpop(String key, int num) throws KitDBException {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
@@ -338,7 +338,7 @@ public class RList extends RCollection {
     }
 
 
-    public List<byte[]> brpop(String key, int num) throws LightDException {
+    public List<byte[]> brpop(String key, int num) throws KitDBException {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
@@ -394,7 +394,7 @@ public class RList extends RCollection {
     }
 
 
-    public void addAllMayTTL(String key, List<byte[]> vs, int ttl) throws LightDException {
+    public void addAllMayTTL(String key, List<byte[]> vs, int ttl) throws KitDBException {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
@@ -457,7 +457,7 @@ public class RList extends RCollection {
     }
 
 
-    public void deleteFast(String key) throws LightDException {
+    public void deleteFast(String key) throws KitDBException {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
@@ -480,7 +480,7 @@ public class RList extends RCollection {
     }
 
 
-    public void deleteTTL(byte[] key_b, byte[] meta_b) throws LightDException {
+    public void deleteTTL(byte[] key_b, byte[] meta_b) throws KitDBException {
         deleteTTL(key_b, MetaVD.build(meta_b).convertMeta());
     }
 
@@ -492,7 +492,7 @@ public class RList extends RCollection {
      * @param ttl
      * @throws RocksDBException
      */
-    public void addMayTTL(String key, byte[] v, int ttl) throws LightDException {
+    public void addMayTTL(String key, byte[] v, int ttl) throws KitDBException {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
@@ -542,7 +542,7 @@ public class RList extends RCollection {
     }
 
 
-    public byte[] get(String key, long i) throws LightDException {
+    public byte[] get(String key, long i) throws KitDBException {
         byte[] key_b = getKey(key);
 
         MetaV metaV = getMeta(key_b);
@@ -554,7 +554,7 @@ public class RList extends RCollection {
     }
 
 
-    public List<byte[]> get(String key, List<Long> is) throws LightDException {
+    public List<byte[]> get(String key, List<Long> is) throws KitDBException {
         byte[] key_b = getKey(key);
 
         MetaV metaV = getMeta(key_b);
@@ -571,7 +571,7 @@ public class RList extends RCollection {
     }
 
 
-    public Long left(String key) throws LightDException {
+    public Long left(String key) throws KitDBException {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         if (metaV == null) {
@@ -580,7 +580,7 @@ public class RList extends RCollection {
         return metaV.left;
     }
 
-    public Long right(String key) throws LightDException {
+    public Long right(String key) throws KitDBException {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         if (metaV == null) {
@@ -589,7 +589,7 @@ public class RList extends RCollection {
         return metaV.right;
     }
 
-    public void set(String key, long i, byte[] v) throws LightDException {
+    public void set(String key, long i, byte[] v) throws KitDBException {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);

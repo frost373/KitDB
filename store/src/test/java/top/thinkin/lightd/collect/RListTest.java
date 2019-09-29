@@ -11,7 +11,7 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import top.thinkin.lightd.db.DB;
 import top.thinkin.lightd.db.RList;
-import top.thinkin.lightd.exception.LightDException;
+import top.thinkin.lightd.exception.KitDBException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +22,7 @@ public class RListTest {
     static DB db;
 
     @Before
-    public void init() throws RocksDBException, LightDException {
+    public void init() throws RocksDBException, KitDBException {
         if(db == null){
             RocksDB.loadLibrary();
             db = DB.build("D:\\temp\\db", false);

@@ -1,6 +1,7 @@
 package top.thinkin.lightd.db;
 
 import cn.hutool.core.util.ArrayUtil;
+import cn.hutool.core.util.ZipUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.rocksdb.*;
 import top.thinkin.lightd.base.BinLog;
@@ -9,13 +10,15 @@ import top.thinkin.lightd.base.VersionSequence;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
-import top.thinkin.lightd.exception.LightDException;
+import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.BytesUtil;
+import top.thinkin.lightd.kit.FileZipUtils;
 
 import java.io.File;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -171,25 +174,32 @@ public class DB extends DBAbs {
     }
 
 
-    public synchronized void writeSnapshot() throws RocksDBException {
+    public synchronized String backupDB(String path) throws RocksDBException {
+        Random r = new Random();
+        String tempPath = path + "/tempsp" + r.nextInt(999);
+        final File tempFile = new File(tempPath);
+        FileZipUtils.delFile(tempFile);
         try (final Checkpoint checkpoint = Checkpoint.create(this.rocksDB)) {
-            final File tempFile = new File("D:\\temp\\sp");
-            if (tempFile.exists()) {
-                tempFile.delete();
-            }
-            checkpoint.createCheckpoint("D:\\temp\\sp");
-        } finally {
-
+            checkpoint.createCheckpoint(tempPath);
         }
+        long time = System.currentTimeMillis();
+        String backPath = path + "/" + time + r.nextInt(999) + ".kbu";
+        FileZipUtils.zipFiles(tempPath, backPath);
+        FileZipUtils.delFile(tempFile);
+        return backPath;
     }
 
 
-    public synchronized static DB build(String dir) throws RocksDBException, LightDException {
+    public static void releaseBackup(String path, String targetpath) throws RocksDBException {
+        ZipUtil.unzip(path, targetpath);
+    }
+
+    public synchronized static DB build(String dir) throws RocksDBException, KitDBException {
         return build(dir, true);
     }
 
 
-    public synchronized static DB build(String dir, boolean autoclear) throws LightDException {
+    public synchronized static DB build(String dir, boolean autoclear) throws KitDBException {
         DB db;
         try {
             db = new DB();
@@ -201,13 +211,13 @@ public class DB extends DBAbs {
 
             setDB(autoclear, db, cfHandles);
         } catch (RocksDBException e) {
-            throw new LightDException(ErrorType.STROE_ERROR, e);
+            throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
 
         return db;
     }
 
-    public synchronized static DB buildTransactionDB(String dir, boolean autoclear) throws LightDException {
+    public synchronized static DB buildTransactionDB(String dir, boolean autoclear) throws KitDBException {
         DB db;
         try {
             db = new DB();
@@ -221,7 +231,7 @@ public class DB extends DBAbs {
             db.rocksDB = rocksDB;
             setDB(autoclear, db, cfHandles);
         } catch (RocksDBException e) {
-            throw new LightDException(ErrorType.STROE_ERROR, e);
+            throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
         return db;
     }
@@ -233,7 +243,7 @@ public class DB extends DBAbs {
         return options;
     }
 
-    private static void setDB(boolean autoclear, DB db, List<ColumnFamilyHandle> cfHandles) throws RocksDBException, LightDException {
+    private static void setDB(boolean autoclear, DB db, List<ColumnFamilyHandle> cfHandles) throws RocksDBException, KitDBException {
         db.metaHandle = cfHandles.get(0);
         db.defHandle = cfHandles.get(1);
 
