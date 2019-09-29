@@ -38,7 +38,8 @@ public abstract class DBAbs {
 
     protected ThreadLocal<TransactionEntity> TRANSACTION_ENTITY = new ThreadLocal<>();
 
-    protected ThreadLocal<Boolean> IS_STATR_TX = ThreadLocal.withInitial(() -> false);
+    public final ThreadLocal<Boolean> IS_STATR_TX = ThreadLocal.withInitial(() -> false);
+
     protected final ReentrantLock TX_LOCK = new ReentrantLock(true);
 
     protected DBAbs() {
