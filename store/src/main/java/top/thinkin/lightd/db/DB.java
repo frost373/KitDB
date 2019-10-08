@@ -247,7 +247,7 @@ public class DB extends DBAbs {
         db.metaHandle = cfHandles.get(0);
         db.defHandle = cfHandles.get(1);
 
-        db.versionSequence = new VersionSequence(db.rocksDB);
+        db.versionSequence = new VersionSequence(db);
         byte[] version = db.rocksDB.get("version".getBytes());
         if (version == null) {
             db.rocksDB.put("version".getBytes(), DB_VERSION);
@@ -267,8 +267,8 @@ public class DB extends DBAbs {
         Options optionsBinLog = new Options();
         optionsBinLog.setCreateIfMissing(true);
 
-        db.binLogDB = RocksDB.open(optionsBinLog, "D:\\temp\\logs");
-        db.binLog = new BinLog(db.binLogDB);
+        db.binLogDB = null; //RocksDB.open(optionsBinLog, "D:\\temp\\logs2");
+        //db.binLog = new BinLog(db.binLogDB);
         db.keySegmentLockManager = new KeySegmentLockManager(db.stp);
         db.rKv = new RKv(db);
         db.zSet = new ZSet(db);

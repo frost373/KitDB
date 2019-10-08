@@ -7,6 +7,8 @@ import com.alipay.sofa.jraft.entity.PeerId;
 import com.alipay.sofa.jraft.option.NodeOptions;
 import com.alipay.sofa.jraft.rpc.RaftRpcServerFactory;
 import org.apache.commons.io.FileUtils;
+import top.thinkin.lightd.db.DB;
+import top.thinkin.lightd.exception.KitDBException;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,9 +24,10 @@ public class LightDServer {
     private DBStateMachine dbsm;
 
 
-    public LightDServer(String dataPath, String groupId, PeerId serverId, NodeOptions nodeOptions) throws IOException {
+    public LightDServer(String dataPath, String groupId, PeerId serverId, NodeOptions nodeOptions, DB db) throws IOException, KitDBException {
         FileUtils.forceMkdir(new File(dataPath));
         this.dbsm = new DBStateMachine();
+        this.dbsm.setDB(db);
         RpcServer rpcServer = new RpcServer(serverId.getPort());
         RaftRpcServerFactory.addRaftRequestProcessors(rpcServer);
 

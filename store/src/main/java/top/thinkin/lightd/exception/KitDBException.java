@@ -1,7 +1,5 @@
 package top.thinkin.lightd.exception;
 
-import org.apache.logging.log4j.core.util.Throwables;
-
 public class KitDBException extends Exception {
     private static final long serialVersionUID = 1L;
     private final ErrorType type;
@@ -13,12 +11,12 @@ public class KitDBException extends Exception {
 
 
     public KitDBException(ErrorType type, String errmsg, Exception cause) {
-        super(String.join(" ", type.name(), errmsg), Throwables.getRootCause(cause));
+        super(String.join(" ", type.name(), errmsg), cause);
         this.type = type;
     }
 
     public KitDBException(ErrorType type, Exception cause) {
-        super(type.name(), Throwables.getRootCause(cause));
+        super(type.name(), cause);
         this.type = type;
     }
 

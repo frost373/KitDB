@@ -20,10 +20,6 @@ public abstract class DBAbs {
     protected boolean openTransaction = false;
     protected KeySegmentLockManager keySegmentLockManager;
 
-    protected RocksDB getRocksDB() {
-        return rocksDB;
-    }
-
     public RocksDB rocksDB() {
         return this.rocksDB;
     }
@@ -56,7 +52,8 @@ public abstract class DBAbs {
                 entity.subCount();
             } else {
                 try {
-                    entity.getTransaction().commit();
+                    DBCommandChunk dbCommandChunk = new DBCommandChunk(DBCommandChunkType.TX_COMMIT, entity);
+                    functionCommit.call(dbCommandChunk);
                 } finally {
                     IS_STATR_TX.set(false);
                     TX_LOCK.unlock();
@@ -66,6 +63,10 @@ public abstract class DBAbs {
         } catch (RocksDBException e) {
             throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
+    }
+
+    public void commitTX(TransactionEntity entity) throws RocksDBException {
+        entity.getTransaction().commit();
     }
 
 
@@ -80,7 +81,9 @@ public abstract class DBAbs {
                 entity.subCount();
             } else {
                 try {
-                    entity.getTransaction().rollback();
+                    DBCommandChunk dbCommandChunk = new DBCommandChunk(DBCommandChunkType.TX_ROLLBACK, entity);
+                    functionCommit.call(dbCommandChunk);
+                    //rollbackTX(entity);
                 } finally {
                     IS_STATR_TX.set(false);
                     TX_LOCK.unlock();
@@ -91,6 +94,10 @@ public abstract class DBAbs {
             throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
 
+    }
+
+    public void rollbackTX(TransactionEntity entity) throws RocksDBException {
+        entity.getTransaction().rollback();
     }
 
     public void start() {
@@ -131,7 +138,7 @@ public abstract class DBAbs {
     }
 
 
-    protected void commit(List<DBCommand> logs) throws KitDBException {
+    public void commit(List<DBCommand> logs) throws KitDBException {
         try {
             if (this.IS_STATR_TX.get()) {
                 Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
@@ -147,7 +154,7 @@ public abstract class DBAbs {
         }
     }
 
-    private void simpleCommit(List<DBCommand> logs) throws KitDBException, RocksDBException {
+    public void simpleCommit(List<DBCommand> logs) throws KitDBException, RocksDBException {
         try (final WriteBatch batch = new WriteBatch()) {
             setLogs(logs, batch);
             this.rocksDB().write(this.writeOptions(), batch);
@@ -156,9 +163,17 @@ public abstract class DBAbs {
 
     protected void commit() throws KitDBException {
         try {
+            DBCommandChunk dbCommandChunk = new DBCommandChunk();
+
+            if (this.IS_STATR_TX.get()) {
+                dbCommandChunk.setType(DBCommandChunkType.TX_LOGS);
+            } else {
+                dbCommandChunk.setType(DBCommandChunkType.NOM_COMMIT);
+            }
             List<DBCommand> logs = threadLogs.get();
+            dbCommandChunk.setCommands(logs);
             try {
-                functionCommit.call(logs);
+                functionCommit.call(dbCommandChunk);
             } finally {
                 logs.clear();
             }
@@ -184,6 +199,8 @@ public abstract class DBAbs {
     public void simplePut(byte[] key, byte[] value, SstColumnFamily columnFamily) throws KitDBException {
         List<DBCommand> logs = new ArrayList<>(1);
         logs.add(DBCommand.update(key, value, columnFamily));
+        DBCommandChunk dbCommandChunk = new DBCommandChunk(DBCommandChunkType.SIMPLE_COMMIT, logs);
+
         try {
             try {
                 simpleCommit(logs);
@@ -233,12 +250,7 @@ public abstract class DBAbs {
     }
 
 
-    public interface FunctionCommit {
-        void call(List<DBCommand> logs) throws Exception;
 
-    }
-
-    public FunctionCommit functionCommit = this::commit;
 
     protected static List<ColumnFamilyDescriptor> getColumnFamilyDescriptor() {
         final ColumnFamilyOptions cfOptions = TableConfig.createColumnFamilyOptions();
@@ -269,6 +281,14 @@ public abstract class DBAbs {
                 Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
                 return transaction.get(findColumnFamilyHandle(columnFamily), readOptions, key);
             }
+            return this.rocksDB().get(findColumnFamilyHandle(columnFamily), key);
+        } catch (RocksDBException e) {
+            throw new KitDBException(ErrorType.STROE_ERROR, e);
+        }
+    }
+
+    public byte[] simpleGet(byte[] key, SstColumnFamily columnFamily) throws KitDBException {
+        try {
             return this.rocksDB().get(findColumnFamilyHandle(columnFamily), key);
         } catch (RocksDBException e) {
             throw new KitDBException(ErrorType.STROE_ERROR, e);
@@ -334,4 +354,31 @@ public abstract class DBAbs {
         }
     }
 
+
+    public interface FunctionCommit {
+        void call(DBCommandChunk dbCommandChunk) throws KitDBException, RocksDBException;
+    }
+
+    public FunctionCommit functionCommit = (dbCommandChunk) -> {
+        DBCommandChunkType dbCommandChunkType = dbCommandChunk.getType();
+        switch (dbCommandChunkType) {
+            case NOM_COMMIT:
+                this.commit(dbCommandChunk.getCommands());
+                break;
+            case TX_LOGS:
+                this.commit(dbCommandChunk.getCommands());
+                break;
+            case TX_COMMIT:
+                this.commitTX(dbCommandChunk.getEntity());
+                break;
+            case TX_ROLLBACK:
+                this.rollbackTX(dbCommandChunk.getEntity());
+                break;
+            case SIMPLE_COMMIT:
+                this.simpleCommit(dbCommandChunk.getCommands());
+                break;
+            default:
+                throw new KitDBException(ErrorType.NULL, "DBCommandChunkType non-existent!");
+        }
+    };
 }

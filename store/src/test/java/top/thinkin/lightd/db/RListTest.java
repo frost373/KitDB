@@ -6,7 +6,6 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import top.thinkin.lightd.benchmark.JoinFuture;
 
@@ -26,9 +25,8 @@ public class RListTest {
     @Before
     public void init() throws RocksDBException {
         if (db == null) {
-            RocksDB.loadLibrary();
             try {
-                db = DB.build("D:\\temp\\db", true);
+                db = DB.buildTransactionDB("D:\\temp\\db", true);
             } catch (Exception e) {
                 log.error("error", e);
                 e.printStackTrace();
@@ -39,7 +37,7 @@ public class RListTest {
 
     @AfterClass
     public static void after() throws InterruptedException {
-        Thread.sleep(5000);
+        //Thread.sleep(5000);
     }
 
 
@@ -222,27 +220,43 @@ public class RListTest {
 
     @Test
     public void get1() throws Exception {
-        String head = "get1";
-        RList list = db.getList();
-        int num = 10 * 10000;
-        try {
-            for (int i = 0; i < num; i++) {
-                list.add(head, ("hello" + i).getBytes());
-            }
-            List<Long> integers = new ArrayList<>();
-            for (int i = 0; i < num; i++) {
-                integers.add((long) i);
-            }
-            List<List<Long>> integers_splits = CollUtil.split(integers, 3000);
-            for (List<Long> integers_split : integers_splits) {
-                List<byte[]> bytess = list.get(head, integers_split);
-                for (int i = 0; i < bytess.size(); i++) {
-                    Assert.assertEquals(new String(bytess.get(i)), ("hello" + integers_split.get(i)));
+        for (int k = 0; k < 1; k++) {
+            String head = "get1";
+            RList list = db.getList();
+            int num = 10 * 10000;
+
+           /* System.out.println(new String(list.get(head,12179)));
+            System.out.println(new String(list.get(head,12190)));
+            System.out.println(new String(list.get(head,12191)));
+
+            System.out.println(list.size(head));*/
+            /*for (int j = 0; j < num; j++) {
+                Assert.assertEquals(("hello" + (j)),new String(list.get(head,j)) );
+            }*/
+
+
+            try {
+                for (int i = 0; i < num; i++) {
+                    list.add(head, ("hello" + i).getBytes());
                 }
+                List<Long> integers = new ArrayList<>();
+                for (int i = 0; i < num; i++) {
+                    integers.add((long) i);
+                }
+                List<List<Long>> integers_splits = CollUtil.split(integers, 3000);
+                for (List<Long> integers_split : integers_splits) {
+                    List<byte[]> bytess = list.get(head, integers_split);
+                    for (int i = 0; i < bytess.size(); i++) {
+                        Assert.assertEquals(new String(bytess.get(i)), ("hello" + integers_split.get(i)));
+                    }
+                }
+                list.delete(head);
+            } finally {
+
             }
-        } finally {
-            list.delete(head);
         }
+
+
 
     }
 

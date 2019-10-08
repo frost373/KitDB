@@ -2,13 +2,12 @@ package top.thinkin.lightd.raft;
 
 import com.alipay.sofa.jraft.Closure;
 import com.alipay.sofa.jraft.Status;
-import top.thinkin.lightd.base.DBCommand;
-
-import java.util.List;
+import top.thinkin.lightd.base.DBCommandChunk;
 
 public class DBClosure implements Closure {
 
-    private List<DBCommand> logs;
+    private DBCommandChunk chunk;
+
 
 
     public DBClosure() {
@@ -20,11 +19,11 @@ public class DBClosure implements Closure {
 
     }
 
-    public List<DBCommand> getLogs() {
-        return logs;
+    public DBCommandChunk getChunk() {
+        return chunk;
     }
 
-    public void setLogs(List<DBCommand> logs) {
-        this.logs = logs;
+    public void setChunk(DBCommandChunk chunk) {
+        this.chunk = chunk;
     }
 }

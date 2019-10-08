@@ -1,14 +1,13 @@
 package top.thinkin.lightd.raft;
 
-import top.thinkin.lightd.base.DBCommand;
+import top.thinkin.lightd.base.DBCommandChunk;
 
 import java.io.Serializable;
-import java.util.List;
 
 public class DBRequest implements Serializable {
     private static final long serialVersionUID = -5623664785560971849L;
     private String key;
-    private List<DBCommand> logs;
+    private DBCommandChunk chunk;
 
     public String getKey() {
         return key;
@@ -18,11 +17,11 @@ public class DBRequest implements Serializable {
         this.key = key;
     }
 
-    public List<DBCommand> getLogs() {
-        return logs;
+    public DBCommandChunk getChunk() {
+        return chunk;
     }
 
-    public void setLogs(List<DBCommand> logs) {
-        this.logs = logs;
+    public void setChunk(DBCommandChunk chunk) {
+        this.chunk = chunk;
     }
 }
