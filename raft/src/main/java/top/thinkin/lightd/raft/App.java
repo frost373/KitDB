@@ -18,7 +18,6 @@ public class App extends NanoHTTPD {
         System.out.println("\nRunning! Point your browsers to http://localhost:8080/ \n");
     }
 
-
     private LightDServer lightDServer;
     private DB db;
 
