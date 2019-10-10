@@ -37,20 +37,98 @@ public class RList extends RCollection {
         super(db, false, 128);
     }
 
+
     public void add(String key, byte[] v) throws KitDBException {
-        addMayTTL(key, v, -1);
+        addMayTTLPrivate(key, v, -1);
     }
 
 
     public void addAll(String key, List<byte[]> vs) throws KitDBException {
-        addAllMayTTL(key, vs, -1);
+        addAllMayTTLPrivate(key, vs, -1);
     }
 
 
-    protected byte[] getKey(String key) throws KitDBException {
-        DAssert.notNull(key, ErrorType.NULL, "Key is null");
-        return ArrayKits.addAll(HEAD_B, key.getBytes(charset));
+    public void addAllMayTTL(String key, List<byte[]> vs, int ttl) throws KitDBException {
+        DAssert.isTrue(ttl > 0, ErrorType.PARAM_ERROR, "ttl must greater than 0");
+        addAllMayTTLPrivate(key, vs, ttl);
     }
+
+    public void set(String key, long i, byte[] v) throws KitDBException {
+        checkTxStart();
+        try {
+            LockEntity lockEntity = lock.lock(key);
+            try {
+                byte[] key_b = getKey(key);
+                MetaV metaV = getMeta(key_b);
+                if (metaV == null) {
+                    checkTxCommit();
+                    return;
+                }
+                DAssert.isTrue(i >= metaV.left && i <= metaV.right, ErrorType.EMPTY, "index not exist");
+                start();
+
+                ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), i);
+                ValueKD valueKD = valueK.convertValueBytes();
+                //写入Value
+                putDB(valueKD.toBytes(), v, SstColumnFamily.DEFAULT);
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
+            }
+            checkTxCommit();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
+        }
+    }
+
+
+    public byte[] get(String key, long i) throws KitDBException {
+        byte[] key_b = getKey(key);
+
+        MetaV metaV = getMeta(key_b);
+        if (metaV == null) {
+            return null;
+        }
+        ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), i);
+        return getDB(valueK.convertValueBytes().toBytes(), SstColumnFamily.DEFAULT);
+    }
+
+    public List<byte[]> get(String key, List<Long> is) throws KitDBException {
+        byte[] key_b = getKey(key);
+
+        MetaV metaV = getMeta(key_b);
+        if (metaV == null) {
+            return new ArrayList<>();
+        }
+        List<byte[]> list = new ArrayList<>(is.size());
+
+        for (long i : is) {
+            ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), i);
+            list.add(getDB(valueK.convertValueBytes().toBytes(), SstColumnFamily.DEFAULT));
+        }
+        return list;
+    }
+
+    public Long left(String key) throws KitDBException {
+        byte[] key_b = getKey(key);
+        MetaV metaV = getMeta(key_b);
+        if (metaV == null) {
+            return null;
+        }
+        return metaV.left;
+    }
+
+    public Long right(String key) throws KitDBException {
+        byte[] key_b = getKey(key);
+        MetaV metaV = getMeta(key_b);
+        if (metaV == null) {
+            return null;
+        }
+        return metaV.right;
+    }
+
 
     public int size(String key) throws KitDBException {
         byte[] key_b = getKey(key);
@@ -61,80 +139,8 @@ public class RList extends RCollection {
         return metaV.getSize();
     }
 
-    private MetaV addCheck(byte[] k_v) {
-        MetaV metaV = null;
-        if (k_v != null) {
-            MetaVD metaVD = MetaVD.build(k_v);
-            metaV = metaVD.convertMeta();
-            if (metaV.getTimestamp() != -1 && (System.currentTimeMillis() / 1000) - metaV.getTimestamp() >= 0) {
-                metaV = null;
-            }
-        }
-        return metaV;
-    }
 
-
-    private MetaV getMetaP(byte[] key_b) throws KitDBException {
-        byte[] k_v = getDB(key_b, SstColumnFamily.META);
-        if (k_v == null) return null;
-
-        MetaV metaV = MetaVD.build(k_v).convertMeta();
-        return metaV;
-    }
-
-    protected MetaV getMeta(byte[] key_b) throws KitDBException {
-
-        MetaV metaV = getMetaP(key_b);
-        if (metaV == null) {
-            return null;
-        }
-        if (metaV.getTimestamp() != -1 && (System.currentTimeMillis() / 1000) - metaV.getTimestamp() >= 0) {
-            metaV = null;
-        }
-
-        return metaV;
-    }
-
-    public boolean isExist(String key) throws KitDBException {
-        byte[] key_b = getKey(key);
-        byte[] k_v = getDB(key_b, SstColumnFamily.META);
-        MetaV metaV = addCheck(k_v);
-
-        return metaV != null;
-    }
-
-    public void ttl(String key, int ttl) throws KitDBException {
-        checkTxStart();
-        try {
-            LockEntity lockEntity = lock.lock(key);
-            byte[] key_b = getKey(key);
-            try {
-                start();
-                MetaV metaV = getMeta(key_b);
-
-                DAssert.notNull(metaV, ErrorType.NOT_EXIST, "The List does not exist.");
-                delTimerCollection(KeyEnum.COLLECT_TIMER,
-                        metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
-
-                metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
-
-                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-                setTimerCollection(KeyEnum.COLLECT_TIMER,
-                        metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
-                commit();
-
-            } finally {
-                lock.unlock(lockEntity);
-                release();
-            }
-            checkTxCommit();
-        } catch (Exception e) {
-            checkTxRollBack();
-            throw e;
-        }
-    }
-
-    public void delTtl(String key) throws KitDBException {
+    public void deleteFast(String key) throws KitDBException {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
@@ -145,15 +151,9 @@ public class RList extends RCollection {
                 return;
             }
             try {
-                start();
-                delTimerCollection(KeyEnum.COLLECT_TIMER,
-                        metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
-                metaV.setTimestamp(-1);
-                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-                commit();
+                deleteFast(key_b, metaV);
             } finally {
                 lock.unlock(lockEntity);
-                release();
             }
             checkTxCommit();
         } catch (Exception e) {
@@ -161,41 +161,6 @@ public class RList extends RCollection {
             throw e;
         }
     }
-
-    public int getTtl(String key) throws KitDBException {
-        byte[] key_b = getKey(key);
-        MetaV metaV = getMeta(key_b);
-        if (metaV == null) {
-            return 0;
-        }
-        if (metaV.getTimestamp() == -1) {
-            return -1;
-        }
-        return (int) (System.currentTimeMillis() / 1000 - metaV.getTimestamp());
-    }
-
-
-    private void delete(byte[] key_b, MetaV metaV) throws KitDBException {
-        ValueK valueK_seek = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.left);
-        MetaVD metaVD = metaV.convertMetaBytes();
-        ValueKD valueKD = valueK_seek.convertValueBytes();
-        byte[] heads = valueKD.toHeadBytes();
-        deleteHead(heads, SstColumnFamily.DEFAULT);
-        byte[] key = ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion());
-        deleteDB(key, SstColumnFamily.DEFAULT);
-    }
-
-
-    protected synchronized void deleteByClear(byte[] key_b, MetaV metaV) throws KitDBException {
-        try {
-            start();
-            delete(key_b, metaV);
-            commit();
-        } finally {
-            release();
-        }
-    }
-
 
     public void delete(String key) throws KitDBException {
         checkTxRange();
@@ -217,9 +182,12 @@ public class RList extends RCollection {
 
     }
 
-    @Override
-    public KeyIterator getKeyIterator() throws KitDBException {
-        return getKeyIterator(HEAD_B);
+    public boolean isExist(String key) throws KitDBException {
+        byte[] key_b = getKey(key);
+        byte[] k_v = getDB(key_b, SstColumnFamily.META);
+        MetaV metaV = addCheck(k_v);
+
+        return metaV != null;
     }
 
 
@@ -276,6 +244,7 @@ public class RList extends RCollection {
         RList.Entry entry = new RList.Entry(key.index, iterator.value());
         return entry;
     }
+
 
     public List<byte[]> blpop(String key, int num) throws KitDBException {
         checkTxStart();
@@ -393,8 +362,158 @@ public class RList extends RCollection {
         }
     }
 
+    @Override
+    public KeyIterator getKeyIterator() throws KitDBException {
+        return getKeyIterator(HEAD_B);
+    }
 
-    public void addAllMayTTL(String key, List<byte[]> vs, int ttl) throws KitDBException {
+    public void ttl(String key, int ttl) throws KitDBException {
+        DAssert.isTrue(ttl > 0, ErrorType.PARAM_ERROR, "ttl must greater than 0");
+
+        checkTxStart();
+        try {
+            LockEntity lockEntity = lock.lock(key);
+            byte[] key_b = getKey(key);
+            try {
+                start();
+                MetaV metaV = getMeta(key_b);
+
+                DAssert.notNull(metaV, ErrorType.NOT_EXIST, "The List does not exist.");
+                delTimerCollection(KeyEnum.COLLECT_TIMER,
+                        metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+
+                metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
+
+                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+                setTimerCollection(KeyEnum.COLLECT_TIMER,
+                        metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                commit();
+
+            } finally {
+                lock.unlock(lockEntity);
+                release();
+            }
+            checkTxCommit();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
+        }
+    }
+
+    public void delTtl(String key) throws KitDBException {
+        checkTxStart();
+        try {
+            LockEntity lockEntity = lock.lock(key);
+            byte[] key_b = getKey(key);
+            MetaV metaV = getMeta(key_b);
+            if (metaV == null) {
+                checkTxCommit();
+                return;
+            }
+            try {
+                start();
+                delTimerCollection(KeyEnum.COLLECT_TIMER,
+                        metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                metaV.setTimestamp(-1);
+                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
+            }
+            checkTxCommit();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
+        }
+    }
+
+    public int getTtl(String key) throws KitDBException {
+        byte[] key_b = getKey(key);
+        MetaV metaV = getMeta(key_b);
+        if (metaV == null) {
+            return 0;
+        }
+        if (metaV.getTimestamp() == -1) {
+            return -1;
+        }
+        return (int) (System.currentTimeMillis() / 1000 - metaV.getTimestamp());
+    }
+
+
+    public void addMayTTL(String key, byte[] v, int ttl) throws KitDBException {
+        DAssert.isTrue(ttl > 0, ErrorType.PARAM_ERROR, "ttl must greater than 0");
+        addMayTTLPrivate(key, v, ttl);
+    }
+
+
+    private void delete(byte[] key_b, MetaV metaV) throws KitDBException {
+        ValueK valueK_seek = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.left);
+        MetaVD metaVD = metaV.convertMetaBytes();
+        ValueKD valueKD = valueK_seek.convertValueBytes();
+        byte[] heads = valueKD.toHeadBytes();
+        deleteHead(heads, SstColumnFamily.DEFAULT);
+        byte[] key = ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion());
+        deleteDB(key, SstColumnFamily.DEFAULT);
+    }
+
+    private MetaV addCheck(byte[] k_v) {
+        MetaV metaV = null;
+        if (k_v != null) {
+            MetaVD metaVD = MetaVD.build(k_v);
+            metaV = metaVD.convertMeta();
+            if (metaV.getTimestamp() != -1 && (System.currentTimeMillis() / 1000) - metaV.getTimestamp() >= 0) {
+                metaV = null;
+            }
+        }
+        return metaV;
+    }
+
+
+    protected byte[] getKey(String key) throws KitDBException {
+        DAssert.notNull(key, ErrorType.NULL, "Key is null");
+        return ArrayKits.addAll(HEAD_B, key.getBytes(charset));
+    }
+
+    protected MetaV getMeta(byte[] key_b) throws KitDBException {
+
+        MetaV metaV = getMetaP(key_b);
+        if (metaV == null) {
+            return null;
+        }
+        if (metaV.getTimestamp() != -1 && (System.currentTimeMillis() / 1000) - metaV.getTimestamp() >= 0) {
+            metaV = null;
+        }
+
+        return metaV;
+    }
+
+    private MetaV getMetaP(byte[] key_b) throws KitDBException {
+        byte[] k_v = getDB(key_b, SstColumnFamily.META);
+        if (k_v == null) return null;
+
+        MetaV metaV = MetaVD.build(k_v).convertMeta();
+        return metaV;
+    }
+
+
+    protected synchronized void deleteByClear(byte[] key_b, MetaV metaV) throws KitDBException {
+        try {
+            start();
+            delete(key_b, metaV);
+            commit();
+        } finally {
+            release();
+        }
+    }
+
+
+    protected void deleteTTL(byte[] key_b, byte[] meta_b) throws KitDBException {
+        deleteTTL(key_b, MetaVD.build(meta_b).convertMeta());
+    }
+
+
+    private void addAllMayTTLPrivate(String key, List<byte[]> vs, int ttl) throws KitDBException {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
@@ -457,34 +576,6 @@ public class RList extends RCollection {
     }
 
 
-    public void deleteFast(String key) throws KitDBException {
-        checkTxStart();
-        try {
-            LockEntity lockEntity = lock.lock(key);
-            byte[] key_b = getKey(key);
-            MetaV metaV = getMeta(key_b);
-            if (metaV == null) {
-                checkTxCommit();
-                return;
-            }
-            try {
-                deleteFast(key_b, metaV);
-            } finally {
-                lock.unlock(lockEntity);
-            }
-            checkTxCommit();
-        } catch (Exception e) {
-            checkTxRollBack();
-            throw e;
-        }
-    }
-
-
-    public void deleteTTL(byte[] key_b, byte[] meta_b) throws KitDBException {
-        deleteTTL(key_b, MetaVD.build(meta_b).convertMeta());
-    }
-
-
     /**
      * 如果新建则设置设置TTL。如果已存在则不设置
      *
@@ -492,7 +583,7 @@ public class RList extends RCollection {
      * @param ttl
      * @throws RocksDBException
      */
-    public void addMayTTL(String key, byte[] v, int ttl) throws KitDBException {
+    private void addMayTTLPrivate(String key, byte[] v, int ttl) throws KitDBException {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
@@ -541,83 +632,6 @@ public class RList extends RCollection {
         }
     }
 
-
-    public byte[] get(String key, long i) throws KitDBException {
-        byte[] key_b = getKey(key);
-
-        MetaV metaV = getMeta(key_b);
-        if (metaV == null) {
-            return null;
-        }
-        ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), i);
-        return getDB(valueK.convertValueBytes().toBytes(), SstColumnFamily.DEFAULT);
-    }
-
-
-    public List<byte[]> get(String key, List<Long> is) throws KitDBException {
-        byte[] key_b = getKey(key);
-
-        MetaV metaV = getMeta(key_b);
-        if (metaV == null) {
-            return new ArrayList<>();
-        }
-        List<byte[]> list = new ArrayList<>(is.size());
-
-        for (long i : is) {
-            ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), i);
-            list.add(getDB(valueK.convertValueBytes().toBytes(), SstColumnFamily.DEFAULT));
-        }
-        return list;
-    }
-
-
-    public Long left(String key) throws KitDBException {
-        byte[] key_b = getKey(key);
-        MetaV metaV = getMeta(key_b);
-        if (metaV == null) {
-            return null;
-        }
-        return metaV.left;
-    }
-
-    public Long right(String key) throws KitDBException {
-        byte[] key_b = getKey(key);
-        MetaV metaV = getMeta(key_b);
-        if (metaV == null) {
-            return null;
-        }
-        return metaV.right;
-    }
-
-    public void set(String key, long i, byte[] v) throws KitDBException {
-        checkTxStart();
-        try {
-            LockEntity lockEntity = lock.lock(key);
-            try {
-                byte[] key_b = getKey(key);
-                MetaV metaV = getMeta(key_b);
-                if (metaV == null) {
-                    checkTxCommit();
-                    return;
-                }
-                DAssert.isTrue(i >= metaV.left && i <= metaV.right, ErrorType.EMPTY, "index not exist");
-                start();
-
-                ValueK valueK = new ValueK(key_b.length, key_b, metaV.getVersion(), i);
-                ValueKD valueKD = valueK.convertValueBytes();
-                //写入Value
-                putDB(valueKD.toBytes(), v, SstColumnFamily.DEFAULT);
-                commit();
-            } finally {
-                lock.unlock(lockEntity);
-                release();
-            }
-            checkTxCommit();
-        } catch (Exception e) {
-            checkTxRollBack();
-            throw e;
-        }
-    }
 
     @Data
     @AllArgsConstructor
