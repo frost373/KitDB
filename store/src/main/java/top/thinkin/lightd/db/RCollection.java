@@ -35,9 +35,12 @@ public abstract class RCollection extends RBase {
     }
 
 
-    protected void deleteTTL(byte[] key_b, MetaAbs metaV) throws KitDBException {
+    protected void deleteTTL(byte[] key_b, MetaAbs metaV, int version) throws KitDBException {
         this.start();
         try {
+            if (metaV.getVersion() == version) {
+                this.deleteDB(key_b, SstColumnFamily.META);
+            }
             MetaDAbs metaVD = metaV.convertMetaBytes();
             this.putDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()), metaVD.toBytes(), SstColumnFamily.DEFAULT);
             this.commitLocal();

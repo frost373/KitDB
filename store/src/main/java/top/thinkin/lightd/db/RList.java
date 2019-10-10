@@ -164,20 +164,27 @@ public class RList extends RCollection {
 
     public void delete(String key) throws KitDBException {
         checkTxRange();
-        LockEntity lockEntity = lock.lock(key);
-        byte[] key_b = getKey(key);
-        MetaV metaV = getMeta(key_b);
-        if (metaV == null) {
-            return;
-        }
         try {
-            start();
-            deleteDB(key_b, SstColumnFamily.META);
-            delete(key_b, metaV);
-            commit();
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+            LockEntity lockEntity = lock.lock(key);
+            byte[] key_b = getKey(key);
+            MetaV metaV = getMeta(key_b);
+            if (metaV == null) {
+                checkTxCommit();
+                return;
+            }
+            try {
+                start();
+                deleteDB(key_b, SstColumnFamily.META);
+                delete(key_b, metaV);
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
+            }
+            checkTxCommit();
+        } catch (KitDBException e) {
+            checkTxRollBack();
+            throw e;
         }
 
     }
@@ -447,7 +454,7 @@ public class RList extends RCollection {
     }
 
 
-    private void delete(byte[] key_b, MetaV metaV) throws KitDBException {
+    private void delete(byte[] key_b, MetaV metaV) {
         ValueK valueK_seek = new ValueK(key_b.length, key_b, metaV.getVersion(), metaV.left);
         MetaVD metaVD = metaV.convertMetaBytes();
         ValueKD valueKD = valueK_seek.convertValueBytes();
@@ -508,8 +515,18 @@ public class RList extends RCollection {
     }
 
 
-    protected void deleteTTL(byte[] key_b, byte[] meta_b) throws KitDBException {
-        deleteTTL(key_b, MetaVD.build(meta_b).convertMeta());
+    protected void deleteTTL(int time, byte[] key_b, byte[] meta_b) throws KitDBException {
+        String key = new String(ArrayUtil.sub(key_b, 1, key_b.length + 1), charset);
+        LockEntity lockEntity = lock.lock(key);
+        try {
+            MetaV metaV = getMetaP(key_b);
+            if (time != metaV.timestamp) {
+                return;
+            }
+            deleteTTL(key_b, MetaVD.build(meta_b).convertMeta(), metaV.version);
+        } finally {
+            lock.unlock(lockEntity);
+        }
     }
 
 

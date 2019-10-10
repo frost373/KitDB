@@ -56,7 +56,7 @@ public class RListTest {
                 byte[] bytes = list.get(head, i);
                 Assert.assertEquals(new String(bytes), ("hello" + i));
             }
-        } catch (Exception e) {
+        } finally {
             list.delete(head);
         }
 

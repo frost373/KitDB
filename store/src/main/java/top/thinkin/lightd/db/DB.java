@@ -19,7 +19,6 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -44,9 +43,6 @@ public class DB extends DBAbs {
     private BinLog binLog;
 
     ScheduledThreadPoolExecutor stp = new ScheduledThreadPoolExecutor(4);
-
-
-    public final ConcurrentHashMap map1 = new ConcurrentHashMap();
 
     static {
         RocksDB.loadLibrary();
@@ -93,6 +89,12 @@ public class DB extends DBAbs {
                     RList.MetaV metaV = RList.MetaVD.build(value).convertMeta();
                     this.list.deleteByClear(rel_key_bs, metaV);
                 }
+
+                if (RMap.HEAD_B[0] == rel_key_bs[0]) {
+                    RMap.Meta meta = RMap.MetaD.build(value).convertMeta();
+                    this.map.deleteByClear(rel_key_bs, meta);
+                }
+
                 if (ZSet.HEAD_B[0] == rel_key_bs[0]) {
                     //ZSet.delete(rel_key_bs, value, this);
                 }
@@ -130,7 +132,13 @@ public class DB extends DBAbs {
                                 byte[] value = outTimeKey.getValue();
                                 RBase.TimerCollection timerCollection = RBase.getTimerCollection(value);
                                 if (RList.HEAD_B[0] == timerCollection.meta_b[0]) {
-                                    this.list.deleteTTL(timerCollection.key_b, timerCollection.meta_b);
+                                    this.list.deleteTTL(outTimeKey.getTime(),
+                                            timerCollection.key_b, timerCollection.meta_b);
+                                }
+
+                                if (RMap.HEAD_B[0] == timerCollection.meta_b[0]) {
+                                    this.map.deleteTTL(outTimeKey.getTime(),
+                                            timerCollection.key_b, timerCollection.meta_b);
                                 }
                             }
                         });
