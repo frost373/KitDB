@@ -5,7 +5,9 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import top.thinkin.lightd.exception.KitDBException;
 
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -41,7 +43,7 @@ public class RMapTest {
         int num = 10 * 10000;
         try {
             for (int i = 0; i < num; i++) {
-                map.put(head, ("hello" + i).getBytes(), ("world" + i).getBytes());
+                map.put(head, "hello" + i, ("world" + i).getBytes());
             }
 
             for (int i = 0; i < num; i++) {
@@ -62,9 +64,9 @@ public class RMapTest {
         try {
             log.debug("start");
             for (int i = 0; i < num; i++) {
-                map.putTTL(head, ("hello" + i).getBytes(), ("world" + i).getBytes(), 3);
+                map.putTTL(head, "hello" + i, ("world" + i).getBytes(), 3);
                 if (i == num - 10) {
-                    Thread.sleep(2500);
+                    Thread.sleep(2800);
                 }
             }
             log.debug("over");
@@ -86,19 +88,55 @@ public class RMapTest {
     }
 
     @Test
-    public void putMayTTL() {
+    public void putMayTTL() throws Exception {
+        String head = "putMayTTL0";
+        RMap map = db.getMap();
+        int num = 10 * 10000;
+        for (int i = 0; i < num; i++) {
+            map.putMayTTL(head, 3, "hello" + i, ("world" + i).getBytes());
+            if (i == num - 5) {
+                map.putMayTTL(head, 300, "hello" + i, ("world" + i).getBytes());
+            } else {
+                map.putMayTTL(head, 3, "hello" + i, ("world" + i).getBytes());
+
+            }
+        }
+        Thread.sleep(3000);
+        for (int i = 0; i < num; i++) {
+            byte[] bytes = map.get(head, ("hello" + i).getBytes());
+            Assert.assertNull(bytes);
+        }
     }
 
     @Test
     public void get() {
+
     }
 
     @Test
-    public void get1() {
+    public void get1() throws KitDBException {
+        String head = "get1";
+        RMap map = db.getMap();
+        int num = 1000;
+        try {
+            String[] keys = new String[num];
+            for (int i = 0; i < num; i++) {
+                map.put(head, "hello" + i, ("hello" + i).getBytes());
+                keys[i] = "hello" + i;
+            }
+            Map<String, byte[]> my_map = map.get(head, keys);
+            Assert.assertEquals(num, my_map.size());
+            for (String key : my_map.keySet()) {
+                Assert.assertEquals(new String(my_map.get(key)), key);
+            }
+        } finally {
+            map.delete(head);
+        }
     }
 
     @Test
     public void remove() {
+
     }
 
     @Test

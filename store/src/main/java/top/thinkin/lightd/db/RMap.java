@@ -53,16 +53,17 @@ public class RMap extends RCollection {
     private void setEntry(byte[] key_b, Meta metaV, Entry[] entrys) {
         for (Entry entry : entrys) {
             metaV.size = metaV.size + 1;
-            Key key = new Key(key_b.length, key_b, metaV.getVersion(), entry.key);
+            Key key = new Key(key_b.length, key_b, metaV.getVersion(), entry.key.getBytes(charset));
             putDB(key.convertBytes().toBytes(), entry.value, SstColumnFamily.DEFAULT);
         }
     }
 
-    public void put(String key, byte[] mkey, byte[] value) throws KitDBException {
+    public void put(String key, String mkey, byte[] value) throws KitDBException {
         putTTL(key, mkey, value, -1);
     }
 
-    public void putTTL(String key, byte[] mkey, byte[] value, int ttl) throws KitDBException {
+    public void putTTL(String key, String mkey, byte[] value, int ttl) throws KitDBException {
+        byte[] mkey_b = mkey.getBytes(charset);
         checkTxStart();
         try {
             byte[] key_b = getKey(key);
@@ -77,15 +78,21 @@ public class RMap extends RCollection {
                 }
 
                 if (metaV != null) {
+                    if (ttl != -1) {
+                        delTimerCollection(KeyEnum.COLLECT_TIMER,
+                                metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                    }
+
                     metaV.size = metaV.size + 1;
                     metaV.setTimestamp(ttl);
-                    Key key_ = new Key(key_b.length, key_b, metaV.getVersion(), mkey);
+                    Key key_ = new Key(key_b.length, key_b, metaV.getVersion(), mkey_b);
                     putDB(key_.convertBytes().toBytes(), value, SstColumnFamily.DEFAULT);
                     putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
                 } else {
+
                     metaV = new Meta(0, ttl, db.versionSequence().incr());
                     metaV.size = metaV.size + 1;
-                    Key key_ = new Key(key_b.length, key_b, metaV.getVersion(), mkey);
+                    Key key_ = new Key(key_b.length, key_b, metaV.getVersion(), mkey_b);
                     putDB(key_.convertBytes().toBytes(), value, SstColumnFamily.DEFAULT);
                     putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
                 }
@@ -108,7 +115,25 @@ public class RMap extends RCollection {
     }
 
 
-    public void putMayTTL(String key, int ttl, Entry... entries) throws KitDBException {
+    public void putMayTTL(String key, int ttl, Map<String, byte[]> map) throws KitDBException {
+        DAssert.notEmpty(map, ErrorType.EMPTY, "entries is empty");
+
+        Entry[] entries = new Entry[map.keySet().size()];
+        int j = 0;
+        for (Map.Entry<String, byte[]> entry : map.entrySet()) {
+            entries[j] = new Entry(entry.getKey(), entry.getValue());
+            j++;
+        }
+        putMayTTL(key, ttl, entries);
+
+    }
+
+
+    public void putMayTTL(String key, int ttl, String mkey, byte[] value) throws KitDBException {
+        putMayTTL(key, ttl, new Entry(mkey, value));
+    }
+
+    private void putMayTTL(String key, int ttl, Entry... entries) throws KitDBException {
         checkTxStart();
         try {
             byte[] key_b = getKey(key);
@@ -130,17 +155,16 @@ public class RMap extends RCollection {
 
                 if (metaV != null) {
                     setEntry(key_b, metaV, entries);
-                    metaV.setTimestamp(ttl);
                     putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
                 } else {
-
                     metaV = new Meta(0, ttl, db.versionSequence().incr());
+                    metaV.setTimestamp(ttl);
                     setEntry(key_b, metaV, entries);
                     putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-                }
-
-                if (metaV.getTimestamp() != -1) {
-                    setTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
+                    if (metaV.getTimestamp() != -1) {
+                        setTimerCollection(KeyEnum.COLLECT_TIMER,
+                                metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                    }
                 }
                 commit();
             } finally {
@@ -155,7 +179,7 @@ public class RMap extends RCollection {
     }
 
 
-    public Map<byte[], byte[]> get(String key, byte[]... keys) throws KitDBException {
+    public Map<String, byte[]> get(String key, String... keys) throws KitDBException {
         byte[] key_b = getKey(key);
         DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
         Meta metaV = getMeta(key_b);
@@ -163,10 +187,11 @@ public class RMap extends RCollection {
             return new HashMap<>();
         }
 
-        Map<byte[], byte[]> map = new HashMap<>(keys.length);
+        Map<String, byte[]> map = new HashMap<>(keys.length);
         List<byte[]> keyList = new ArrayList<>();
-        for (byte[] mkey : keys) {
-            Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), mkey);
+        for (String mkey : keys) {
+            byte[] mkey_b = mkey.getBytes(charset);
+            Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), mkey_b);
             keyList.add(vkey.convertBytes().toBytes());
         }
         Map<byte[], byte[]> resMap = multiGet(keyList, SstColumnFamily.DEFAULT);
@@ -175,7 +200,7 @@ public class RMap extends RCollection {
             Map.Entry<byte[], byte[]> entry = iter.next();
             byte[] resKey = entry.getKey();
             KeyD keyd = KeyD.build(resKey);
-            map.put(keyd.convertValue().getKey(), entry.getValue());
+            map.put(new String(keyd.convertValue().getKey()), entry.getValue());
         }
         return map;
     }
@@ -211,7 +236,7 @@ public class RMap extends RCollection {
     }
 
 
-    public void remove(String key, byte[]... keys) throws KitDBException {
+    public void remove(String key, String... keys) throws KitDBException {
         checkTxStart();
         try {
             DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
@@ -225,8 +250,9 @@ public class RMap extends RCollection {
             }
             try {
                 start();
-                for (byte[] mkey : keys) {
-                    Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), mkey);
+                for (String mkey : keys) {
+                    byte[] mkey_b = mkey.getBytes(charset);
+                    Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), mkey_b);
 
                     byte[] value = getDB(vkey.convertBytes().toBytes(), SstColumnFamily.DEFAULT);
                     if (value != null) {
@@ -362,7 +388,7 @@ public class RMap extends RCollection {
         }
 
         KeyD keyD = KeyD.build(key_bs);
-        Entry entry = new Entry(keyD.key, iterator.value());
+        Entry entry = new Entry(new String(keyD.key, charset), iterator.value());
         return entry;
     }
 
@@ -395,11 +421,11 @@ public class RMap extends RCollection {
                 return;
             }
             try {
-                metaV.setTimestamp(-1);
                 start();
+                delTimerCollection(KeyEnum.COLLECT_TIMER,
+                        metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                metaV.setTimestamp(-1);
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-                delTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
-
                 commit();
             } finally {
                 lock.unlock(lockEntity);
@@ -424,11 +450,12 @@ public class RMap extends RCollection {
                     metaV = new Meta(0, -1, db.versionSequence().incr());
                 }
                 start();
-                delTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
+                delTimerCollection(KeyEnum.COLLECT_TIMER,
+                        metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
                 metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
-
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-                setTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
+                setTimerCollection(KeyEnum.COLLECT_TIMER,
+                        metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
                 commit();
             } finally {
                 lock.unlock(lockEntity);
@@ -464,7 +491,7 @@ public class RMap extends RCollection {
     @Data
     @AllArgsConstructor
     public static class Entry extends REntry {
-        private byte[] key;
+        private String key;
         private byte[] value;
     }
 
@@ -563,8 +590,8 @@ public class RMap extends RCollection {
             keyD.setMapKeySize(ArrayUtil.sub(bytes, 1, 5));
             int position = ArrayKits.bytesToInt(keyD.getMapKeySize(), 0);
             keyD.setMapKey(ArrayUtil.sub(bytes, 5, position = 5 + position));
-            keyD.setVersion(ArrayUtil.sub(bytes, position, position + 4));
-            keyD.setKey(ArrayUtil.sub(bytes, position, bytes.length - 1));
+            keyD.setVersion(ArrayUtil.sub(bytes, position, position = position + 4));
+            keyD.setKey(ArrayUtil.sub(bytes, position, bytes.length));
             return keyD;
         }
 
