@@ -13,7 +13,7 @@ import java.util.Map;
 
 public class App extends NanoHTTPD {
     public App(int port) throws IOException {
-        super(8582);
+        super(port);
         start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);
         System.out.println("\nRunning! Point your browsers to http://localhost:8080/ \n");
     }
@@ -69,16 +69,32 @@ public class App extends NanoHTTPD {
     @Override
     public Response serve(IHTTPSession session) {
         String msg = "<html><body><h1>Hello server</h1>\n";
-        Map<String, String> parms = session.getParms();
-        String k = parms.get("k");
-        String v = parms.get("v");
-        RKv rkv = this.db.getrKv();
-        try {
-            rkv.set(k, v.getBytes());
-        } catch (KitDBException e) {
-            e.printStackTrace();
+
+        System.out.println(session.getUri());
+        if ("/w/".equals(session.getUri())) {
+            Map<String, String> parms = session.getParms();
+            String k = parms.get("k");
+            String v = parms.get("v");
+            RKv rkv = this.db.getrKv();
+            try {
+                rkv.set(k, v.getBytes());
+            } catch (KitDBException e) {
+                e.printStackTrace();
+            }
+            return newFixedLengthResponse("</body></html>\n");
+        } else if ("/r/".equals(session.getUri())) {
+            RKv rkv = this.db.getrKv();
+            Map<String, String> parms = session.getParms();
+            String k = parms.get("k");
+            ;
+            try {
+                return newFixedLengthResponse("</body>" + new String(rkv.get(k)) + "</html>\n");
+            } catch (KitDBException e) {
+                e.printStackTrace();
+            }
         }
 
         return newFixedLengthResponse("</body></html>\n");
+
     }
 }

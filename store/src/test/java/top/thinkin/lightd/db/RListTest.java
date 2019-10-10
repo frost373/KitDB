@@ -37,7 +37,7 @@ public class RListTest {
 
     @AfterClass
     public static void after() throws InterruptedException {
-        //Thread.sleep(5000);
+        Thread.sleep(5000);
     }
 
 

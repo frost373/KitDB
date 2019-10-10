@@ -66,7 +66,7 @@ public class DBStateMachine extends StateMachineAdapter {
 
                 try {
                     DBCommandChunkType dbCommandChunkType = chunk.getType();
-
+                    System.out.println("wri");
                     if (!isLeader) {
                         switch (dbCommandChunkType) {
                             case NOM_COMMIT:
