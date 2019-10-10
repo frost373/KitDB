@@ -324,6 +324,7 @@ public class RMap extends RCollection {
                 byte[] key_b = getKey(key);
                 Meta metaV = getMeta(key_b);
                 if (metaV == null) {
+                    checkTxCommit();
                     return;
                 }
                 deleteFast(key_b, metaV);
@@ -390,6 +391,7 @@ public class RMap extends RCollection {
 
             Meta metaV = getMeta(key_b);
             if (metaV == null) {
+                checkTxCommit();
                 return;
             }
             try {
