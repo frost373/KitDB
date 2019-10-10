@@ -161,6 +161,20 @@ public abstract class DBAbs {
         }
     }
 
+    protected void commitLocal() throws KitDBException {
+        try {
+            List<DBCommand> logs = threadLogs.get();
+            try {
+                simpleCommit(logs);
+            } finally {
+                logs.clear();
+            }
+        } catch (Exception e) {
+            throw new KitDBException(ErrorType.STROE_ERROR, e);
+        }
+    }
+
+
     protected void commit() throws KitDBException {
         try {
             DBCommandChunk dbCommandChunk = new DBCommandChunk();
@@ -248,8 +262,6 @@ public abstract class DBAbs {
             throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
     }
-
-
 
 
     protected static List<ColumnFamilyDescriptor> getColumnFamilyDescriptor() {

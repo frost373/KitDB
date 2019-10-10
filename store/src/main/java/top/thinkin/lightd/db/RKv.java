@@ -316,7 +316,7 @@ public class RKv extends RBase {
                 start();
                 deleteDB(ArrayKits.addAll(HEAD_B, keyb), SstColumnFamily.DEFAULT);
                 deleteDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
-                commit();
+                commitLocal();
             } finally {
                 lock.unlock(lockEntity);
                 release();

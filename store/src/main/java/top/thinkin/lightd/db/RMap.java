@@ -24,7 +24,7 @@ public class RMap extends RCollection {
         return new TxLock(String.join(":", HEAD, key));
     }
 
-    public RMap(DB db) {
+    protected RMap(DB db) {
         super(db, false, 128);
     }
 

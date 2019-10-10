@@ -114,6 +114,9 @@ public abstract class RBase {
         db.commit();
     }
 
+    public void commitLocal() throws KitDBException {
+        db.commitLocal();
+    }
 
     public void release() {
         db.release();

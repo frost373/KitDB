@@ -40,7 +40,7 @@ public abstract class RCollection extends RBase {
         try {
             MetaDAbs metaVD = metaV.convertMetaBytes();
             this.putDB(ArrayKits.addAll("D".getBytes(charset), key_b, metaVD.getVersion()), metaVD.toBytes(), SstColumnFamily.DEFAULT);
-            this.commit();
+            this.commitLocal();
         } finally {
             this.release();
         }

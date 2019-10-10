@@ -92,12 +92,12 @@ public class RSetTest {
     }
 
     @Test
-    public void addMayTTL() throws Exception {
-        RSet set = db.getSet("addMayTTL");
+    public void addMayTTLPrivate() throws Exception {
+        RSet set = db.getSet("addMayTTLPrivate");
         try {
-            set.addMayTTL(10, ("addMayTTL" + 1).getBytes(), ("addMayTTL" + 2).getBytes(), ("addMayTTL" + 2).getBytes(), ("addMayTTL" + 3).getBytes());
+            set.addMayTTLPrivate(10, ("addMayTTLPrivate" + 1).getBytes(), ("addMayTTLPrivate" + 2).getBytes(), ("addMayTTLPrivate" + 2).getBytes(), ("addMayTTLPrivate" + 3).getBytes());
             Thread.sleep(1000 * 10);
-            Assert.assertTrue(!set.isMember(("addMayTTL" + 1).getBytes()));
+            Assert.assertTrue(!set.isMember(("addMayTTLPrivate" + 1).getBytes()));
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
@@ -110,14 +110,14 @@ public class RSetTest {
     public void add() throws Exception {
         RSet set = db.getSet("add");
         try {
-            set.add(("addMayTTL" + 1).getBytes(),
-                    ("addMayTTL" + 2).getBytes(), (
-                            "addMayTTL" + 3).getBytes(),
-                    ("addMayTTL" + 4).getBytes());
-            Assert.assertTrue(set.isMember(("addMayTTL" + 1).getBytes()));
-            Assert.assertTrue(set.isMember(("addMayTTL" + 2).getBytes()));
-            Assert.assertTrue(set.isMember(("addMayTTL" + 3).getBytes()));
-            Assert.assertTrue(set.isMember(("addMayTTL" + 4).getBytes()));
+            set.add(("addMayTTLPrivate" + 1).getBytes(),
+                    ("addMayTTLPrivate" + 2).getBytes(), (
+                            "addMayTTLPrivate" + 3).getBytes(),
+                    ("addMayTTLPrivate" + 4).getBytes());
+            Assert.assertTrue(set.isMember(("addMayTTLPrivate" + 1).getBytes()));
+            Assert.assertTrue(set.isMember(("addMayTTLPrivate" + 2).getBytes()));
+            Assert.assertTrue(set.isMember(("addMayTTLPrivate" + 3).getBytes()));
+            Assert.assertTrue(set.isMember(("addMayTTLPrivate" + 4).getBytes()));
         } catch (Exception e) {
             e.printStackTrace();
         } finally {

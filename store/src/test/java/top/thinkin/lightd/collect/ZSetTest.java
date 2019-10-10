@@ -74,7 +74,7 @@ public class ZSetTest {
     }
 
     @Test
-    public void addMayTTL() {
+    public void addMayTTLPrivate() {
     }
 
     @Test

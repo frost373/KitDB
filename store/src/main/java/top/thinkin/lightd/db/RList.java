@@ -501,7 +501,7 @@ public class RList extends RCollection {
         try {
             start();
             delete(key_b, metaV);
-            commit();
+            commitLocal();
         } finally {
             release();
         }
@@ -561,7 +561,6 @@ public class RList extends RCollection {
                                 metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
                     }
                 }
-
                 commit();
             } finally {
                 lock.unlock(lockEntity);

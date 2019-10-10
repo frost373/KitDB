@@ -26,7 +26,7 @@ public class RListTest {
     public void init() throws RocksDBException {
         if (db == null) {
             try {
-                db = DB.buildTransactionDB("D:\\temp\\db", true);
+                db = DB.build("D:\\temp\\db", true);
             } catch (Exception e) {
                 log.error("error", e);
                 e.printStackTrace();
@@ -402,7 +402,7 @@ public class RListTest {
 
     }
 
-    @Test
+    //@Test
     public void tx() throws Exception {
         String head = "tx0";
         RList list = db.getList();
