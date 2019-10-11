@@ -47,7 +47,7 @@ public class RMapTest {
             }
 
             for (int i = 0; i < num; i++) {
-                byte[] bytes = map.get(head, ("hello" + i).getBytes());
+                byte[] bytes = map.get(head, ("hello" + i));
                 Assert.assertEquals(new String(bytes), ("world" + i));
             }
         } finally {
@@ -73,13 +73,13 @@ public class RMapTest {
 
             Thread.sleep(500);
             for (int i = 0; i < num; i++) {
-                byte[] bytes = map.get(head, ("hello" + i).getBytes());
+                byte[] bytes = map.get(head, ("hello" + i));
                 Assert.assertEquals(new String(bytes), ("world" + i));
             }
             Thread.sleep(2500);
 
             for (int i = 0; i < num; i++) {
-                byte[] bytes = map.get(head, ("hello" + i).getBytes());
+                byte[] bytes = map.get(head, ("hello" + i));
                 Assert.assertNull(bytes);
             }
         } finally {
@@ -103,7 +103,7 @@ public class RMapTest {
         }
         Thread.sleep(3000);
         for (int i = 0; i < num; i++) {
-            byte[] bytes = map.get(head, ("hello" + i).getBytes());
+            byte[] bytes = map.get(head, ("hello" + i));
             Assert.assertNull(bytes);
         }
     }
@@ -153,8 +153,8 @@ public class RMapTest {
             }
             map.remove(head, integers);
 
-            for (int i = 0; i < num; i++) {
-                byte[] bytes = map.get(head, ("hello" + i).getBytes());
+            for (String integer : integers) {
+                byte[] bytes = map.get(head, integer);
                 Assert.assertNull(bytes);
             }
 
@@ -175,23 +175,27 @@ public class RMapTest {
         RMap map = db.getMap();
         int num = 100;
         Set<String> keys = new HashSet<>();
-        for (int i = 0; i < num; i++) {
-            int num2 = 1000;
-            keys.add(head + i);
-            for (int i1 = 0; i1 < num2; i1++) {
-                map.put(head + i, "hello" + i, ("world" + i).getBytes());
+        try {
+            for (int i = 0; i < num; i++) {
+                int num2 = 1000;
+                keys.add(head + i);
+                for (int i1 = 0; i1 < num2; i1++) {
+                    map.put(head + i, "hello" + i, ("world" + i).getBytes());
+                }
             }
-        }
-        Set<String> keys2 = new HashSet<>();
-        try (KeyIterator keyIterator = db.getMap().getKeyIterator()) {
-            while (keyIterator.hasNext()) {
-                String key = keyIterator.next();
-                keys2.add(key);
-                map.delete(key);
+            Set<String> keys2 = new HashSet<>();
+            try (KeyIterator keyIterator = db.getMap().getKeyIterator()) {
+                while (keyIterator.hasNext()) {
+                    String key = keyIterator.next();
+                    keys2.add(key);
+                    map.delete(key);
+                }
             }
+            Assert.assertTrue(keys.containsAll(keys2));
+            Assert.assertTrue(keys2.containsAll(keys));
+        } finally {
+            map.delete(head);
         }
-        Assert.assertTrue(keys.containsAll(keys2));
-        Assert.assertTrue(keys2.containsAll(keys));
     }
 
     @Test
@@ -255,7 +259,7 @@ public class RMapTest {
             map.delTtl(head);
             Thread.sleep(3500);
             for (int i = 0; i < num; i++) {
-                byte[] bytes = map.get(head, ("hello" + i).getBytes());
+                byte[] bytes = map.get(head, ("hello" + i));
                 Assert.assertEquals(new String(bytes), ("world" + i));
             }
         } finally {
@@ -275,7 +279,7 @@ public class RMapTest {
             map.ttl(head, 3);
             Thread.sleep(3500);
             for (int i = 0; i < num; i++) {
-                byte[] bytes = map.get(head, ("hello" + i).getBytes());
+                byte[] bytes = map.get(head, ("hello" + i));
                 Assert.assertNull(bytes);
             }
         } finally {

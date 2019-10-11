@@ -41,8 +41,7 @@ public class RMap extends RCollection {
         if (k_v != null) {
             MetaD metaVD = MetaD.build(k_v);
             metaV = metaVD.convertMeta();
-            long nowTime = System.currentTimeMillis() / 1000;
-            if (metaV.getTimestamp() != -1 && nowTime > metaV.getTimestamp()) {
+            if (metaV.getTimestamp() != -1 && (System.currentTimeMillis() / 1000) - metaV.getTimestamp() >= 0) {
                 metaV = null;
             }
         }
@@ -206,13 +205,14 @@ public class RMap extends RCollection {
     }
 
 
-    public byte[] get(String key, byte[] mkey) throws KitDBException {
+    public byte[] get(String key, String mkey) throws KitDBException {
+        byte[] mkey_b = mkey.getBytes(charset);
         byte[] key_b = getKey(key);
         Meta metaV = getMeta(key_b);
         if (metaV == null) {
             return null;
         }
-        Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), mkey);
+        Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), mkey_b);
         byte[] value = getDB(vkey.convertBytes().toBytes(), SstColumnFamily.DEFAULT);
         return value;
     }
