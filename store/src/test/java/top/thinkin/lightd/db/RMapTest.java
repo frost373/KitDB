@@ -59,32 +59,29 @@ public class RMapTest {
     public void putTTL() throws Exception {
         String head = "putTTL0";
         RMap map = db.getMap();
-        int num = 10000;
+        int num = 10 * 10000;
 
         try {
             log.debug("start");
             for (int i = 0; i < num; i++) {
-                map.putTTL(head, "hello" + i, ("world" + i).getBytes(), 3);
+                map.putTTL(head, "hello" + i, ("world" + i).getBytes(), 4);
                 if (i == num - 10) {
-                    Thread.sleep(2800);
+                    Thread.sleep(3000);
                 }
             }
-
-            Thread.sleep(500);
-            log.debug("" + map.isExist(head));
-            log.debug("" + map.size(head));
+            Thread.sleep(2000);
             for (int i = 0; i < num; i++) {
                 byte[] bytes = map.get(head, ("hello" + i));
                 Assert.assertEquals(new String(bytes), ("world" + i));
             }
-            Thread.sleep(2500);
+            Thread.sleep(2000);
 
             for (int i = 0; i < num; i++) {
                 byte[] bytes = map.get(head, ("hello" + i));
                 Assert.assertNull(bytes);
             }
         } finally {
-            //map.delete(head);
+            map.delete(head);
         }
     }
 
