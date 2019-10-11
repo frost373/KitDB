@@ -332,7 +332,7 @@ public class RMap extends RCollection {
         LockEntity lockEntity = lock.lock(key);
         try {
             Meta meta = getMetaP(key_b);
-            if (time != meta.timestamp) {
+            if (meta == null || time != meta.timestamp) {
                 return;
             }
             log.debug("version :{}", meta.version);
