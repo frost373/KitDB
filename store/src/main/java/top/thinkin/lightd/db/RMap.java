@@ -295,7 +295,7 @@ public class RMap extends RCollection {
 
     @Override
     public void delete(String key) throws KitDBException {
-        checkTxStart();
+        checkTxRange();
         try {
             LockEntity lockEntity = lock.lock(key);
 
