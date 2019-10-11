@@ -365,7 +365,7 @@ public class RMap extends RCollection {
     }
 
     @Override
-    RIterator<RMap> iterator(String key) throws KitDBException {
+    public RIterator<RMap> iterator(String key) throws KitDBException {
         byte[] key_b = getKey(key);
         Meta metaV = getMeta(key_b);
         if (metaV == null) {

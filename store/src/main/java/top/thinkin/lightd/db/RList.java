@@ -242,13 +242,13 @@ public class RList extends RCollection {
         return rIterator;
     }
 
-    public RList.Entry getEntry(RocksIterator iterator) {
+    public Entry getEntry(RocksIterator iterator) {
         byte[] key_bs = iterator.key();
         if (key_bs == null) {
             return null;
         }
         ValueK key = ValueKD.build(key_bs).convertValue();
-        RList.Entry entry = new RList.Entry(key.index, iterator.value());
+        Entry entry = new Entry(key.index, iterator.value());
         return entry;
     }
 
