@@ -367,9 +367,8 @@ public class RSet extends RCollection {
     @Override
     public boolean isExist(String key) throws KitDBException {
         byte[] key_b = getKey(key);
-        byte[] k_v = getDB(key_b, SstColumnFamily.META);
-        MetaV meta = addCheck(key_b, k_v);
-        return meta != null;
+        MetaV metaV = getMeta(key_b);
+        return metaV != null;
     }
 
     @Override
@@ -390,6 +389,7 @@ public class RSet extends RCollection {
         return entry;
     }
 
+    // TODO
     private MetaV addCheck(byte[] key_b, byte[] k_v) {
         MetaV metaV = null;
         if (k_v != null) {

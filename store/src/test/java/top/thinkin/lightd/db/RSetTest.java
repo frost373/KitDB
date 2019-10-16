@@ -176,8 +176,11 @@ public class RSetTest {
 
         for (int i = 0; i < num; i++) {
             set.addMayTTL(head, 5, ("hello world" + i).getBytes());
+            if (i == num - 5) {
+                Thread.sleep(1000);
+            }
         }
-        Thread.sleep(5000);
+        Thread.sleep(4000);
         Assert.assertTrue(!set.isExist(head));
 
         for (int i = 0; i < num; i++) {

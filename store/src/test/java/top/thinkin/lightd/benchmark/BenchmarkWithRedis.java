@@ -20,7 +20,7 @@ public class BenchmarkWithRedis {
 
     public static void main(String[] args) throws Exception {
         RocksDB.loadLibrary();
-        DB db = DB.build("D:\\temp\\db", false);
+        DB db = DB.build("C:\\tmp\\dbx", false);
         for (int i = 0; i < 100; i++) {
             bc(db);
         }
