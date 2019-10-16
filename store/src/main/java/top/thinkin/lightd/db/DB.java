@@ -95,8 +95,10 @@ public class DB extends DBAbs {
                     this.map.deleteByClear(rel_key_bs, meta);
                 }
 
-                if (ZSet.HEAD_B[0] == rel_key_bs[0]) {
-                    //ZSet.delete(rel_key_bs, value, this);
+                if (RSet.HEAD_B[0] == rel_key_bs[0]) {
+                    RSet.MetaD meta = RSet.MetaD.build(value);
+                    // TODO
+                    this.set.deleteByClear(rel_key_bs, meta);
                 }
 
             }
@@ -138,6 +140,11 @@ public class DB extends DBAbs {
 
                                 if (RMap.HEAD_B[0] == timerCollection.meta_b[0]) {
                                     this.map.deleteTTL(outTimeKey.getTime(),
+                                            timerCollection.key_b, timerCollection.meta_b);
+                                }
+
+                                if (RSet.HEAD_B[0] == timerCollection.meta_b[0]) {
+                                    this.set.deleteTTL(outTimeKey.getTime(),
                                             timerCollection.key_b, timerCollection.meta_b);
                                 }
                             }

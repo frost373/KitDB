@@ -8,7 +8,8 @@ public class DBClosure implements Closure {
 
     private DBCommandChunk chunk;
 
-
+    private String msg;
+    private int code;
 
     public DBClosure() {
 
@@ -16,7 +17,16 @@ public class DBClosure implements Closure {
 
     @Override
     public void run(Status status) {
-
+        if (!status.isOk()) {
+            msg = status.getErrorMsg();
+            code = status.getCode();
+            synchronized (this) {
+                this.notifyAll();
+                System.out.println("notifyAll");
+            }
+        } else {
+            code = 0;
+        }
     }
 
     public DBCommandChunk getChunk() {
@@ -25,5 +35,17 @@ public class DBClosure implements Closure {
 
     public void setChunk(DBCommandChunk chunk) {
         this.chunk = chunk;
+    }
+
+    public String getMsg() {
+        return msg;
+    }
+
+    public void setCode(int code) {
+        this.code = code;
+    }
+
+    public int getCode() {
+        return code;
     }
 }

@@ -26,7 +26,7 @@ public class DBRequestProcessor implements DB.FunctionCommit {
     }
 
 
-    public void handle(DBCommandChunk dbCommandChunk) throws CodecException, InterruptedException {
+    public void handle(DBCommandChunk dbCommandChunk) throws CodecException, InterruptedException, KitDBException {
         final DBClosure closure = new DBClosure();
         closure.setChunk(dbCommandChunk);
         final Task task = new Task();
@@ -37,7 +37,9 @@ public class DBRequestProcessor implements DB.FunctionCommit {
         synchronized (closure) {
             closure.wait();
         }
-
+        if (closure.getCode() != 0) {
+            throw new KitDBException(ErrorType.STROE_ERROR, closure.getMsg());
+        }
         System.out.println("finish");
     }
 
@@ -46,9 +48,7 @@ public class DBRequestProcessor implements DB.FunctionCommit {
     public void call(DBCommandChunk dbCommandChunk) throws KitDBException {
         try {
             handle(dbCommandChunk);
-        } catch (CodecException e) {
-            throw new KitDBException(ErrorType.STROE_ERROR, e);
-        } catch (InterruptedException e) {
+        } catch (CodecException | InterruptedException e) {
             throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
     }

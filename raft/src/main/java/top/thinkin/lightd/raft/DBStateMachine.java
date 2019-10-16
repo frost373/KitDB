@@ -39,7 +39,7 @@ public class DBStateMachine extends StateMachineAdapter {
 
     @Override
     public void onError(RaftException e) {
-        e.getStatus();
+        System.out.println("1111111111" + e.getStatus());
     }
 
     @Override
@@ -66,7 +66,6 @@ public class DBStateMachine extends StateMachineAdapter {
 
                 try {
                     DBCommandChunkType dbCommandChunkType = chunk.getType();
-                    System.out.println("wri");
                     if (!isLeader) {
                         switch (dbCommandChunkType) {
                             case NOM_COMMIT:
@@ -138,7 +137,6 @@ public class DBStateMachine extends StateMachineAdapter {
                 if (closure != null) {
                     synchronized (closure) {
                         closure.notifyAll();
-                        System.out.println("notifyAll");
                     }
                 }
             }

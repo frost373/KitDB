@@ -43,6 +43,8 @@ public class LightDServer {
         this.raftGroupService = new RaftGroupService(groupId, serverId, nodeOptions, rpcServer);
         // 启动
         this.node = this.raftGroupService.start();
+
+
     }
 
 

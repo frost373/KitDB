@@ -42,7 +42,8 @@ public class App extends NanoHTTPD {
         nodeOptions.setElectionTimeoutMs(5000);
         nodeOptions.setDisableCli(false);
         nodeOptions.setSnapshotIntervalSecs(30);
-// 解析参数
+        // 解析参数
+
         PeerId serverId = new PeerId();
         if (!serverId.parse(serverIdStr)) {
             throw new IllegalArgumentException("Fail to parse serverId:" + serverIdStr);

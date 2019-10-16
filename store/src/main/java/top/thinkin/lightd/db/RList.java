@@ -227,6 +227,7 @@ public class RList extends RCollection {
         return list;
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public RIterator<RList> iterator(String key) throws KitDBException {
         byte[] key_b = getKey(key);
