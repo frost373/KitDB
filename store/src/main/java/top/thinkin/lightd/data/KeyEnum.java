@@ -11,15 +11,11 @@ public enum KeyEnum {
 
     COLLECT_TIMER("XCT"), KV_TIMER("XKT");
 
-
-
     private final String key;
-
 
     KeyEnum(String key) {
         this.key = key;
     }
-
 
     public String getKey() {
         return key;

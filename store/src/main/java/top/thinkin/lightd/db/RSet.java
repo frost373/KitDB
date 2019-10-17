@@ -254,7 +254,7 @@ public class RSet extends RCollection {
 
     @Override
     public KeyIterator getKeyIterator() throws KitDBException {
-        return null;
+        return getKeyIterator(HEAD_B);
     }
 
     public void deleteFast(String key) throws KitDBException {

@@ -186,20 +186,66 @@ public class RSetTest {
         for (int i = 0; i < num; i++) {
             Assert.assertTrue(!set.contains(head, ("hello world" + i).getBytes()));
         }
-
-
     }
 
 
     @Test
-    public void getKeyIterator() {
-
+    public void getKeyIterator() throws KitDBException {
+        String head = "getKeyIterator0";
+        RSet set = db.getSet();
+        int num = 100;
+        Set<String> keys = new HashSet<>();
+        try {
+            for (int i = 0; i < num; i++) {
+                int num2 = 1000;
+                keys.add(head + i);
+                for (int i1 = 0; i1 < num2; i1++) {
+                    set.add(head + i, ("hello world" + i).getBytes());
+                }
+            }
+            Set<String> keys2 = new HashSet<>();
+            try (KeyIterator keyIterator = db.getSet().getKeyIterator()) {
+                while (keyIterator.hasNext()) {
+                    String key = keyIterator.next();
+                    keys2.add(key);
+                    set.delete(key);
+                }
+            }
+            Assert.assertTrue(keys.containsAll(keys2));
+            Assert.assertTrue(keys2.containsAll(keys));
+        } finally {
+            for (int i = 0; i < num; i++) {
+                set.delete(head + i);
+            }
+        }
     }
 
 
     @Test
-    public void deleteFast() {
+    public void deleteFast() throws KitDBException {
+        String head = "deleteFast0";
+        RSet set = db.getSet();
+        int num = 100;
+        Set<String> keys = new HashSet<>();
+        try {
+            for (int i = 0; i < num; i++) {
+                int num2 = 1000;
+                keys.add(head + i);
+                for (int i1 = 0; i1 < num2; i1++) {
+                    set.add(head + i, ("hello world" + i).getBytes());
+                }
+            }
+            for (int i = 0; i < num; i++) {
+                set.deleteFast(head + i);
+            }
 
+            for (int i = 0; i < num; i++) {
+                Assert.assertTrue(!set.isExist(head + i));
+            }
+
+        } finally {
+
+        }
     }
 
 
