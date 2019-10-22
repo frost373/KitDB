@@ -361,6 +361,7 @@ public class RSet extends RCollection {
                 lock.unlock(lockEntity);
                 release();
             }
+            checkTxCommit();
         } catch (KitDBException e) {
             checkTxRollBack();
             throw e;

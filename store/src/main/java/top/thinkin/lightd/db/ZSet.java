@@ -1,7 +1,5 @@
 package top.thinkin.lightd.db;
 
-import cn.hutool.cache.CacheUtil;
-import cn.hutool.cache.impl.TimedCache;
 import cn.hutool.core.util.ArrayUtil;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -32,7 +30,6 @@ public class ZSet extends RCollection {
         return new TxLock(String.join(":", HEAD, key));
     }
 
-    TimedCache<String, String> timedCache = CacheUtil.newTimedCache(4);
 
 
     protected ZSet(DB db) {
@@ -58,40 +55,47 @@ public class ZSet extends RCollection {
     }
 
     public synchronized void addMayTTL(final String key, int ttl, Entry... entrys) throws Exception {
-        DAssert.notEmpty(entrys, ErrorType.EMPTY, "entrys is empty");
-        LockEntity lockEntity = lock.lock(key);
-
-        byte[] key_b = getKey(key);
-
-        byte[][] bytess = new byte[entrys.length][];
-        for (int i = 0; i < entrys.length; i++) {
-            bytess[i] = entrys[i].value;
-        }
-        DAssert.isTrue(ArrayKits.noRepeate(bytess), ErrorType.REPEATED_KEY, "Repeated memebers");
+        checkTxStart();
         try {
-            start();
-            byte[] k_v = getDB(key_b, SstColumnFamily.META);
-            MetaV metaV = addCheck(key_b, k_v);
-            if (metaV != null) {
-                setEntry(key_b, metaV, entrys);
-                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-            } else {
-                if (ttl != -1) {
-                    ttl = (int) (System.currentTimeMillis() / 1000 + ttl);
+            DAssert.notEmpty(entrys, ErrorType.EMPTY, "entrys is empty");
+            LockEntity lockEntity = lock.lock(key);
+
+            byte[] key_b = getKey(key);
+
+            byte[][] bytess = new byte[entrys.length][];
+            for (int i = 0; i < entrys.length; i++) {
+                bytess[i] = entrys[i].value;
+            }
+            DAssert.isTrue(ArrayKits.noRepeate(bytess), ErrorType.REPEATED_KEY, "Repeated memebers");
+            try {
+                start();
+                byte[] k_v = getDB(key_b, SstColumnFamily.META);
+                MetaV metaV = addCheck(key_b, k_v);
+                if (metaV != null) {
+                    setEntry(key_b, metaV, entrys);
+                    putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+                } else {
+                    if (ttl != -1) {
+                        ttl = (int) (System.currentTimeMillis() / 1000 + ttl);
+                    }
+                    metaV = new MetaV(0, ttl, db.versionSequence().incr());
+                    setEntry(key_b, metaV, entrys);
+                    putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+
+                    if (metaV.getTimestamp() != -1) {
+                        setTimerCollection(KeyEnum.COLLECT_TIMER,
+                                metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                    }
                 }
-                metaV = new MetaV(0, ttl, db.versionSequence().incr());
-                setEntry(key_b, metaV, entrys);
-                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
             }
-            if (metaV.getTimestamp() != -1) {
-                setTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
-            }
-
-            commit();
-
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+            checkTxCommit();
+        } catch (KitDBException e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
@@ -155,54 +159,64 @@ public class ZSet extends RCollection {
      * @throws Exception
      */
     public synchronized List<Entry> rangeDel(String key, long start, long end, int limit) throws Exception {
-        byte[] key_b = getKey(key);
-        LockEntity lockEntity = lock.lock(key);
+        checkTxStart();
         List<Entry> entries = new ArrayList<>();
-        try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
-            MetaV metaV = getMeta(key_b);
-            if (metaV == null) {
-                return entries;
-            }
-            ZData zData = new ZData(key_b.length, key_b, metaV.getVersion(), start, "".getBytes());
+        try {
+            byte[] key_b = getKey(key);
+            LockEntity lockEntity = lock.lock(key);
 
-            byte[] seek = zData.getSeek();
-            byte[] head = zData.getHead();
-
-            List<byte[]> dels = new ArrayList<>();
-            iterator.seek(seek);
-            long index = 0;
-            int count = 0;
-            while (iterator.isValid() && index <= end && count < limit) {
-                byte[] key_bs = iterator.key();
-                if (!BytesUtil.checkHead(head, key_bs)) break;
-                ZDataD zDataD = ZDataD.build(key_bs);
-                ZData izData = zDataD.convertValue();
-                index = izData.getScore();
-                if (index > end) {
-                    break;
+            try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
+                MetaV metaV = getMeta(key_b);
+                if (metaV == null) {
+                    checkTxCommit();
+                    return entries;
                 }
-                entries.add(new Entry(index, izData.value));
-                count++;
-                //DEL
-                metaV.setSize(metaV.getSize() - 1);
-                dels.add(zDataD.toBytes());
-                SDataD sDataD = new SDataD(zDataD.getMapKeySize(), key_b, zDataD.getVersion(), zDataD.getValue());
-                dels.add(sDataD.toBytes());
-                iterator.next();
+                ZData zData = new ZData(key_b.length, key_b, metaV.getVersion(), start, "".getBytes());
+
+                byte[] seek = zData.getSeek();
+                byte[] head = zData.getHead();
+
+                List<byte[]> dels = new ArrayList<>();
+                iterator.seek(seek);
+                long index = 0;
+                int count = 0;
+                while (iterator.isValid() && index <= end && count < limit) {
+                    byte[] key_bs = iterator.key();
+                    if (!BytesUtil.checkHead(head, key_bs)) break;
+                    ZDataD zDataD = ZDataD.build(key_bs);
+                    ZData izData = zDataD.convertValue();
+                    index = izData.getScore();
+                    if (index > end) {
+                        break;
+                    }
+                    entries.add(new Entry(index, izData.value));
+                    count++;
+                    //DEL
+                    metaV.setSize(metaV.getSize() - 1);
+                    dels.add(zDataD.toBytes());
+                    SDataD sDataD = new SDataD(zDataD.getMapKeySize(), key_b, zDataD.getVersion(), zDataD.getValue());
+                    dels.add(sDataD.toBytes());
+                    iterator.next();
+                }
+                start();
+                removeDo(key_b, metaV, dels);
+                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
             }
-            start();
-            removeDo(key_b, metaV, dels);
-            putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-            commit();
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+            checkTxCommit();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
         return entries;
     }
 
 
     @Override
+    @SuppressWarnings("unchecked")
     public RIterator<ZSet> iterator(String key) throws Exception {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
@@ -232,28 +246,38 @@ public class ZSet extends RCollection {
      */
     private synchronized void incrby(String key, int increment, byte[]... vs) throws Exception {
         DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
-        LockEntity lockEntity = lock.lock(key);
-
-        byte[] key_b = getKey(key);
+        checkTxStart();
         try {
-            start();
-            MetaV metaV = getMeta(key_b);
-            for (byte[] v : vs) {
-                SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
-                SDataD sDataD = sData.convertBytes();
-                byte[] scoreD = getDB(sDataD.toBytes(), SstColumnFamily.DEFAULT);
-                if (scoreD != null) {
-                    int score = ArrayKits.bytesToInt(scoreD, 0) + increment;
-                    scoreD = ArrayKits.intToBytes(score);
-                    ZDataD zDataD = new ZDataD(sDataD.getMapKeySize(), sDataD.getMapKey(), sDataD.getVersion(), scoreD, sDataD.getValue());
-                    putDB(sData.convertBytes().toBytes(), scoreD, SstColumnFamily.DEFAULT);
-                    putDB(zDataD.toBytes(), null, SstColumnFamily.DEFAULT);
+            LockEntity lockEntity = lock.lock(key);
+            byte[] key_b = getKey(key);
+            try {
+                start();
+                MetaV metaV = getMeta(key_b);
+                if (metaV == null) {
+                    checkTxCommit();
+                    return;
                 }
+                for (byte[] v : vs) {
+                    SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
+                    SDataD sDataD = sData.convertBytes();
+                    byte[] scoreD = getDB(sDataD.toBytes(), SstColumnFamily.DEFAULT);
+                    if (scoreD != null) {
+                        int score = ArrayKits.bytesToInt(scoreD, 0) + increment;
+                        scoreD = ArrayKits.intToBytes(score);
+                        ZDataD zDataD = new ZDataD(sDataD.getMapKeySize(), sDataD.getMapKey(), sDataD.getVersion(), scoreD, sDataD.getValue());
+                        putDB(sData.convertBytes().toBytes(), scoreD, SstColumnFamily.DEFAULT);
+                        putDB(zDataD.toBytes(), null, SstColumnFamily.DEFAULT);
+                    }
+                }
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
             }
-            commit();
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+            checkTxCommit();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
@@ -265,30 +289,40 @@ public class ZSet extends RCollection {
      */
     public synchronized void remove(String key, byte[]... vs) throws Exception {
         DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
-        LockEntity lockEntity = lock.lock(key);
-
-        byte[] key_b = getKey(key);
-        start();
+        checkTxStart();
         try {
-            MetaV metaV = getMeta(key_b);
-            List<byte[]> dels = new ArrayList<>();
-            for (byte[] v : vs) {
-                SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
-                SDataD sDataD = sData.convertBytes();
-                byte[] scoreD = getDB(sDataD.toBytes(), SstColumnFamily.DEFAULT);
-                if (scoreD != null) {
-                    ZDataD zDataD = new ZDataD(sDataD.getMapKeySize(), sDataD.getMapKey(), sDataD.getVersion(), scoreD, sDataD.getValue());
-                    dels.add(zDataD.toBytes());
-                    dels.add(sDataD.toBytes());
-                    metaV.setSize(metaV.getSize() - 1);
+            LockEntity lockEntity = lock.lock(key);
+            byte[] key_b = getKey(key);
+            start();
+            try {
+                MetaV metaV = getMeta(key_b);
+                if (metaV == null) {
+                    checkTxCommit();
+                    return;
                 }
+                List<byte[]> dels = new ArrayList<>();
+                for (byte[] v : vs) {
+                    SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
+                    SDataD sDataD = sData.convertBytes();
+                    byte[] scoreD = getDB(sDataD.toBytes(), SstColumnFamily.DEFAULT);
+                    if (scoreD != null) {
+                        ZDataD zDataD = new ZDataD(sDataD.getMapKeySize(), sDataD.getMapKey(), sDataD.getVersion(), scoreD, sDataD.getValue());
+                        dels.add(zDataD.toBytes());
+                        dels.add(sDataD.toBytes());
+                        metaV.setSize(metaV.getSize() - 1);
+                    }
+                }
+                removeDo(key_b, metaV, dels);
+                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
             }
-            removeDo(key_b, metaV, dels);
-            putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-            commit();
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+            checkTxCommit();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
@@ -349,16 +383,21 @@ public class ZSet extends RCollection {
         return metaV;
     }
 
+    private MetaV getMetaP(byte[] key_b) throws KitDBException {
+        byte[] k_v = this.getDB(key_b, SstColumnFamily.META);
+        if (k_v == null) return null;
+        MetaV metaV = MetaD.build(k_v).convertMetaV();
+        return metaV;
+    }
+
     @Override
     protected MetaV getMeta(byte[] key_b) throws Exception {
-        byte[] k_v = this.getDB(key_b, SstColumnFamily.META);
-        if (k_v == null) {
+        MetaV metaV = getMetaP(key_b);
+        if (metaV == null) {
             return null;
         }
-        MetaV metaV = MetaD.build(k_v).convertMetaV();
-        long nowTime = System.currentTimeMillis();
-        if (metaV.getTimestamp() != -1 && nowTime > metaV.getTimestamp()) {
-            return null;
+        if (metaV.getTimestamp() != -1 && (System.currentTimeMillis() / 1000) - metaV.getTimestamp() >= 0) {
+            metaV = null;
         }
         return metaV;
     }
@@ -366,7 +405,6 @@ public class ZSet extends RCollection {
 
     private void delete(byte[] key_b, MetaD metaD) {
         MetaV metaV = metaD.convertMetaV();
-        deleteDB(key_b, SstColumnFamily.META);
         SData sData = new SData(key_b.length, key_b, metaV.getVersion(), null);
         deleteHead(sData.getHead(), SstColumnFamily.DEFAULT);
         ZData zData = new ZData(sData.getMapKeySize(), sData.getMapKey(), sData.getVersion(), 0, null);
@@ -377,17 +415,25 @@ public class ZSet extends RCollection {
 
     @Override
     public synchronized void delete(String key) throws Exception {
-        LockEntity lockEntity = lock.lock(key);
-        byte[] key_b = getKey(key);
-        try {
-            start();
-            MetaV metaV = getMeta(key_b);
-            delete(key_b, metaV.convertMetaBytes());
-            commit();
-        } finally {
-            lock.unlock(lockEntity);
+        checkTxRange();
 
-            release();
+        try {
+            LockEntity lockEntity = lock.lock(key);
+            byte[] key_b = getKey(key);
+            try {
+                start();
+                MetaV metaV = getMeta(key_b);
+                deleteDB(key_b, SstColumnFamily.META);
+                delete(key_b, metaV.convertMetaBytes());
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
+            }
+            checkTxCommit();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
@@ -398,14 +444,28 @@ public class ZSet extends RCollection {
 
 
     public synchronized void deleteFast(String key) throws Exception {
-        LockEntity lockEntity = lock.lock(key);
-
-        byte[] key_b = getKey(key);
-        MetaV metaV = getMeta(key_b);
+        checkTxStart();
         try {
-            deleteFast(key_b, metaV);
-        } finally {
-            lock.unlock(lockEntity);
+            LockEntity lockEntity = lock.lock(key);
+
+            byte[] key_b = getKey(key);
+            byte[] k_v = getDB(key_b, SstColumnFamily.META);
+            if (k_v == null) {
+                checkTxCommit();
+                return;
+            }
+            MetaV meta = MetaD.build(k_v).convertMetaV();
+
+            try {
+                deleteFast(key_b, meta);
+            } finally {
+                lock.unlock(lockEntity);
+            }
+            checkTxCommit();
+
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
@@ -414,47 +474,74 @@ public class ZSet extends RCollection {
         byte[] key_b = getKey(key);
 
         MetaV metaV = getMeta(key_b);
+
+        if (metaV == null) {
+            return -1;
+        }
+
         if (metaV.getTimestamp() == -1) {
             return -1;
         }
-        return (int) (System.currentTimeMillis() / 1000 - metaV.getTimestamp());
+        return (int) (metaV.getTimestamp() - System.currentTimeMillis() / 1000);
     }
 
     @Override
     public synchronized void delTtl(String key) throws Exception {
-        LockEntity lockEntity = lock.lock(key);
-
-        byte[] key_b = getKey(key);
+        checkTxStart();
         try {
-            MetaV metaV = getMeta(key_b);
-            metaV.setTimestamp(-1);
-            start();
-            putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-            delTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
-
-            commit();
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+            LockEntity lockEntity = lock.lock(key);
+            byte[] key_b = getKey(key);
+            try {
+                MetaV metaV = getMetaP(key_b);
+                if (metaV == null) {
+                    checkTxCommit();
+                    return;
+                }
+                start();
+                delTimerCollection(KeyEnum.COLLECT_TIMER,
+                        metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                metaV.setTimestamp(-1);
+                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+                commit();
+            } finally {
+                lock.unlock(lockEntity);
+                release();
+            }
+            checkTxCommit();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
     }
 
     @Override
     public void ttl(String key, int ttl) throws Exception {
-        LockEntity lockEntity = lock.lock(key);
-
-        byte[] key_b = getKey(key);
+        checkTxStart();
         try {
-            MetaV metaV = getMeta(key_b);
-            start();
-            delTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
-            metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
-            putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
-            setTimer(KeyEnum.COLLECT_TIMER, metaV.getTimestamp(), metaV.convertMetaBytes().toBytes());
-            commit();
-        } finally {
-            lock.unlock(lockEntity);
-            release();
+            LockEntity lockEntity = lock.lock(key);
+
+            byte[] key_b = getKey(key);
+            try {
+                MetaV metaV = getMeta(key_b);
+                if (metaV == null) {
+                    checkTxCommit();
+                    return;
+                }
+                start();
+                delTimerCollection(KeyEnum.COLLECT_TIMER,
+                        metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                metaV.setTimestamp((int) (System.currentTimeMillis() / 1000 + ttl));
+                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
+                setTimerCollection(KeyEnum.COLLECT_TIMER,
+                        metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+            } finally {
+                lock.unlock(lockEntity);
+                release();
+            }
+            checkTxCommit();
+        } catch (Exception e) {
+            checkTxRollBack();
+            throw e;
         }
 
     }
@@ -530,6 +617,13 @@ public class ZSet extends RCollection {
             metaD.setTimestamp(ArrayUtil.sub(bytes, 5, 9));
             metaD.setVersion(ArrayUtil.sub(bytes, 9, 13));
             return metaD;
+        }
+
+
+        public byte[] toBytesHead() {
+            byte[] value = ArrayKits.addAll(HEAD_B, ArrayKits.intToBytes(0),
+                    ArrayKits.intToBytes(0), this.version);
+            return value;
         }
 
         public byte[] toBytes() {
