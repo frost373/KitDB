@@ -215,7 +215,7 @@ public class RSet extends RCollection {
         LockEntity lockEntity = lock.lock(key);
         try {
             MetaV metaV = getMetaP(key_b);
-            if (time != metaV.timestamp) {
+            if (metaV != null && time != metaV.timestamp) {
                 return;
             }
             deleteTTL(key_b, MetaD.build(meta_b).convertMetaV(), metaV.version);
@@ -299,10 +299,13 @@ public class RSet extends RCollection {
     public int getTtl(String key) throws KitDBException {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
+        if (metaV == null) {
+            return -1;
+        }
         if (metaV.getTimestamp() == -1) {
             return -1;
         }
-        return (int) (System.currentTimeMillis() / 1000 - metaV.getTimestamp());
+        return (int) (metaV.getTimestamp() - System.currentTimeMillis() / 1000);
     }
 
     @Override
@@ -317,11 +320,11 @@ public class RSet extends RCollection {
                     checkTxCommit();
                     return;
                 }
-                metaV.setTimestamp(-1);
                 start();
-                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
                 delTimerCollection(KeyEnum.COLLECT_TIMER,
                         metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
+                metaV.setTimestamp(-1);
+                putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
                 commit();
             } finally {
                 lock.unlock(lockEntity);

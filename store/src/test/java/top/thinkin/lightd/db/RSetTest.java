@@ -250,13 +250,48 @@ public class RSetTest {
 
 
     @Test
-    public void getTtl() {
+    public void getTtl() throws KitDBException {
+        String head = "deleteFast0";
+        RSet set = db.getSet();
+        int num = 10000;
+        try {
+            for (int i = 0; i < num; i++) {
+                set.add(head, ("hello world" + i).getBytes());
+            }
 
+            Assert.assertEquals(-1, set.getTtl(head));
+
+            set.ttl(head, 10);
+
+            Assert.assertTrue(set.getTtl(head) > 9);
+            Assert.assertTrue(set.getTtl(head) != 0);
+
+        } finally {
+
+        }
     }
 
     @Test
-    public void delTtl() {
+    public void delTtl() throws KitDBException, InterruptedException {
+        String head = "delTtl0";
+        RSet set = db.getSet();
+        int num = 1000;
+        try {
+            Set<String> strings = new HashSet<>();
 
+            for (int i = 0; i < num; i++) {
+                set.add(head, ("hello world" + i).getBytes());
+                strings.add("hello world" + i);
+            }
+            set.ttl(head, 3);
+            set.delTtl(head);
+            Thread.sleep(3500);
+            for (int i = 0; i < num; i++) {
+                Assert.assertTrue(set.contains(head, ("hello world" + i).getBytes()));
+            }
+        } finally {
+            set.delete(head);
+        }
     }
 
     @Test

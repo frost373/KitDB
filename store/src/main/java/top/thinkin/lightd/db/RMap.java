@@ -399,12 +399,12 @@ public class RMap extends RCollection {
 
         Meta meta = getMeta(key_b);
         if (meta == null) {
-            return 0;
+            return -1;
         }
         if (meta.getTimestamp() == -1) {
             return -1;
         }
-        return (int) (System.currentTimeMillis() / 1000 - meta.getTimestamp());
+        return (int) (meta.getTimestamp() - System.currentTimeMillis() / 1000);
     }
 
     @Override

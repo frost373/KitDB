@@ -440,12 +440,12 @@ public class RList extends RCollection {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         if (metaV == null) {
-            return 0;
+            return -1;
         }
         if (metaV.getTimestamp() == -1) {
             return -1;
         }
-        return (int) (System.currentTimeMillis() / 1000 - metaV.getTimestamp());
+        return (int) (metaV.getTimestamp() - System.currentTimeMillis() / 1000);
     }
 
 
