@@ -1,5 +1,6 @@
 package top.thinkin.lightd.db;
 
+import cn.hutool.core.collection.CollectionUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -329,6 +330,42 @@ public class ZSetTest {
         } finally {
             //set.delete(head);
         }
+    }
+
+
+    @Test
+    public void bch() throws KitDBException {
+        String head = "bch";
+        ZSet set = db.getzSet();
+        int num = 10 * 10000;
+
+
+        try {
+            b1(head, set, num);
+
+            long startTime = System.currentTimeMillis(); //获取开始时间
+            while (true) {
+                List<ZSet.Entry> list = set.rangeDel(head, 0, Integer.MAX_VALUE, 1000);
+                if (CollectionUtil.isEmpty(list)) {
+                    break;
+                }
+            }
+
+            long endTime = System.currentTimeMillis(); //获取结束时间
+            System.out.println("benchmark " + ":" + (endTime - startTime) + " per second");
+
+        } finally {
+            //set.delete(head);
+        }
+    }
+
+    private void b1(String head, ZSet set, int num) throws KitDBException {
+        long startTime = System.currentTimeMillis(); //获取开始时间
+        for (int i = 0; i < num; i++) {
+            set.add(head, ("hello world" + i).getBytes(), i);
+        }
+        long endTime = System.currentTimeMillis(); //获取结束时间
+        System.out.println("benchmark " + ":" + (endTime - startTime) + " per second");
     }
 
 

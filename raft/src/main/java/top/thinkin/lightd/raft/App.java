@@ -5,7 +5,7 @@ import com.alipay.sofa.jraft.entity.PeerId;
 import com.alipay.sofa.jraft.option.NodeOptions;
 import fi.iki.elonen.NanoHTTPD;
 import top.thinkin.lightd.db.DB;
-import top.thinkin.lightd.db.RKv;
+import top.thinkin.lightd.db.ZSet;
 import top.thinkin.lightd.exception.KitDBException;
 
 import java.io.IOException;
@@ -67,11 +67,10 @@ public class App extends NanoHTTPD {
         }
     }
 
-    @Override
+    /*@Override
     public Response serve(IHTTPSession session) {
         String msg = "<html><body><h1>Hello server</h1>\n";
 
-        System.out.println(session.getUri());
         if ("/w/".equals(session.getUri())) {
             Map<String, String> parms = session.getParms();
             String k = parms.get("k");
@@ -95,6 +94,36 @@ public class App extends NanoHTTPD {
             }
         }
 
+        return newFixedLengthResponse("</body></html>\n");
+
+    }*/
+
+
+    public Response serve(IHTTPSession session) {
+        String msg = "<html><body><h1>Hello server</h1>\n";
+
+        if ("/w/".equals(session.getUri())) {
+            Map<String, String> parms = session.getParms();
+            String m = parms.get("m");
+            String s = parms.get("s");
+            ZSet zset = this.db.getzSet();
+            try {
+                zset.add("text", m.getBytes(), Long.parseLong(s));
+            } catch (KitDBException e) {
+                e.printStackTrace();
+            }
+            return newFixedLengthResponse("</body></html>\n");
+        } else if ("/r/".equals(session.getUri())) {
+            ZSet zset = this.db.getzSet();
+            Map<String, String> parms = session.getParms();
+            String m = parms.get("m");
+            try {
+
+                return newFixedLengthResponse("</body>" + zset.score("text", m.getBytes()) + "</html>\n");
+            } catch (KitDBException e) {
+                e.printStackTrace();
+            }
+        }
         return newFixedLengthResponse("</body></html>\n");
 
     }
