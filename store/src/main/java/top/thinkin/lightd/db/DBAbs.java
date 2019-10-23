@@ -359,8 +359,8 @@ public abstract class DBAbs {
             }
             if (end != null) {
                 deleteRangeDB(start, end, columnFamily);
+                deleteDB(end, columnFamily);
             }
-            deleteDB(end, columnFamily);
         } finally {
             iterator.close();
         }

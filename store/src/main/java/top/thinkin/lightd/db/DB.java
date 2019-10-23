@@ -97,17 +97,22 @@ public class DB extends DBAbs {
 
                 if (RSet.HEAD_B[0] == rel_key_bs[0]) {
                     RSet.MetaD meta = RSet.MetaD.build(value);
-                    // TODO
                     this.set.deleteByClear(rel_key_bs, meta);
+                }
+
+                if (ZSet.HEAD_B[0] == rel_key_bs[0]) {
+                    ZSet.MetaD meta = ZSet.MetaD.build(value);
+                    this.zSet.deleteByClear(rel_key_bs, meta);
                 }
 
             }
         } catch (final Exception e) {
+            // TODO
             e.printStackTrace();
         }
     }
 
-    public ZSet getzSet2() {
+    public ZSet getzSet() {
         return zSet;
     }
 
@@ -122,6 +127,7 @@ public class DB extends DBAbs {
     public RList getList() {
         return list;
     }
+
 
     public synchronized void checkTTL() {
         try {
@@ -145,6 +151,11 @@ public class DB extends DBAbs {
 
                                 if (RSet.HEAD_B[0] == timerCollection.meta_b[0]) {
                                     this.set.deleteTTL(outTimeKey.getTime(),
+                                            timerCollection.key_b, timerCollection.meta_b);
+                                }
+
+                                if (ZSet.HEAD_B[0] == timerCollection.meta_b[0]) {
+                                    this.zSet.deleteTTL(outTimeKey.getTime(),
                                             timerCollection.key_b, timerCollection.meta_b);
                                 }
                             }

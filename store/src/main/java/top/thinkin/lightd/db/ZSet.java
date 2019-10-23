@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.*;
 import top.thinkin.lightd.data.KeyEnum;
@@ -42,19 +41,38 @@ public class ZSet extends RCollection {
         return ArrayKits.addAll(HEAD_B, key.getBytes(charset));
     }
 
-    public synchronized void add(String key, byte[] v, long score) throws Exception {
+    public synchronized void add(String key, byte[] v, long score) throws KitDBException {
         addMayTTL(key, -1, new Entry(score, v));
     }
 
-    public synchronized void add(String key, Entry... entrys) throws Exception {
-        addMayTTL(key, -1, entrys);
+    public synchronized void add(String key, List<Entry> entryList) throws KitDBException {
+        Entry[] entries = new Entry[entryList.size()];
+        entryList.toArray(entries);
+        addMayTTL(key, -1, entries);
     }
 
-    public synchronized void addMayTTL(String key, int ttl, byte[] v, long score) throws Exception {
+    public synchronized void addMayTTL(String key, int ttl, byte[] v, long score) throws KitDBException {
         addMayTTL(key, ttl, new Entry(score, v));
     }
 
-    public synchronized void addMayTTL(final String key, int ttl, Entry... entrys) throws Exception {
+
+    private synchronized void addMayTTL(final String key, int ttl, List<Entry> entryList) throws KitDBException {
+        Entry[] entries = new Entry[entryList.size()];
+        entryList.toArray(entries);
+        addMayTTL(key, ttl, entries);
+    }
+
+    public boolean contains(String key, byte[] value) throws KitDBException {
+        byte[] key_b = getKey(key);
+        MetaV metaV = getMeta(key_b);
+        if (metaV == null) {
+            return false;
+        }
+        SData sData = new SData(key_b.length, key_b, metaV.getVersion(), value);
+        return getDB(sData.convertBytes().toBytes(), SstColumnFamily.DEFAULT) != null;
+    }
+
+    private synchronized void addMayTTL(final String key, int ttl, Entry... entrys) throws KitDBException {
         checkTxStart();
         try {
             DAssert.notEmpty(entrys, ErrorType.EMPTY, "entrys is empty");
@@ -100,7 +118,7 @@ public class ZSet extends RCollection {
     }
 
 
-    private void setEntry(byte[] key_b, MetaV metaV, Entry[] entrys) throws RocksDBException {
+    private void setEntry(byte[] key_b, MetaV metaV, Entry[] entrys) {
         for (Entry entry : entrys) {
             SData sData = new SData(key_b.length, key_b, metaV.getVersion(), entry.value);
             ZData zData = new ZData(key_b.length, key_b, metaV.getVersion(), entry.score, entry.value);
@@ -121,7 +139,7 @@ public class ZSet extends RCollection {
      * @return
      * @throws Exception
      */
-    public List<Entry> range(String key, long start, long end, int limit) throws Exception {
+    public List<Entry> range(String key, long start, long end, int limit) throws KitDBException {
         byte[] key_b = getKey(key);
 
         List<Entry> entries = new ArrayList<>();
@@ -158,7 +176,7 @@ public class ZSet extends RCollection {
      * @return
      * @throws Exception
      */
-    public synchronized List<Entry> rangeDel(String key, long start, long end, int limit) throws Exception {
+    public synchronized List<Entry> rangeDel(String key, long start, long end, int limit) throws KitDBException {
         checkTxStart();
         List<Entry> entries = new ArrayList<>();
         try {
@@ -207,7 +225,7 @@ public class ZSet extends RCollection {
                 release();
             }
             checkTxCommit();
-        } catch (Exception e) {
+        } catch (KitDBException e) {
             checkTxRollBack();
             throw e;
         }
@@ -217,7 +235,7 @@ public class ZSet extends RCollection {
 
     @Override
     @SuppressWarnings("unchecked")
-    public RIterator<ZSet> iterator(String key) throws Exception {
+    public RIterator<ZSet> iterator(String key) throws KitDBException {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         SData sData = new SData(key_b.length, key_b, metaV.getVersion(), "".getBytes());
@@ -244,7 +262,7 @@ public class ZSet extends RCollection {
      * @param vs
      * @throws Exception
      */
-    private synchronized void incrby(String key, int increment, byte[]... vs) throws Exception {
+    private synchronized void incrby(String key, int increment, byte[]... vs) throws KitDBException {
         DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
         checkTxStart();
         try {
@@ -275,7 +293,7 @@ public class ZSet extends RCollection {
                 release();
             }
             checkTxCommit();
-        } catch (Exception e) {
+        } catch (KitDBException e) {
             checkTxRollBack();
             throw e;
         }
@@ -287,7 +305,7 @@ public class ZSet extends RCollection {
      * @param vs
      * @throws Exception
      */
-    public synchronized void remove(String key, byte[]... vs) throws Exception {
+    public synchronized void remove(String key, byte[]... vs) throws KitDBException {
         DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
         checkTxStart();
         try {
@@ -320,7 +338,7 @@ public class ZSet extends RCollection {
                 release();
             }
             checkTxCommit();
-        } catch (Exception e) {
+        } catch (KitDBException e) {
             checkTxRollBack();
             throw e;
         }
@@ -335,7 +353,7 @@ public class ZSet extends RCollection {
      * @return
      * @throws Exception
      */
-    public List<Long> score(String key, byte[]... vs) throws Exception {
+    public List<Long> score(String key, byte[]... vs) throws KitDBException {
         DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
@@ -358,7 +376,7 @@ public class ZSet extends RCollection {
      * @return
      * @throws Exception
      */
-    public Long score(String key, byte[] v) throws Exception {
+    public Long score(String key, byte[] v) throws KitDBException {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
         SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
@@ -370,7 +388,7 @@ public class ZSet extends RCollection {
     }
 
 
-    private MetaV addCheck(byte[] key_b, byte[] k_v) throws RocksDBException {
+    private MetaV addCheck(byte[] key_b, byte[] k_v) {
         MetaV metaV = null;
         if (k_v != null) {
             MetaD metaD = MetaD.build(k_v);
@@ -391,7 +409,7 @@ public class ZSet extends RCollection {
     }
 
     @Override
-    protected MetaV getMeta(byte[] key_b) throws Exception {
+    protected MetaV getMeta(byte[] key_b) throws KitDBException {
         MetaV metaV = getMetaP(key_b);
         if (metaV == null) {
             return null;
@@ -402,6 +420,15 @@ public class ZSet extends RCollection {
         return metaV;
     }
 
+    protected synchronized void deleteByClear(byte[] key_b, MetaD meta) throws KitDBException {
+        try {
+            start();
+            delete(key_b, meta);
+            commitLocal();
+        } finally {
+            release();
+        }
+    }
 
     private void delete(byte[] key_b, MetaD metaD) {
         MetaV metaV = metaD.convertMetaV();
@@ -414,7 +441,7 @@ public class ZSet extends RCollection {
 
 
     @Override
-    public synchronized void delete(String key) throws Exception {
+    public synchronized void delete(String key) throws KitDBException {
         checkTxRange();
 
         try {
@@ -423,6 +450,10 @@ public class ZSet extends RCollection {
             try {
                 start();
                 MetaV metaV = getMeta(key_b);
+                if (metaV == null) {
+                    checkTxCommit();
+                    return;
+                }
                 deleteDB(key_b, SstColumnFamily.META);
                 delete(key_b, metaV.convertMetaBytes());
                 commit();
@@ -431,19 +462,19 @@ public class ZSet extends RCollection {
                 release();
             }
             checkTxCommit();
-        } catch (Exception e) {
+        } catch (KitDBException e) {
             checkTxRollBack();
             throw e;
         }
     }
 
     @Override
-    public KeyIterator getKeyIterator() throws Exception {
+    public KeyIterator getKeyIterator() {
         return getKeyIterator(HEAD_B);
     }
 
 
-    public synchronized void deleteFast(String key) throws Exception {
+    public synchronized void deleteFast(String key) throws KitDBException {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
@@ -463,14 +494,14 @@ public class ZSet extends RCollection {
             }
             checkTxCommit();
 
-        } catch (Exception e) {
+        } catch (KitDBException e) {
             checkTxRollBack();
             throw e;
         }
     }
 
     @Override
-    public int getTtl(String key) throws Exception {
+    public int getTtl(String key) throws KitDBException {
         byte[] key_b = getKey(key);
 
         MetaV metaV = getMeta(key_b);
@@ -486,7 +517,7 @@ public class ZSet extends RCollection {
     }
 
     @Override
-    public synchronized void delTtl(String key) throws Exception {
+    public synchronized void delTtl(String key) throws KitDBException {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
@@ -508,14 +539,29 @@ public class ZSet extends RCollection {
                 release();
             }
             checkTxCommit();
-        } catch (Exception e) {
+        } catch (KitDBException e) {
             checkTxRollBack();
             throw e;
         }
     }
 
+
+    protected void deleteTTL(int time, byte[] key_b, byte[] meta_b) throws KitDBException {
+        String key = new String(ArrayUtil.sub(key_b, 1, key_b.length + 1), charset);
+        LockEntity lockEntity = lock.lock(key);
+        try {
+            MetaV metaV = getMetaP(key_b);
+            if (metaV != null && time != metaV.timestamp) {
+                return;
+            }
+            deleteTTL(key_b, MetaD.build(meta_b).convertMetaV(), metaV.version);
+        } finally {
+            lock.unlock(lockEntity);
+        }
+    }
+
     @Override
-    public void ttl(String key, int ttl) throws Exception {
+    public void ttl(String key, int ttl) throws KitDBException {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
@@ -539,7 +585,7 @@ public class ZSet extends RCollection {
                 release();
             }
             checkTxCommit();
-        } catch (Exception e) {
+        } catch (KitDBException e) {
             checkTxRollBack();
             throw e;
         }
@@ -547,7 +593,7 @@ public class ZSet extends RCollection {
     }
 
     @Override
-    public boolean isExist(String key) throws RocksDBException, KitDBException {
+    public boolean isExist(String key) throws KitDBException {
         byte[] key_b = getKey(key);
         byte[] k_v = getDB(key_b, SstColumnFamily.META);
         MetaV meta = addCheck(key_b, k_v);
@@ -555,7 +601,7 @@ public class ZSet extends RCollection {
     }
 
     @Override
-    public int size(String key) throws Exception {
+    public int size(String key) throws KitDBException {
         int size = 0;
         try (RIterator<ZSet> iterator = iterator(key)) {
             while (iterator.hasNext()) {
