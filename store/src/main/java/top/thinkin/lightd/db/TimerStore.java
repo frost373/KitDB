@@ -59,6 +59,11 @@ public class TimerStore {
             }
         }
         function.call(entries);
+
+        if (dels.size() == 0) {
+            return entries;
+        }
+
         try (final WriteBatch batch = new WriteBatch()) {
             for (byte[] del : dels) {
                 batch.delete(db.defHandle, del);
@@ -72,7 +77,7 @@ public class TimerStore {
 
     }
 
-
+    // RocksDBException TODO
     public static List<TData> rangeDel(DB db, String head, int start, int end, int limit) throws RocksDBException {
         List<TData> entries = new ArrayList<>();
         List<byte[]> dels = new ArrayList<>();
@@ -98,6 +103,9 @@ public class TimerStore {
             }
         }
 
+        if (dels.size() == 0) {
+            return entries;
+        }
         try (final WriteBatch batch = new WriteBatch()) {
             for (byte[] del : dels) {
                 batch.delete(db.defHandle, del);

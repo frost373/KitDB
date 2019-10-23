@@ -234,8 +234,23 @@ public class DB extends DBAbs {
             final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
 
             db.rocksDB = RocksDB.open(options, dir, getColumnFamilyDescriptor(), cfHandles);
+            setDB(autoclear, db, cfHandles, false);
+        } catch (RocksDBException e) {
+            throw new KitDBException(ErrorType.STROE_ERROR, e);
+        }
 
-            setDB(autoclear, db, cfHandles);
+        return db;
+    }
+
+
+    public synchronized static DB readOnly(String dir, boolean autoclear) throws KitDBException {
+        DB db;
+        try {
+            db = new DB();
+            DBOptions options = getDbOptions();
+            final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
+            db.rocksDB = RocksDB.openReadOnly(options, dir, getColumnFamilyDescriptor(), cfHandles);
+            setDB(autoclear, db, cfHandles, true);
         } catch (RocksDBException e) {
             throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
@@ -255,7 +270,7 @@ public class DB extends DBAbs {
             db.openTransaction = true;
 
             db.rocksDB = rocksDB;
-            setDB(autoclear, db, cfHandles);
+            setDB(autoclear, db, cfHandles, false);
         } catch (RocksDBException e) {
             throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
@@ -269,14 +284,21 @@ public class DB extends DBAbs {
         return options;
     }
 
-    private static void setDB(boolean autoclear, DB db, List<ColumnFamilyHandle> cfHandles) throws RocksDBException, KitDBException {
+    private static void setDB(boolean autoclear, DB db, List<ColumnFamilyHandle> cfHandles, boolean readOnly) throws RocksDBException, KitDBException {
         db.metaHandle = cfHandles.get(0);
         db.defHandle = cfHandles.get(1);
 
         db.versionSequence = new VersionSequence(db);
+
+
         byte[] version = db.rocksDB.get("version".getBytes());
         if (version == null) {
-            db.rocksDB.put("version".getBytes(), DB_VERSION);
+            if (!readOnly) {
+                db.rocksDB.put("version".getBytes(), DB_VERSION);
+            } else {
+                DAssert.isTrue(BytesUtil.compare(version, DB_VERSION) == 0, ErrorType.STORE_VERSION,
+                        "Store versions must be " + new String(DB_VERSION) + ", but now is " + new String(version));
+            }
         } else {
             DAssert.isTrue(BytesUtil.compare(version, DB_VERSION) == 0, ErrorType.STORE_VERSION,
                     "Store versions must be " + new String(DB_VERSION) + ", but now is " + new String(version));
@@ -284,11 +306,13 @@ public class DB extends DBAbs {
 
 
         db.writeOptions = new WriteOptions();
-        if (autoclear) {
-            db.stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
-            db.stp.scheduleWithFixedDelay(db::clearKV, 1, 1, TimeUnit.SECONDS);
+        if (!readOnly) {
+            if (autoclear) {
+                db.stp.scheduleWithFixedDelay(db::clear, 2, 2, TimeUnit.SECONDS);
+                db.stp.scheduleWithFixedDelay(db::clearKV, 1, 1, TimeUnit.SECONDS);
+            }
+            db.stp.scheduleWithFixedDelay(db::checkTTL, 1, 1, TimeUnit.SECONDS);
         }
-        db.stp.scheduleWithFixedDelay(db::checkTTL, 1, 1, TimeUnit.SECONDS);
 
         Options optionsBinLog = new Options();
         optionsBinLog.setCreateIfMissing(true);

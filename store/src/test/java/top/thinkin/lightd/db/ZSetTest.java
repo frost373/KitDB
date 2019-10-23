@@ -1,6 +1,5 @@
 package top.thinkin.lightd.db;
 
-import cn.hutool.core.collection.CollectionUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -26,7 +25,7 @@ public class ZSetTest {
     public void init() throws RocksDBException {
         if (db == null) {
             try {
-                db = DB.build("D:\\temp\\db", true);
+                db = DB.build("D:\\temp\\db");
             } catch (Exception e) {
                 log.error("error", e);
                 e.printStackTrace();
@@ -172,13 +171,9 @@ public class ZSetTest {
                 entries.add(new ZSet.Entry(i, ("hello world" + i).getBytes()));
             }
             set.add(head, entries);
-
-
             for (int i = 0; i < 100; i++) {
                 List<ZSet.Entry> list = set.range(head, i * 100, (i + 1) * 100, 1000000);
-                for (ZSet.Entry entry : list) {
-                    System.out.println(entry.getScore());
-                }
+
                 int j = i * 100;
                 for (ZSet.Entry entry : list) {
                     Assert.assertEquals(entry.getScore(), j++);
@@ -333,40 +328,6 @@ public class ZSetTest {
     }
 
 
-    @Test
-    public void bch() throws KitDBException {
-        String head = "bch";
-        ZSet set = db.getzSet();
-        int num = 10 * 10000;
-
-
-        try {
-            b1(head, set, num);
-
-            long startTime = System.currentTimeMillis(); //获取开始时间
-            while (true) {
-                List<ZSet.Entry> list = set.rangeDel(head, 0, Integer.MAX_VALUE, 1000);
-                if (CollectionUtil.isEmpty(list)) {
-                    break;
-                }
-            }
-
-            long endTime = System.currentTimeMillis(); //获取结束时间
-            System.out.println("benchmark " + ":" + (endTime - startTime) + " per second");
-
-        } finally {
-            //set.delete(head);
-        }
-    }
-
-    private void b1(String head, ZSet set, int num) throws KitDBException {
-        long startTime = System.currentTimeMillis(); //获取开始时间
-        for (int i = 0; i < num; i++) {
-            set.add(head, ("hello world" + i).getBytes(), i);
-        }
-        long endTime = System.currentTimeMillis(); //获取结束时间
-        System.out.println("benchmark " + ":" + (endTime - startTime) + " per second");
-    }
 
 
     @Test
