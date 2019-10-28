@@ -144,13 +144,13 @@ public class RList extends RCollection {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
-            byte[] key_b = getKey(key);
-            MetaV metaV = getMeta(key_b);
-            if (metaV == null) {
-                checkTxCommit();
-                return;
-            }
             try {
+                byte[] key_b = getKey(key);
+                MetaV metaV = getMeta(key_b);
+                if (metaV == null) {
+                    checkTxCommit();
+                    return;
+                }
                 deleteFast(key_b, metaV);
             } finally {
                 lock.unlock(lockEntity);
@@ -166,13 +166,13 @@ public class RList extends RCollection {
         checkTxRange();
         try {
             LockEntity lockEntity = lock.lock(key);
-            byte[] key_b = getKey(key);
-            MetaV metaV = getMeta(key_b);
-            if (metaV == null) {
-                checkTxCommit();
-                return;
-            }
             try {
+                byte[] key_b = getKey(key);
+                MetaV metaV = getMeta(key_b);
+                if (metaV == null) {
+                    checkTxCommit();
+                    return;
+                }
                 start();
                 deleteDB(key_b, SstColumnFamily.META);
                 delete(key_b, metaV);
@@ -381,8 +381,8 @@ public class RList extends RCollection {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
-            byte[] key_b = getKey(key);
             try {
+                byte[] key_b = getKey(key);
                 start();
                 MetaV metaV = getMeta(key_b);
 
@@ -411,13 +411,13 @@ public class RList extends RCollection {
     public void delTtl(String key) throws KitDBException {
         checkTxStart();
         try {
-            LockEntity lockEntity = lock.lock(key);
             byte[] key_b = getKey(key);
             MetaV metaV = getMeta(key_b);
             if (metaV == null) {
                 checkTxCommit();
                 return;
             }
+            LockEntity lockEntity = lock.lock(key);
             try {
                 start();
                 delTimerCollection(KeyEnum.COLLECT_TIMER,

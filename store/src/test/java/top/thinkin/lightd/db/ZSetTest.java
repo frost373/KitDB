@@ -39,6 +39,21 @@ public class ZSetTest {
         Thread.sleep(5000);
     }
 
+    @Test
+    public void addR() throws KitDBException {
+        String head = "addR0";
+        ZSet set = db.getzSet();
+        int num = 10;
+        try {
+            for (int i = 0; i < num; i++) {
+                set.add(head, ("hello world").getBytes(), 10000);
+            }
+        } finally {
+            set.delete(head);
+        }
+
+
+    }
 
     @Test
     public void add() throws KitDBException {
@@ -86,8 +101,6 @@ public class ZSetTest {
         } finally {
             set.delete(head);
         }
-
-
     }
 
     @Test

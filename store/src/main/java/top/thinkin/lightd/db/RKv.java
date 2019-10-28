@@ -294,8 +294,8 @@ public class RKv extends RBase {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
-            byte[] keyb = getKey(key);
             try {
+                byte[] keyb = getKey(key);
                 List<byte[]> keys = new ArrayList<>();
                 keys.add(ArrayKits.addAll(HEAD_TTL, keyb));
                 keys.add(ArrayKits.addAll(HEAD_B, keyb));
@@ -451,9 +451,8 @@ public class RKv extends RBase {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
-            byte[] keyb = getKey(key);
-
             try {
+                byte[] keyb = getKey(key);
                 start();
                 deleteDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
                 commit();

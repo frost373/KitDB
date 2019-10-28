@@ -200,6 +200,15 @@ public class DB extends DBAbs {
     }
 
 
+    public synchronized void compaction() {
+        try {
+            this.rocksDB.compactRange();
+        } catch (Exception e) {
+            log.error("compaction error", e);
+        }
+    }
+
+
     public synchronized String backupDB(String path) throws RocksDBException {
         Random r = new Random();
         String tempPath = path + "/tempsp" + r.nextInt(999);
@@ -312,6 +321,7 @@ public class DB extends DBAbs {
                 db.stp.scheduleWithFixedDelay(db::clearKV, 1, 1, TimeUnit.SECONDS);
             }
             db.stp.scheduleWithFixedDelay(db::checkTTL, 1, 1, TimeUnit.SECONDS);
+            //db.stp.scheduleWithFixedDelay(db::compaction, 30, 30, TimeUnit.SECONDS);
         }
 
         Options optionsBinLog = new Options();

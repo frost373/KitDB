@@ -30,7 +30,6 @@ public class ZSet extends RCollection {
     }
 
 
-
     protected ZSet(DB db) {
         super(db, false, 128);
     }
@@ -118,14 +117,18 @@ public class ZSet extends RCollection {
     }
 
 
-    private void setEntry(byte[] key_b, MetaV metaV, Entry[] entrys) {
+    private void setEntry(byte[] key_b, MetaV metaV, Entry[] entrys) throws KitDBException {
         for (Entry entry : entrys) {
             SData sData = new SData(key_b.length, key_b, metaV.getVersion(), entry.value);
             ZData zData = new ZData(key_b.length, key_b, metaV.getVersion(), entry.score, entry.value);
             byte[] member = sData.convertBytes().toBytes();
-            //if (getDB(member, SstColumnFamily.DEFAULT) == null) {
-            metaV.size = metaV.size + 1;
-            //}
+            byte[] old_score_bs = getDB(member, SstColumnFamily.DEFAULT);
+            if (old_score_bs == null) {
+                metaV.size = metaV.size + 1;
+            } else {
+                ZData zData_old = new ZData(key_b.length, key_b, metaV.getVersion(), ArrayKits.bytesToLong(old_score_bs), entry.value);
+                deleteDB(zData_old.convertBytes().toBytes(), SstColumnFamily.DEFAULT);
+            }
             putDB(member, ArrayKits.longToBytes(entry.score), SstColumnFamily.DEFAULT);
             putDB(zData.convertBytes().toBytes(), "".getBytes(), SstColumnFamily.DEFAULT);
         }
@@ -179,9 +182,9 @@ public class ZSet extends RCollection {
     public synchronized List<Entry> rangeDel(String key, long start, long end, int limit) throws KitDBException {
         checkTxStart();
         List<Entry> entries = new ArrayList<>();
+        byte[] key_b = getKey(key);
+        LockEntity lockEntity = lock.lock(key);
         try {
-            byte[] key_b = getKey(key);
-            LockEntity lockEntity = lock.lock(key);
 
             try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
                 MetaV metaV = getMeta(key_b);
@@ -246,8 +249,6 @@ public class ZSet extends RCollection {
     }
 
 
-
-
     private void removeDo(byte[] key_b, MetaV metaV, List<byte[]> dels) {
         for (byte[] del : dels) {
             deleteDB(del, SstColumnFamily.DEFAULT);
@@ -265,8 +266,8 @@ public class ZSet extends RCollection {
     private synchronized void incrby(String key, int increment, byte[]... vs) throws KitDBException {
         DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
         checkTxStart();
+        LockEntity lockEntity = lock.lock(key);
         try {
-            LockEntity lockEntity = lock.lock(key);
             byte[] key_b = getKey(key);
             try {
                 start();
@@ -308,8 +309,8 @@ public class ZSet extends RCollection {
     public synchronized void remove(String key, byte[]... vs) throws KitDBException {
         DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
         checkTxStart();
+        LockEntity lockEntity = lock.lock(key);
         try {
-            LockEntity lockEntity = lock.lock(key);
             byte[] key_b = getKey(key);
             start();
             try {
@@ -379,6 +380,9 @@ public class ZSet extends RCollection {
     public Long score(String key, byte[] v) throws KitDBException {
         byte[] key_b = getKey(key);
         MetaV metaV = getMeta(key_b);
+        if (metaV == null) {
+            return null;
+        }
         SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
         byte[] scoreD = getDB(sData.convertBytes().toBytes(), SstColumnFamily.DEFAULT);
         if (scoreD != null) {
@@ -443,10 +447,9 @@ public class ZSet extends RCollection {
     @Override
     public synchronized void delete(String key) throws KitDBException {
         checkTxRange();
-
         try {
-            LockEntity lockEntity = lock.lock(key);
             byte[] key_b = getKey(key);
+            LockEntity lockEntity = lock.lock(key);
             try {
                 start();
                 MetaV metaV = getMeta(key_b);
@@ -477,17 +480,16 @@ public class ZSet extends RCollection {
     public synchronized void deleteFast(String key) throws KitDBException {
         checkTxStart();
         try {
+            byte[] key_b = getKey(key);
             LockEntity lockEntity = lock.lock(key);
 
-            byte[] key_b = getKey(key);
-            byte[] k_v = getDB(key_b, SstColumnFamily.META);
-            if (k_v == null) {
-                checkTxCommit();
-                return;
-            }
-            MetaV meta = MetaD.build(k_v).convertMetaV();
-
             try {
+                byte[] k_v = getDB(key_b, SstColumnFamily.META);
+                if (k_v == null) {
+                    checkTxCommit();
+                    return;
+                }
+                MetaV meta = MetaD.build(k_v).convertMetaV();
                 deleteFast(key_b, meta);
             } finally {
                 lock.unlock(lockEntity);

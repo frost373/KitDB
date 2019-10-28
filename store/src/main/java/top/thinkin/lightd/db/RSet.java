@@ -48,38 +48,40 @@ public class RSet extends RCollection {
         checkTxStart();
         try {
             LockEntity lockEntity = lock.lock(key);
-            List<byte[]> values = new ArrayList<>();
-            byte[] key_b = getKey(key);
-            MetaV metaV = getMeta(key_b);
-            if (metaV == null) {
-                checkTxCommit();
-                return values;
-            }
-            try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
-                start();
-                List<byte[]> dels = new ArrayList<>();
-                SData sData = new SData(key_b.length, key_b, metaV.getVersion(), ArrayKits.intToBytes(0));
-                byte[] head = sData.getHead();
-                iterator.seek(head);
-                int count = 0;
-                while (iterator.isValid() && count++ < num) {
-                    byte[] key_bs = iterator.key();
-                    if (!BytesUtil.checkHead(head, key_bs)) return values;
-                    SDataD sDataD = SDataD.build(key_bs);
-                    values.add(sDataD.getValue());
-                    dels.add(key_bs);
-                    iterator.next();
+            try {
+                List<byte[]> values = new ArrayList<>();
+                byte[] key_b = getKey(key);
+                MetaV metaV = getMeta(key_b);
+                if (metaV == null) {
+                    checkTxCommit();
+                    return values;
                 }
-                try {
+                try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
+                    start();
+                    List<byte[]> dels = new ArrayList<>();
+                    SData sData = new SData(key_b.length, key_b, metaV.getVersion(), ArrayKits.intToBytes(0));
+                    byte[] head = sData.getHead();
+                    iterator.seek(head);
+                    int count = 0;
+                    while (iterator.isValid() && count++ < num) {
+                        byte[] key_bs = iterator.key();
+                        if (!BytesUtil.checkHead(head, key_bs)) return values;
+                        SDataD sDataD = SDataD.build(key_bs);
+                        values.add(sDataD.getValue());
+                        dels.add(key_bs);
+                        iterator.next();
+                    }
+
                     removeDo(metaV, dels);
                     putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
                     commit();
-                } finally {
-                    lock.unlock(lockEntity);
-                    release();
+
+                    checkTxCommit();
+                    return values;
                 }
-                checkTxCommit();
-                return values;
+            } finally {
+                lock.unlock(lockEntity);
+                release();
             }
         } catch (KitDBException e) {
             checkTxRollBack();
@@ -98,23 +100,23 @@ public class RSet extends RCollection {
         try {
             DAssert.notEmpty(values, ErrorType.EMPTY, "values is empty");
             LockEntity lockEntity = lock.lock(key);
-
-            byte[] key_b = getKey(key);
-            MetaV metaV = getMeta(key_b);
-            if (metaV == null) {
-                checkTxCommit();
-                return;
-            }
-            List<byte[]> dels = new ArrayList<>();
-            for (byte[] v : values) {
-                SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
-                SDataD sDataD = sData.convertBytes();
-                byte[] scoreD = getDB(sDataD.toBytes(), SstColumnFamily.DEFAULT);
-                if (scoreD != null) {
-                    dels.add(sDataD.toBytes());
-                }
-            }
             try {
+                byte[] key_b = getKey(key);
+                MetaV metaV = getMeta(key_b);
+                if (metaV == null) {
+                    checkTxCommit();
+                    return;
+                }
+                List<byte[]> dels = new ArrayList<>();
+                for (byte[] v : values) {
+                    SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
+                    SDataD sDataD = sData.convertBytes();
+                    byte[] scoreD = getDB(sDataD.toBytes(), SstColumnFamily.DEFAULT);
+                    if (scoreD != null) {
+                        dels.add(sDataD.toBytes());
+                    }
+                }
+
                 start();
                 removeDo(metaV, dels);
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
@@ -152,11 +154,11 @@ public class RSet extends RCollection {
         try {
             DAssert.notEmpty(values, ErrorType.EMPTY, "values is empty");
             DAssert.isTrue(ArrayKits.noRepeate(values), ErrorType.REPEATED_KEY, "Repeated memebers");
-            LockEntity lockEntity = lock.lock(key);
-
             byte[] key_b = getKey(key);
-            start();
+
+            LockEntity lockEntity = lock.lock(key);
             try {
+                start();
                 byte[] k_v = getDB(key_b, SstColumnFamily.META);
                 MetaV metaV = addCheck(key_b, k_v);
                 if (metaV != null) {
@@ -175,7 +177,6 @@ public class RSet extends RCollection {
                                 metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
                     }
                 }
-
                 commit();
             } finally {
                 lock.unlock(lockEntity);
@@ -228,8 +229,8 @@ public class RSet extends RCollection {
     @Override
     public void delete(String key) throws KitDBException {
         checkTxRange();
+        LockEntity lockEntity = lock.lock(key);
         try {
-            LockEntity lockEntity = lock.lock(key);
             byte[] key_b = getKey(key);
             try {
                 start();
@@ -259,8 +260,8 @@ public class RSet extends RCollection {
 
     public void deleteFast(String key) throws KitDBException {
         checkTxStart();
+        LockEntity lockEntity = lock.lock(key);
         try {
-            LockEntity lockEntity = lock.lock(key);
             byte[] key_b = getKey(key);
             byte[] k_v = getDB(key_b, SstColumnFamily.META);
             if (k_v == null) {
@@ -311,8 +312,8 @@ public class RSet extends RCollection {
     @Override
     public void delTtl(String key) throws KitDBException {
         checkTxStart();
+        LockEntity lockEntity = lock.lock(key);
         try {
-            LockEntity lockEntity = lock.lock(key);
             try {
                 byte[] key_b = getKey(key);
                 MetaV metaV = getMeta(key_b);
@@ -340,8 +341,8 @@ public class RSet extends RCollection {
     @Override
     public void ttl(String key, int ttl) throws KitDBException {
         checkTxStart();
+        LockEntity lockEntity = lock.lock(key);
         try {
-            LockEntity lockEntity = lock.lock(key);
             try {
                 byte[] key_b = getKey(key);
                 MetaV metaV = getMeta(key_b);

@@ -5,7 +5,7 @@
     <parent>
         <artifactId>lightd</artifactId>
         <groupId>top.thinkin</groupId>
-        <version>1.0-SNAPSHOT</version>
+        <version>0.1.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -15,7 +15,7 @@
         <dependency>
             <groupId>top.thinkin</groupId>
             <artifactId>store</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>0.1.0-SNAPSHOT</version>
         </dependency>
 
         <dependency>

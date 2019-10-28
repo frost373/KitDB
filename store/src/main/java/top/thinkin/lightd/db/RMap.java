@@ -136,15 +136,15 @@ public class RMap extends RCollection {
         checkTxStart();
         try {
             byte[] key_b = getKey(key);
-            LockEntity lockEntity = lock.lock(key);
             DAssert.notEmpty(entries, ErrorType.EMPTY, "entries is empty");
             byte[][] bytess = new byte[entries.length][];
             for (int i = 0; i < entries.length; i++) {
                 bytess[i] = entries[i].value;
             }
             DAssert.isTrue(ArrayKits.noRepeate(bytess), ErrorType.REPEATED_KEY, "Repeated keys");
-            start();
+            LockEntity lockEntity = lock.lock(key);
             try {
+                start();
                 byte[] k_v = getDB(key_b, SstColumnFamily.META);
                 Meta metaV = addCheck(key_b, k_v);
 
@@ -240,15 +240,14 @@ public class RMap extends RCollection {
         checkTxStart();
         try {
             DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
-            LockEntity lockEntity = lock.lock(key);
-
             byte[] key_b = getKey(key);
-
-            Meta metaV = getMeta(key_b);
-            if (metaV == null) {
-                return;
-            }
+            LockEntity lockEntity = lock.lock(key);
             try {
+                Meta metaV = getMeta(key_b);
+                if (metaV == null) {
+                    checkTxCommit();
+                    return;
+                }
                 start();
                 for (String mkey : keys) {
                     byte[] mkey_b = mkey.getBytes(charset);
@@ -298,14 +297,14 @@ public class RMap extends RCollection {
         checkTxRange();
         try {
             LockEntity lockEntity = lock.lock(key);
-
-            byte[] key_b = getKey(key);
-            Meta meta = getMeta(key_b);
-            if (meta == null) {
-                checkTxCommit();
-                return;
-            }
             try {
+                byte[] key_b = getKey(key);
+                Meta meta = getMeta(key_b);
+                if (meta == null) {
+                    checkTxCommit();
+                    return;
+                }
+
                 start();
                 deleteDB(key_b, SstColumnFamily.META);
                 delete(key_b, meta);
@@ -411,16 +410,16 @@ public class RMap extends RCollection {
     public void delTtl(String key) throws KitDBException {
         checkTxStart();
         try {
-            LockEntity lockEntity = lock.lock(key);
 
             byte[] key_b = getKey(key);
-
-            Meta metaV = getMeta(key_b);
-            if (metaV == null) {
-                checkTxCommit();
-                return;
-            }
+            LockEntity lockEntity = lock.lock(key);
             try {
+                Meta metaV = getMeta(key_b);
+                if (metaV == null) {
+                    checkTxCommit();
+                    return;
+                }
+
                 start();
                 delTimerCollection(KeyEnum.COLLECT_TIMER,
                         metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
@@ -442,8 +441,8 @@ public class RMap extends RCollection {
     public void ttl(String key, int ttl) throws KitDBException {
         checkTxStart();
         try {
-            LockEntity lockEntity = lock.lock(key);
             byte[] key_b = getKey(key);
+            LockEntity lockEntity = lock.lock(key);
             try {
                 Meta metaV = getMeta(key_b);
                 if (metaV == null) {
