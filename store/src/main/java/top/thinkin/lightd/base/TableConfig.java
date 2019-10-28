@@ -1,9 +1,6 @@
 package top.thinkin.lightd.base;
 
-import org.rocksdb.BlockBasedTableConfig;
-import org.rocksdb.BloomFilter;
-import org.rocksdb.ColumnFamilyOptions;
-import org.rocksdb.StringAppendOperator;
+import org.rocksdb.*;
 import org.rocksdb.util.SizeUnit;
 
 public class TableConfig {
@@ -110,11 +107,11 @@ public class TableConfig {
 
         // Seems like the rocksDB jni for Windows doesn't come linked with any of the
         // compression type
-        /*if (!Platform.isWindows()) {
+        if (!Platform.isWindows()) {
             opts.setCompressionType(CompressionType.LZ4_COMPRESSION) //
                     .setCompactionStyle(CompactionStyle.LEVEL) //
                     .optimizeLevelStyleCompaction();
-        }*/
+        }
 
         return opts;
     }

@@ -41,20 +41,20 @@ public abstract class RBase {
     }
 
 
-    public void setTimer(KeyEnum keyEnum, int time, byte[] value) {
+    protected void setTimer(KeyEnum keyEnum, int time, byte[] value) {
 
         TimerStore.put(this, keyEnum.getKey(), time, value);
 
     }
 
 
-    public void setTimerCollection(KeyEnum keyEnum, int time, byte[] key_b, byte[] meta_b) {
+    protected void setTimerCollection(KeyEnum keyEnum, int time, byte[] key_b, byte[] meta_b) {
         byte[] key_b_size_b = ArrayKits.intToBytes(key_b.length);
         TimerStore.put(this, keyEnum.getKey(), time, ArrayKits.addAll(key_b_size_b, key_b, meta_b));
     }
 
 
-    public void delTimerCollection(KeyEnum keyEnum, int time, byte[] key_b, byte[] meta_b) {
+    protected void delTimerCollection(KeyEnum keyEnum, int time, byte[] key_b, byte[] meta_b) {
         byte[] key_b_size_b = ArrayKits.intToBytes(key_b.length);
         TimerStore.del(this, keyEnum.getKey(), time, ArrayKits.addAll(key_b_size_b, key_b, meta_b));
     }
@@ -96,7 +96,7 @@ public abstract class RBase {
 
     protected abstract TxLock getTxLock(String key);
 
-    public static TimerCollection getTimerCollection(byte[] value) {
+    protected static TimerCollection getTimerCollection(byte[] value) {
         byte[] key_b_size_b = ArrayUtil.sub(value, 0, 4);
         int size = ArrayKits.bytesToInt(key_b_size_b, 0);
         TimerCollection timerCollection = new TimerCollection();
@@ -105,25 +105,25 @@ public abstract class RBase {
         return timerCollection;
     }
 
-    public void delTimer(KeyEnum keyEnum, int time, byte[] value) {
+    protected void delTimer(KeyEnum keyEnum, int time, byte[] value) {
         TimerStore.del(this, keyEnum.getKey(), time, value);
     }
 
 
-    public void commit() throws KitDBException {
+    protected void commit() throws KitDBException {
         db.commit();
     }
 
-    public void commitLocal() throws KitDBException {
+    protected void commitLocal() throws KitDBException {
         db.commitLocal();
     }
 
-    public void release() {
+    protected void release() {
         db.release();
     }
 
 
-    public void putDB(byte[] key, byte[] value, SstColumnFamily columnFamily) {
+    protected void putDB(byte[] key, byte[] value, SstColumnFamily columnFamily) {
         db.putDB(key, value, columnFamily);
     }
 
