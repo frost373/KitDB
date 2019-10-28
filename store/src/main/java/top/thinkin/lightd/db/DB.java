@@ -321,7 +321,7 @@ public class DB extends DBAbs {
                 db.stp.scheduleWithFixedDelay(db::clearKV, 1, 1, TimeUnit.SECONDS);
             }
             db.stp.scheduleWithFixedDelay(db::checkTTL, 1, 1, TimeUnit.SECONDS);
-            //db.stp.scheduleWithFixedDelay(db::compaction, 30, 30, TimeUnit.SECONDS);
+            db.stp.scheduleWithFixedDelay(db::compaction, 30, 30, TimeUnit.SECONDS);
         }
 
         Options optionsBinLog = new Options();
