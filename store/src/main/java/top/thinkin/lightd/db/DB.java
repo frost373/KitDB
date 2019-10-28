@@ -60,11 +60,8 @@ public class DB extends DBAbs {
         if (rocksDB != null) {
             rocksDB.close();
         }
-
-        if (binLogDB != null) {
-            binLogDB.close();
-        }
     }
+
 
     public RSnapshot createSnapshot() {
         return new RSnapshot(this.rocksDB.getSnapshot());
@@ -225,11 +222,11 @@ public class DB extends DBAbs {
     }
 
 
-    public static void releaseBackup(String path, String targetpath) throws RocksDBException {
+    public static void releaseBackup(String path, String targetpath) {
         ZipUtil.unzip(path, targetpath);
     }
 
-    public synchronized static DB build(String dir) throws RocksDBException, KitDBException {
+    public synchronized static DB build(String dir) throws KitDBException {
         return build(dir, true);
     }
 
@@ -305,14 +302,13 @@ public class DB extends DBAbs {
             if (!readOnly) {
                 db.rocksDB.put("version".getBytes(), DB_VERSION);
             } else {
-                DAssert.isTrue(BytesUtil.compare(version, DB_VERSION) == 0, ErrorType.STORE_VERSION,
-                        "Store versions must be " + new String(DB_VERSION) + ", but now is " + new String(version));
+                DAssert.isTrue(false, ErrorType.STORE_VERSION,
+                        "Store versions must be " + new String(DB_VERSION) + ", but now is null");
             }
         } else {
             DAssert.isTrue(BytesUtil.compare(version, DB_VERSION) == 0, ErrorType.STORE_VERSION,
                     "Store versions must be " + new String(DB_VERSION) + ", but now is " + new String(version));
         }
-
 
         db.writeOptions = new WriteOptions();
         if (!readOnly) {
