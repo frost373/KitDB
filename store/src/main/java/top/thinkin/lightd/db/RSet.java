@@ -46,7 +46,7 @@ public class RSet extends RCollection {
      */
     public List<byte[]> pop(String key, int num) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             LockEntity lockEntity = lock.lock(key);
             try {
                 List<byte[]> values = new ArrayList<>();
@@ -97,7 +97,7 @@ public class RSet extends RCollection {
      */
     public void remove(String key, byte[]... values) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             DAssert.notEmpty(values, ErrorType.EMPTY, "values is empty");
             LockEntity lockEntity = lock.lock(key);
             try {
@@ -133,13 +133,15 @@ public class RSet extends RCollection {
     }
 
     public boolean contains(String key, byte[] value) throws KitDBException {
-        byte[] key_b = getKey(key);
-        MetaV metaV = getMeta(key_b);
-        if (metaV == null) {
-            return false;
+        try (CloseLock ignored = checkClose()) {
+            byte[] key_b = getKey(key);
+            MetaV metaV = getMeta(key_b);
+            if (metaV == null) {
+                return false;
+            }
+            SData sData = new SData(key_b.length, key_b, metaV.getVersion(), value);
+            return getDB(sData.convertBytes().toBytes(), SstColumnFamily.DEFAULT) != null;
         }
-        SData sData = new SData(key_b.length, key_b, metaV.getVersion(), value);
-        return getDB(sData.convertBytes().toBytes(), SstColumnFamily.DEFAULT) != null;
     }
 
     /**
@@ -151,7 +153,7 @@ public class RSet extends RCollection {
      */
     public void addMayTTL(String key, int ttl, byte[]... values) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             DAssert.notEmpty(values, ErrorType.EMPTY, "values is empty");
             DAssert.isTrue(ArrayKits.noRepeate(values), ErrorType.REPEATED_KEY, "Repeated memebers");
             byte[] key_b = getKey(key);
@@ -202,7 +204,7 @@ public class RSet extends RCollection {
 
 
     protected synchronized void deleteByClear(byte[] key_b, MetaD meta) throws KitDBException {
-        try {
+        try (CloseLock ignored = checkClose()) {
             start();
             delete(key_b, meta);
             commitLocal();
@@ -214,7 +216,7 @@ public class RSet extends RCollection {
     protected void deleteTTL(int time, byte[] key_b, byte[] meta_b) throws KitDBException {
         String key = new String(ArrayUtil.sub(key_b, 1, key_b.length + 1), charset);
         LockEntity lockEntity = lock.lock(key);
-        try {
+        try (CloseLock ignored = checkClose()) {
             MetaV metaV = getMetaP(key_b);
             if (metaV != null && time != metaV.timestamp) {
                 return;
@@ -230,7 +232,7 @@ public class RSet extends RCollection {
     public void delete(String key) throws KitDBException {
         checkTxRange();
         LockEntity lockEntity = lock.lock(key);
-        try {
+        try (CloseLock ignored = checkClose()) {
             byte[] key_b = getKey(key);
             try {
                 start();
@@ -255,13 +257,15 @@ public class RSet extends RCollection {
 
     @Override
     public KeyIterator getKeyIterator() throws KitDBException {
-        return getKeyIterator(HEAD_B);
+        try (CloseLock ignored = checkClose()) {
+            return getKeyIterator(HEAD_B);
+        }
     }
 
     public void deleteFast(String key) throws KitDBException {
         checkTxStart();
         LockEntity lockEntity = lock.lock(key);
-        try {
+        try (CloseLock ignored = checkClose()) {
             byte[] key_b = getKey(key);
             byte[] k_v = getDB(key_b, SstColumnFamily.META);
             if (k_v == null) {
@@ -284,36 +288,40 @@ public class RSet extends RCollection {
     @Override
     @SuppressWarnings("unchecked")
     public RIterator<RSet> iterator(String key) throws KitDBException {
-        byte[] key_b = getKey(key);
-        MetaV metaV = getMeta(key_b);
-        if (metaV == null) {
-            return null;
+        try (CloseLock ignored = checkClose()) {
+            byte[] key_b = getKey(key);
+            MetaV metaV = getMeta(key_b);
+            if (metaV == null) {
+                return null;
+            }
+            SData sData = new SData(key_b.length, key_b, metaV.getVersion(), "".getBytes());
+            RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT);
+            iterator.seek(sData.getHead());
+            return new RIterator<>(iterator, this, sData.getHead());
         }
-        SData sData = new SData(key_b.length, key_b, metaV.getVersion(), "".getBytes());
-        RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT);
-        iterator.seek(sData.getHead());
-        return new RIterator<>(iterator, this, sData.getHead());
     }
 
 
     @Override
     public int getTtl(String key) throws KitDBException {
-        byte[] key_b = getKey(key);
-        MetaV metaV = getMeta(key_b);
-        if (metaV == null) {
-            return -1;
+        try (CloseLock ignored = checkClose()) {
+            byte[] key_b = getKey(key);
+            MetaV metaV = getMeta(key_b);
+            if (metaV == null) {
+                return -1;
+            }
+            if (metaV.getTimestamp() == -1) {
+                return -1;
+            }
+            return (int) (metaV.getTimestamp() - System.currentTimeMillis() / 1000);
         }
-        if (metaV.getTimestamp() == -1) {
-            return -1;
-        }
-        return (int) (metaV.getTimestamp() - System.currentTimeMillis() / 1000);
     }
 
     @Override
     public void delTtl(String key) throws KitDBException {
         checkTxStart();
         LockEntity lockEntity = lock.lock(key);
-        try {
+        try (CloseLock ignored = checkClose()) {
             try {
                 byte[] key_b = getKey(key);
                 MetaV metaV = getMeta(key_b);
@@ -342,7 +350,7 @@ public class RSet extends RCollection {
     public void ttl(String key, int ttl) throws KitDBException {
         checkTxStart();
         LockEntity lockEntity = lock.lock(key);
-        try {
+        try (CloseLock ignored = checkClose()) {
             try {
                 byte[] key_b = getKey(key);
                 MetaV metaV = getMeta(key_b);
@@ -371,27 +379,33 @@ public class RSet extends RCollection {
 
     @Override
     public boolean isExist(String key) throws KitDBException {
-        byte[] key_b = getKey(key);
-        MetaV metaV = getMeta(key_b);
-        return metaV != null;
+        try (CloseLock ignored = checkClose()) {
+            byte[] key_b = getKey(key);
+            MetaV metaV = getMeta(key_b);
+            return metaV != null;
+        }
     }
 
     @Override
     public int size(String key) throws KitDBException {
-        byte[] key_b = getKey(key);
-        MetaV metaV = getMeta(key_b);
-        return metaV.getSize();
+        try (CloseLock ignored = checkClose()) {
+            byte[] key_b = getKey(key);
+            MetaV metaV = getMeta(key_b);
+            return metaV.getSize();
+        }
     }
 
     @Override
-    public Entry getEntry(RocksIterator iterator) {
-        byte[] key_bs = iterator.key();
-        if (key_bs == null) {
-            return null;
+    public Entry getEntry(RocksIterator iterator) throws KitDBException {
+        try (CloseLock ignored = checkClose()) {
+            byte[] key_bs = iterator.key();
+            if (key_bs == null) {
+                return null;
+            }
+            SData sData = SDataD.build(key_bs).convertValue();
+            Entry entry = new Entry(sData.value);
+            return entry;
         }
-        SData sData = SDataD.build(key_bs).convertValue();
-        Entry entry = new Entry(sData.value);
-        return entry;
     }
 
     // TODO

@@ -6,10 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.rocksdb.RocksIterator;
-import top.thinkin.lightd.base.LockEntity;
-import top.thinkin.lightd.base.SegmentStrLock;
-import top.thinkin.lightd.base.SstColumnFamily;
-import top.thinkin.lightd.base.TxLock;
+import top.thinkin.lightd.base.*;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
@@ -38,7 +35,7 @@ public class RKv extends RBase {
 
     public void set(String key, byte[] value) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             byte[] keyb = getKey(key);
             LockEntity lockEntity = lock.lock(key);
             try {
@@ -65,7 +62,7 @@ public class RKv extends RBase {
 
     public long incr(String key, int step, int ttl) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             byte[] keyb = getKey(key);
             LockEntity lockEntity = lock.lock(key);
             try {
@@ -103,7 +100,7 @@ public class RKv extends RBase {
 
     public long incr(String key, int step) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             byte[] keyb = getKey(key);
             LockEntity lockEntity = lock.lock(key);
             try {
@@ -134,7 +131,7 @@ public class RKv extends RBase {
 
     public void set(Map<String, byte[]> map) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             try {
                 start();
 
@@ -162,7 +159,7 @@ public class RKv extends RBase {
 
     public void set(Map<String, byte[]> map, int ttl) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             int time = (int) (System.currentTimeMillis() / 1000 + ttl);
             try {
                 start();
@@ -193,7 +190,7 @@ public class RKv extends RBase {
 
     public void set(String key, byte[] value, int ttl) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             byte[] keyb = getKey(key);
             LockEntity lockEntity = lock.lock(key);
             try {
@@ -219,7 +216,7 @@ public class RKv extends RBase {
 
     public void ttl(String key, int ttl) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             byte[] keyb = getKey(key);
             LockEntity lockEntity = lock.lock(key);
             try {
@@ -243,38 +240,40 @@ public class RKv extends RBase {
 
 
     public Map<String, byte[]> get(List<String> keys) throws KitDBException {
-        DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
+        Map<String, byte[]> map = null;
+        try (CloseLock ignored = checkClose()) {
+            DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
 
-        byte[][] keybs = new byte[keys.size()][];
-        for (int i = 0; i < keys.size(); i++) {
-            keybs[i] = getKey(keys.get(i));
-        }
-
-        List<byte[]> vKeys = new ArrayList<>(keybs.length);
-
-        for (byte[] key : keybs) {
-            vKeys.add(ArrayKits.addAll(HEAD_TTL, key));
-            vKeys.add(ArrayKits.addAll(HEAD_B, key));
-        }
-        vKeys.addAll(vKeys);
-        Map<String, byte[]> resMap = transMap(multiGet(vKeys, SstColumnFamily.DEFAULT));
-        Map<String, byte[]> map = new HashMap<>(keybs.length);
-
-        for (byte[] key : keybs) {
-            byte[] ttl_bs = resMap.get(new String(ArrayKits.addAll(HEAD_TTL, key)));
-            if (ttl_bs == null) {
-                map.put(new String(key, charset), resMap.get(new String((ArrayKits.addAll(HEAD_B, key)))));
-            } else {
-                int time = ArrayKits.bytesToInt(ttl_bs, 0);
-                if ((System.currentTimeMillis() / 1000) - time <= 0) {
-                    map.put(new String(key, charset), null);
-                } else {
-                    map.put(new String(key, charset), resMap.get(new String((ArrayKits.addAll(HEAD_B, key)))));
-                }
+            byte[][] keybs = new byte[keys.size()][];
+            for (int i = 0; i < keys.size(); i++) {
+                keybs[i] = getKey(keys.get(i));
             }
 
-        }
+            List<byte[]> vKeys = new ArrayList<>(keybs.length);
 
+            for (byte[] key : keybs) {
+                vKeys.add(ArrayKits.addAll(HEAD_TTL, key));
+                vKeys.add(ArrayKits.addAll(HEAD_B, key));
+            }
+            vKeys.addAll(vKeys);
+            Map<String, byte[]> resMap = transMap(multiGet(vKeys, SstColumnFamily.DEFAULT));
+            map = new HashMap<>(keybs.length);
+
+            for (byte[] key : keybs) {
+                byte[] ttl_bs = resMap.get(new String(ArrayKits.addAll(HEAD_TTL, key)));
+                if (ttl_bs == null) {
+                    map.put(new String(key, charset), resMap.get(new String((ArrayKits.addAll(HEAD_B, key)))));
+                } else {
+                    int time = ArrayKits.bytesToInt(ttl_bs, 0);
+                    if ((System.currentTimeMillis() / 1000) - time <= 0) {
+                        map.put(new String(key, charset), null);
+                    } else {
+                        map.put(new String(key, charset), resMap.get(new String((ArrayKits.addAll(HEAD_B, key)))));
+                    }
+                }
+
+            }
+        }
         return map;
     }
 
@@ -292,7 +291,7 @@ public class RKv extends RBase {
 
     protected void delCheckTTL(String key, int ztime) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             LockEntity lockEntity = lock.lock(key);
             try {
                 byte[] keyb = getKey(key);
@@ -332,21 +331,23 @@ public class RKv extends RBase {
 
 
     public byte[] get(String key) throws KitDBException {
-        byte[] keyb = getKey(key);
-        List<byte[]> keys = new ArrayList<>();
-        keys.add(ArrayKits.addAll(HEAD_TTL, keyb));
-        keys.add(ArrayKits.addAll(HEAD_B, keyb));
+        try (CloseLock ignored = checkClose()) {
+            byte[] keyb = getKey(key);
+            List<byte[]> keys = new ArrayList<>();
+            keys.add(ArrayKits.addAll(HEAD_TTL, keyb));
+            keys.add(ArrayKits.addAll(HEAD_B, keyb));
 
-        Map<String, byte[]> resMap = transMap(multiGet(keys, SstColumnFamily.DEFAULT));
-        byte[] ttl_bs = resMap.get(new String(ArrayKits.addAll(HEAD_TTL, keyb)));
-        if (ttl_bs == null) {
-            return resMap.get(new String(ArrayKits.addAll(HEAD_B, keyb)));
-        }
-        int time = ArrayKits.bytesToInt(ttl_bs, 0);
-        if ((System.currentTimeMillis() / 1000) - time >= 0) {
-            return null;
-        } else {
-            return resMap.get(new String(ArrayKits.addAll(HEAD_B, keyb)));
+            Map<String, byte[]> resMap = transMap(multiGet(keys, SstColumnFamily.DEFAULT));
+            byte[] ttl_bs = resMap.get(new String(ArrayKits.addAll(HEAD_TTL, keyb)));
+            if (ttl_bs == null) {
+                return resMap.get(new String(ArrayKits.addAll(HEAD_B, keyb)));
+            }
+            int time = ArrayKits.bytesToInt(ttl_bs, 0);
+            if ((System.currentTimeMillis() / 1000) - time >= 0) {
+                return null;
+            } else {
+                return resMap.get(new String(ArrayKits.addAll(HEAD_B, keyb)));
+            }
         }
     }
 
@@ -358,7 +359,7 @@ public class RKv extends RBase {
 
     public void del(String key) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             byte[] keyb = getKey(key);
             LockEntity lockEntity = lock.lock(key);
             try {
@@ -381,7 +382,7 @@ public class RKv extends RBase {
     public void delPrefix(String key_) throws KitDBException {
 
         byte[] keyb_ = getKey(key_);
-        try {
+        try (CloseLock ignored = checkClose()) {
             start();
             deleteHead(ArrayKits.addAll(HEAD_B, keyb_), SstColumnFamily.DEFAULT);
             deleteHead(ArrayKits.addAll(HEAD_TTL, keyb_), SstColumnFamily.DEFAULT);
@@ -393,25 +394,27 @@ public class RKv extends RBase {
 
 
     public List<String> keys(String key_, int start, int limit) throws KitDBException {
-        byte[] keyb_ = getKey(key_);
-        List<String> list = new ArrayList<>();
-        int index = 0;
-        int count = 0;
-        try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
-            byte[] head = ArrayKits.addAll(HEAD_B, keyb_);
-            iterator.seek(head);
-            while (iterator.isValid() && count < limit) {
-                byte[] key = iterator.key();
-                if (!BytesUtil.checkHead(head, key)) break;
-                if (index >= start) {
-                    list.add(new String(ArrayUtil.sub(key, 1, key.length), charset));
-                    count++;
+        try (CloseLock ignored = checkClose()) {
+            byte[] keyb_ = getKey(key_);
+            List<String> list = new ArrayList<>();
+            int index = 0;
+            int count = 0;
+            try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
+                byte[] head = ArrayKits.addAll(HEAD_B, keyb_);
+                iterator.seek(head);
+                while (iterator.isValid() && count < limit) {
+                    byte[] key = iterator.key();
+                    if (!BytesUtil.checkHead(head, key)) break;
+                    if (index >= start) {
+                        list.add(new String(ArrayUtil.sub(key, 1, key.length), charset));
+                        count++;
+                    }
+                    index++;
+                    iterator.next();
                 }
-                index++;
-                iterator.next();
             }
+            return list;
         }
-        return list;
     }
 
 
@@ -427,17 +430,19 @@ public class RKv extends RBase {
      */
 
     int getTtl(String key) throws KitDBException {
-        byte[] keyb = getKey(key);
-        byte[] value_bs = getDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
-        if (value_bs != null) {
-            int time = ArrayKits.bytesToInt(value_bs, 0);
-            int ttl = (int) ((System.currentTimeMillis() / 1000) - time);
-            if (ttl <= 0) {
-                return 0;
+        try (CloseLock ignored = checkClose()) {
+            byte[] keyb = getKey(key);
+            byte[] value_bs = getDB(ArrayKits.addAll(HEAD_TTL, keyb), SstColumnFamily.DEFAULT);
+            if (value_bs != null) {
+                int time = ArrayKits.bytesToInt(value_bs, 0);
+                int ttl = (int) ((System.currentTimeMillis() / 1000) - time);
+                if (ttl <= 0) {
+                    return 0;
+                }
+                return ttl;
             }
-            return ttl;
+            return -1;
         }
-        return -1;
     }
 
     /**
@@ -449,7 +454,7 @@ public class RKv extends RBase {
 
     void delTtl(String key) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             LockEntity lockEntity = lock.lock(key);
             try {
                 byte[] keyb = getKey(key);

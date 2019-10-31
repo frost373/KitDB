@@ -64,7 +64,7 @@ public class RMap extends RCollection {
     public void putTTL(String key, String mkey, byte[] value, int ttl) throws KitDBException {
         byte[] mkey_b = mkey.getBytes(charset);
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             byte[] key_b = getKey(key);
             LockEntity lockEntity = lock.lock(key);
             try {
@@ -134,7 +134,7 @@ public class RMap extends RCollection {
 
     private void putMayTTL(String key, int ttl, Entry... entries) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             byte[] key_b = getKey(key);
             DAssert.notEmpty(entries, ErrorType.EMPTY, "entries is empty");
             byte[][] bytess = new byte[entries.length][];
@@ -179,42 +179,46 @@ public class RMap extends RCollection {
 
 
     public Map<String, byte[]> get(String key, String... keys) throws KitDBException {
-        byte[] key_b = getKey(key);
-        DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
-        Meta metaV = getMeta(key_b);
-        if (metaV == null) {
-            return new HashMap<>();
-        }
+        try (CloseLock ignored = checkClose()) {
+            byte[] key_b = getKey(key);
+            DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
+            Meta metaV = getMeta(key_b);
+            if (metaV == null) {
+                return new HashMap<>();
+            }
 
-        Map<String, byte[]> map = new HashMap<>(keys.length);
-        List<byte[]> keyList = new ArrayList<>();
-        for (String mkey : keys) {
-            byte[] mkey_b = mkey.getBytes(charset);
-            Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), mkey_b);
-            keyList.add(vkey.convertBytes().toBytes());
+            Map<String, byte[]> map = new HashMap<>(keys.length);
+            List<byte[]> keyList = new ArrayList<>();
+            for (String mkey : keys) {
+                byte[] mkey_b = mkey.getBytes(charset);
+                Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), mkey_b);
+                keyList.add(vkey.convertBytes().toBytes());
+            }
+            Map<byte[], byte[]> resMap = multiGet(keyList, SstColumnFamily.DEFAULT);
+            Iterator<Map.Entry<byte[], byte[]>> iter = resMap.entrySet().iterator();
+            while (iter.hasNext()) {
+                Map.Entry<byte[], byte[]> entry = iter.next();
+                byte[] resKey = entry.getKey();
+                KeyD keyd = KeyD.build(resKey);
+                map.put(new String(keyd.convertValue().getKey()), entry.getValue());
+            }
+            return map;
         }
-        Map<byte[], byte[]> resMap = multiGet(keyList, SstColumnFamily.DEFAULT);
-        Iterator<Map.Entry<byte[], byte[]>> iter = resMap.entrySet().iterator();
-        while (iter.hasNext()) {
-            Map.Entry<byte[], byte[]> entry = iter.next();
-            byte[] resKey = entry.getKey();
-            KeyD keyd = KeyD.build(resKey);
-            map.put(new String(keyd.convertValue().getKey()), entry.getValue());
-        }
-        return map;
     }
 
 
     public byte[] get(String key, String mkey) throws KitDBException {
-        byte[] mkey_b = mkey.getBytes(charset);
-        byte[] key_b = getKey(key);
-        Meta metaV = getMeta(key_b);
-        if (metaV == null) {
-            return null;
+        try (CloseLock ignored = checkClose()) {
+            byte[] mkey_b = mkey.getBytes(charset);
+            byte[] key_b = getKey(key);
+            Meta metaV = getMeta(key_b);
+            if (metaV == null) {
+                return null;
+            }
+            Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), mkey_b);
+            byte[] value = getDB(vkey.convertBytes().toBytes(), SstColumnFamily.DEFAULT);
+            return value;
         }
-        Key vkey = new Key(key_b.length, key_b, metaV.getVersion(), mkey_b);
-        byte[] value = getDB(vkey.convertBytes().toBytes(), SstColumnFamily.DEFAULT);
-        return value;
     }
 
     private Meta getMetaP(byte[] key_b) throws KitDBException {
@@ -238,7 +242,7 @@ public class RMap extends RCollection {
 
     public void remove(String key, String... keys) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
             byte[] key_b = getKey(key);
             LockEntity lockEntity = lock.lock(key);
@@ -295,7 +299,7 @@ public class RMap extends RCollection {
     @Override
     public void delete(String key) throws KitDBException {
         checkTxRange();
-        try {
+        try (CloseLock ignored = checkClose()) {
             LockEntity lockEntity = lock.lock(key);
             try {
                 byte[] key_b = getKey(key);
@@ -321,15 +325,17 @@ public class RMap extends RCollection {
     }
 
     @Override
-    public KeyIterator getKeyIterator() {
-        return getKeyIterator(HEAD_B);
+    public KeyIterator getKeyIterator() throws KitDBException {
+        try (CloseLock ignored = checkClose()) {
+            return getKeyIterator(HEAD_B);
+        }
     }
 
 
     protected void deleteTTL(int time, byte[] key_b, byte[] meta_b) throws KitDBException {
         String key = new String(ArrayUtil.sub(key_b, 1, key_b.length + 1), charset);
         LockEntity lockEntity = lock.lock(key);
-        try {
+        try (CloseLock ignored = checkClose()) {
             Meta meta = getMetaP(key_b);
             if (meta == null || time != meta.timestamp) {
                 return;
@@ -343,7 +349,7 @@ public class RMap extends RCollection {
 
     public void deleteFast(String key) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             LockEntity lockEntity = lock.lock(key);
             try {
                 byte[] key_b = getKey(key);
@@ -365,51 +371,56 @@ public class RMap extends RCollection {
 
     @Override
     public RIterator<RMap> iterator(String key) throws KitDBException {
-        byte[] key_b = getKey(key);
-        Meta metaV = getMeta(key_b);
-        if (metaV == null) {
-            return null;
+        try (CloseLock ignored = checkClose()) {
+            byte[] key_b = getKey(key);
+            Meta metaV = getMeta(key_b);
+            if (metaV == null) {
+                return null;
+            }
+
+            Key k_seek = new Key(key_b.length, key_b, metaV.getVersion(), null);
+            RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT);
+            iterator.seek(k_seek.getHead());
+            RIterator<RMap> rIterator = new RIterator<>(iterator, this, k_seek.getHead());
+            return rIterator;
         }
-
-        Key k_seek = new Key(key_b.length, key_b, metaV.getVersion(), null);
-        RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT);
-        iterator.seek(k_seek.getHead());
-        RIterator<RMap> rIterator = new RIterator<>(iterator, this, k_seek.getHead());
-        return rIterator;
-
     }
 
     @Override
-    public Entry getEntry(RocksIterator iterator) {
-        byte[] key_bs = iterator.key();
-        if (key_bs == null) {
-            return null;
-        }
+    public Entry getEntry(RocksIterator iterator) throws KitDBException {
+        try (CloseLock ignored = checkClose()) {
+            byte[] key_bs = iterator.key();
+            if (key_bs == null) {
+                return null;
+            }
 
-        KeyD keyD = KeyD.build(key_bs);
-        Entry entry = new Entry(new String(keyD.key, charset), iterator.value());
-        return entry;
+            KeyD keyD = KeyD.build(key_bs);
+            Entry entry = new Entry(new String(keyD.key, charset), iterator.value());
+            return entry;
+        }
     }
 
 
     @Override
     public int getTtl(String key) throws KitDBException {
-        byte[] key_b = getKey(key);
+        try (CloseLock ignored = checkClose()) {
+            byte[] key_b = getKey(key);
 
-        Meta meta = getMeta(key_b);
-        if (meta == null) {
-            return -1;
+            Meta meta = getMeta(key_b);
+            if (meta == null) {
+                return -1;
+            }
+            if (meta.getTimestamp() == -1) {
+                return -1;
+            }
+            return (int) (meta.getTimestamp() - System.currentTimeMillis() / 1000);
         }
-        if (meta.getTimestamp() == -1) {
-            return -1;
-        }
-        return (int) (meta.getTimestamp() - System.currentTimeMillis() / 1000);
     }
 
     @Override
     public void delTtl(String key) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
 
             byte[] key_b = getKey(key);
             LockEntity lockEntity = lock.lock(key);
@@ -440,7 +451,7 @@ public class RMap extends RCollection {
     @Override
     public void ttl(String key, int ttl) throws KitDBException {
         checkTxStart();
-        try {
+        try (CloseLock ignored = checkClose()) {
             byte[] key_b = getKey(key);
             LockEntity lockEntity = lock.lock(key);
             try {
@@ -469,21 +480,25 @@ public class RMap extends RCollection {
 
     @Override
     public boolean isExist(String key) throws KitDBException {
-        byte[] key_b = getKey(key);
+        try (CloseLock ignored = checkClose()) {
+            byte[] key_b = getKey(key);
 
-        byte[] k_v = getDB(key_b, SstColumnFamily.META);
-        Meta meta = addCheck(key_b, k_v);
-        return meta != null;
+            byte[] k_v = getDB(key_b, SstColumnFamily.META);
+            Meta meta = addCheck(key_b, k_v);
+            return meta != null;
+        }
     }
 
     @Override
     public int size(String key) throws KitDBException {
-        byte[] key_b = getKey(key);
-        Meta metaV = getMeta(key_b);
-        if (metaV == null) {
-            return 0;
+        try (CloseLock ignored = checkClose()) {
+            byte[] key_b = getKey(key);
+            Meta metaV = getMeta(key_b);
+            if (metaV == null) {
+                return 0;
+            }
+            return metaV.getSize();
         }
-        return metaV.getSize();
     }
 
 

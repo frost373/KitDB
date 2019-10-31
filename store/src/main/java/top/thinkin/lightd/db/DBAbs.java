@@ -12,12 +12,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 @Slf4j
 public abstract class DBAbs {
     protected RocksDB rocksDB;
     protected boolean openTransaction = false;
+    protected volatile boolean open = false;
+
     protected KeySegmentLockManager keySegmentLockManager;
 
     public RocksDB rocksDB() {
@@ -25,6 +30,11 @@ public abstract class DBAbs {
     }
 
     protected WriteOptions writeOptions;
+
+    protected DBOptions options;
+
+
+
     protected ReadOptions readOptions = new ReadOptions();
 
     protected ColumnFamilyHandle metaHandle;
@@ -37,6 +47,37 @@ public abstract class DBAbs {
     public final ThreadLocal<Boolean> IS_STATR_TX = ThreadLocal.withInitial(() -> false);
 
     protected final ReentrantLock TX_LOCK = new ReentrantLock(true);
+
+
+    protected final ReadWriteLock CLOSE_LOCK = new ReentrantReadWriteLock(true);
+
+
+    protected CloseLock closeCheck() throws KitDBException {
+        Lock lock = CLOSE_LOCK.readLock();
+        lock.lock();
+        try {
+            DAssert.isTrue(open, ErrorType.DB_CLOSE, "db is closed");
+        } catch (KitDBException e) {
+            lock.unlock();
+            throw e;
+        }
+        return new CloseLock(lock);
+    }
+
+    protected CloseLock closeDo() throws KitDBException {
+        Lock lock = CLOSE_LOCK.writeLock();
+        try {
+            DAssert.isTrue(open, ErrorType.DB_CLOSE, "db is closed");
+        } catch (KitDBException e) {
+            lock.unlock();
+            throw e;
+        }
+        return new CloseLock(lock);
+    }
+
+
+
+
 
     protected DBAbs() {
 
@@ -263,10 +304,15 @@ public abstract class DBAbs {
         }
     }
 
+    protected final List<ColumnFamilyOptions> cfOptionsList = new ArrayList<>();
 
-    protected static List<ColumnFamilyDescriptor> getColumnFamilyDescriptor() {
+
+    protected List<ColumnFamilyDescriptor> getColumnFamilyDescriptor() {
         final ColumnFamilyOptions cfOptions = TableConfig.createColumnFamilyOptions();
         final ColumnFamilyOptions defCfOptions = TableConfig.createDefColumnFamilyOptions();
+        cfOptionsList.add(cfOptions);
+        cfOptionsList.add(defCfOptions);
+
         final List<ColumnFamilyDescriptor> cfDescriptors = new ArrayList<>();
         cfDescriptors.add(new ColumnFamilyDescriptor("R_META".getBytes(), cfOptions));
         cfDescriptors.add(new ColumnFamilyDescriptor(RocksDB.DEFAULT_COLUMN_FAMILY, defCfOptions));
@@ -371,7 +417,7 @@ public abstract class DBAbs {
         void call(DBCommandChunk dbCommandChunk) throws KitDBException, RocksDBException;
     }
 
-    public FunctionCommit functionCommit = (dbCommandChunk) -> {
+    volatile public FunctionCommit functionCommit = (dbCommandChunk) -> {
         DBCommandChunkType dbCommandChunkType = dbCommandChunk.getType();
         switch (dbCommandChunkType) {
             case NOM_COMMIT:

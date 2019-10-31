@@ -1,6 +1,7 @@
 package top.thinkin.lightd.db;
 
 import org.rocksdb.RocksIterator;
+import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.BytesUtil;
 
 public class RIterator<R extends RCollection> implements AutoCloseable {
@@ -26,7 +27,7 @@ public class RIterator<R extends RCollection> implements AutoCloseable {
     }
 
 
-    public <E extends REntry> E next() {
+    public <E extends REntry> E next() throws KitDBException {
         if (!iterator.isValid()) return null;
         E entry = rCollection.getEntry(iterator);
         iterator.next();

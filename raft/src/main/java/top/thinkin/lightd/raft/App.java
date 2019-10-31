@@ -1,9 +1,12 @@
 package top.thinkin.lightd.raft;
 
+import com.alipay.sofa.jraft.RouteTable;
 import com.alipay.sofa.jraft.conf.Configuration;
 import com.alipay.sofa.jraft.entity.PeerId;
 import com.alipay.sofa.jraft.option.NodeOptions;
 import fi.iki.elonen.NanoHTTPD;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import top.thinkin.lightd.db.DB;
 import top.thinkin.lightd.db.ZSet;
 import top.thinkin.lightd.exception.KitDBException;
@@ -18,8 +21,13 @@ public class App extends NanoHTTPD {
         System.out.println("\nRunning! Point your browsers to http://localhost:8080/ \n");
     }
 
-    private LightDServer lightDServer;
-    private DB db;
+    private static final Logger LOG = LoggerFactory.getLogger(DBRequestProcessor.class);
+
+
+    private KitRaft kitRaft;
+
+    private static RouteTable rt;
+
 
     public static void main(String[] args) throws IOException, KitDBException {
 
@@ -41,7 +49,7 @@ public class App extends NanoHTTPD {
         // 为了测试, 调整 snapshot 间隔等参数
         nodeOptions.setElectionTimeoutMs(5000);
         nodeOptions.setDisableCli(false);
-        nodeOptions.setSnapshotIntervalSecs(30);
+        nodeOptions.setSnapshotIntervalSecs(60 * 5);
         // 解析参数
 
         PeerId serverId = new PeerId();
@@ -54,17 +62,22 @@ public class App extends NanoHTTPD {
         }
         // 设置初始集群配置
         nodeOptions.setInitialConf(initConf);
-        DB db = DB.build("D:\\temp\\" + dnName, true);
+        DB db = DB.build("D:\\temp\\" + dnName, false);
 
-        LightDServer counterServer = new LightDServer(dataPath, groupId, serverId, nodeOptions, db);
+
+        KitRaft counterServer = new KitRaft(dataPath, groupId, serverId, nodeOptions, db, dnName);
 
         try {
             App app = new App(Integer.parseInt(portStr));
-            app.lightDServer = counterServer;
-            app.db = db;
+            app.kitRaft = counterServer;
         } catch (IOException ioe) {
             System.err.println("Couldn't start server:\n" + ioe);
         }
+
+        rt = RouteTable.getInstance();
+
+
+
     }
 
     /*@Override
@@ -106,15 +119,16 @@ public class App extends NanoHTTPD {
             Map<String, String> parms = session.getParms();
             String m = parms.get("m");
             String s = parms.get("s");
-            ZSet zset = this.db.getzSet();
+            ZSet zset = this.kitRaft.getDB().getzSet();
             try {
                 zset.add("text", m.getBytes(), Long.parseLong(s));
+
             } catch (KitDBException e) {
                 e.printStackTrace();
             }
             return newFixedLengthResponse("</body></html>\n");
         } else if ("/r/".equals(session.getUri())) {
-            ZSet zset = this.db.getzSet();
+            ZSet zset = this.kitRaft.getDB().getzSet();
             Map<String, String> parms = session.getParms();
             String m = parms.get("m");
             try {
@@ -123,6 +137,21 @@ public class App extends NanoHTTPD {
             } catch (KitDBException e) {
                 e.printStackTrace();
             }
+        } else if ("/getLeader".equals(session.getUri())) {
+            try {
+                return newFixedLengthResponse(kitRaft.getNode().getLeaderId().getEndpoint().toString());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        } else if ("/addPeer".equals(session.getUri())) {
+            Map<String, String> parms = session.getParms();
+            String node = parms.get("node");
+
+            PeerId peer = new PeerId();
+            peer.parse(node);
+            kitRaft.getNode().addPeer(peer, s -> {
+                LOG.error("addPeer error", s.getErrorMsg());
+            });
         }
         return newFixedLengthResponse("</body></html>\n");
 

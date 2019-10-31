@@ -3,6 +3,7 @@ package top.thinkin.lightd.db;
 import cn.hutool.core.util.ArrayUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.rocksdb.RocksIterator;
+import top.thinkin.lightd.base.CloseLock;
 import top.thinkin.lightd.base.SstColumnFamily;
 import top.thinkin.lightd.base.TxLock;
 import top.thinkin.lightd.data.KeyEnum;
@@ -27,6 +28,8 @@ public abstract class RBase {
 
     protected int DEF_TX_TIME_OUT = 5000;
 
+    protected volatile boolean open = false;
+
     public RBase(boolean isLog) {
         this.isLog = isLog;
     }
@@ -40,6 +43,10 @@ public abstract class RBase {
         db.start();
     }
 
+
+    public CloseLock checkClose() throws KitDBException {
+        return db.closeCheck();
+    }
 
     protected void setTimer(KeyEnum keyEnum, int time, byte[] value) {
 

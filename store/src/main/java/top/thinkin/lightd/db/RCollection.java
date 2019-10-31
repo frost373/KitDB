@@ -93,7 +93,7 @@ public abstract class RCollection extends RBase {
     abstract int size(String key) throws Exception;
 
 
-    abstract <E extends REntry> E getEntry(RocksIterator iterator);
+    abstract <E extends REntry> E getEntry(RocksIterator iterator) throws KitDBException;
 
 
 }

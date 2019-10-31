@@ -19,10 +19,10 @@ public class DBRequestProcessor implements DB.FunctionCommit {
 
     private static final Logger LOG = LoggerFactory.getLogger(DBRequestProcessor.class);
 
-    private final LightDServer lightDServer;
+    private final KitRaft kitRaft;
 
-    public DBRequestProcessor(LightDServer lightDServer) {
-        this.lightDServer = lightDServer;
+    public DBRequestProcessor(KitRaft kitRaft) {
+        this.kitRaft = kitRaft;
     }
 
 
@@ -33,7 +33,7 @@ public class DBRequestProcessor implements DB.FunctionCommit {
         task.setDone(closure);
         task.setData(ByteBuffer
                 .wrap(SerializerManager.getSerializer(SerializerManager.Hessian2).serialize(dbCommandChunk)));
-        lightDServer.getNode().apply(task);
+        kitRaft.getNode().apply(task);
         synchronized (closure) {
             closure.wait();
         }

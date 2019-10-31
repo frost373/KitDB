@@ -19,6 +19,11 @@ public class KeySegmentLockManager {
         stp.scheduleWithFixedDelay(this::check, 30, 30, TimeUnit.SECONDS);
     }
 
+
+    public void start(ScheduledThreadPoolExecutor stp) {
+        stp.scheduleWithFixedDelay(this::check, 30, 30, TimeUnit.SECONDS);
+    }
+
     public void check() {
         for (KeyDoubletLock keyDoubletLock : list) {
             keyDoubletLock.clear();

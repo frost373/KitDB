@@ -1,28 +1,48 @@
 package top.thinkin.lightd.raft;
 
 import com.alipay.remoting.serialization.SerializerManager;
+import com.alipay.sofa.jraft.Closure;
 import com.alipay.sofa.jraft.Iterator;
 import com.alipay.sofa.jraft.Status;
 import com.alipay.sofa.jraft.core.StateMachineAdapter;
+import com.alipay.sofa.jraft.error.RaftError;
 import com.alipay.sofa.jraft.error.RaftException;
+import com.alipay.sofa.jraft.storage.snapshot.SnapshotReader;
+import com.alipay.sofa.jraft.storage.snapshot.SnapshotWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import top.thinkin.lightd.base.DBCommandChunk;
 import top.thinkin.lightd.base.DBCommandChunkType;
 import top.thinkin.lightd.db.DB;
 import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.exception.KitDBException;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+
 
 public class DBStateMachine extends StateMachineAdapter {
+    private static final Logger LOG = LoggerFactory.getLogger(DBStateMachine.class);
 
-    private DB db;
+    volatile private DB db;
+
+    public DB getDb() {
+        return db;
+    }
+
+    private static String spname = "sp";
 
     private DBRequestProcessor dbRequestProcessor;
 
+    private String dbName;
 
     private List<DBCommandChunk> logbatch = new ArrayList<>();
+
+    private final AtomicLong leaderTerm = new AtomicLong(-1L);
+
 
     public void setDbRequestProcessor(DBRequestProcessor dbRequestProcessor) {
         this.dbRequestProcessor = dbRequestProcessor;
@@ -37,10 +57,77 @@ public class DBStateMachine extends StateMachineAdapter {
         db.functionCommit = logs -> dbRequestProcessor.call(logs);
     }
 
+
+    public boolean isLeader() {
+        return this.leaderTerm.get() > 0;
+    }
+
     @Override
     public void onError(RaftException e) {
-        System.out.println("1111111111" + e.getStatus());
+        LOG.error("onSnapshotLoad error", e);
     }
+
+
+    @Override
+    public void onSnapshotSave(final SnapshotWriter writer, final Closure done) {
+        try {
+            String fileName = this.db.backupDB(writer.getPath(), spname);
+            if (writer.addFile(spname + DB.BACK_FILE_SUFFIX)) {
+                done.run(Status.OK());
+            } else {
+                done.run(new Status(RaftError.EIO, "Fail to add file to writer"));
+            }
+        } catch (Exception e) {
+            done.run(new Status(RaftError.EIO, "Fail to save counter snapshot %s", writer.getPath()));
+        }
+
+    }
+
+    @Override
+    public void onLeaderStart(final long term) {
+        super.onLeaderStart(term);
+        this.leaderTerm.set(term);
+    }
+
+
+    @Override
+    public void onLeaderStop(final Status status) {
+        super.onLeaderStop(status);
+        this.leaderTerm.set(-1L);
+    }
+
+    @Override
+    public boolean onSnapshotLoad(final SnapshotReader reader) {
+        LOG.info("===========onSnapshotLoad start==============");
+        if (isLeader()) {
+            LOG.warn("Leader is not supposed to load snapshot.");
+            return false;
+        }
+        String path = reader.getPath();
+
+
+        if (db != null) {
+            db.close();
+            db.functionCommit = null;
+        }
+
+        String dir = "D:\\temp\\" + dbName;
+        Util.delZSPic(dir);
+
+
+        try {
+            DB.releaseBackup(path + File.separator + spname + DB.BACK_FILE_SUFFIX, dir);
+            db = DB.build(dir, false);
+            db.functionCommit = logs -> dbRequestProcessor.call(logs);
+            return true;
+        } catch (Exception e) {
+
+            LOG.error("onSnapshotLoad error", e);
+            return false;
+        }
+
+    }
+
 
     @Override
     public void onApply(Iterator iter) {
@@ -66,6 +153,7 @@ public class DBStateMachine extends StateMachineAdapter {
 
                 try {
                     DBCommandChunkType dbCommandChunkType = chunk.getType();
+                    LOG.debug("onApply {} {}", dbCommandChunkType.name(), chunk.getCommands().size());
                     if (!isLeader) {
                         switch (dbCommandChunkType) {
                             case NOM_COMMIT:
@@ -142,5 +230,9 @@ public class DBStateMachine extends StateMachineAdapter {
             }
             iter.next();
         }
+    }
+
+    public void setDbName(String dbName) {
+        this.dbName = dbName;
     }
 }

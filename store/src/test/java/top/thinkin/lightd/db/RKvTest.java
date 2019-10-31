@@ -10,6 +10,7 @@ import top.thinkin.lightd.benchmark.JoinFuture;
 import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.ArrayKits;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -24,10 +25,12 @@ public class RKvTest {
     static DB db;
 
     @Before
-    public void init() throws KitDBException {
+    public void init() throws KitDBException, InterruptedException, RocksDBException {
         if (db == null) {
             RocksDB.loadLibrary();
-            db = DB.build("D:\\temp\\sp\\tempsp542", true);
+            db = DB.build("D:\\temp\\dbx", false);
+            db.stop();
+            db.open("D:\\temp\\dbx", true, false);
             //db = DB.build("D:\\temp\\db", true);
 
         }
@@ -35,14 +38,14 @@ public class RKvTest {
     }
 
     @Test
-    public void writeSnapshot() throws RocksDBException, KitDBException {
+    public void writeSnapshot() throws RocksDBException, KitDBException, IOException {
         String head = "writeSnapshot0";
         RKv kv = db.getrKv();
 
        /* for (int i = 0; i < 100*10000; i++) {
             kv.set(head + i, ("hello world" + i).getBytes());
         }*/
-        db.backupDB("D:/temp/sp");
+        db.backupDB("D:/temp/sp", "hello");
 
         //db.writeSnapshot("D:/temp/sp");
         //DB.releaseSnapshot("D:\\temp\\sp\\156957632384686.kitp","D:\\temp\\sp\\sp1");
@@ -85,7 +88,7 @@ public class RKvTest {
                 Assert.assertArrayEquals(bytes, ("test" + i).getBytes());
             }
         } finally {
-            kv.delPrefix(head);
+            //kv.delPrefix(head);
         }
 
     }

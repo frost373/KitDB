@@ -12,7 +12,7 @@ import java.util.concurrent.Executors;
 public class RKVThreadTest {
     static ExecutorService executorService = Executors.newFixedThreadPool(50);
 
-    public static void main(String[] args) throws RocksDBException, KitDBException {
+    public static void main(String[] args) throws RocksDBException, KitDBException, InterruptedException {
         RKvTest rKvTest = new RKvTest();
         rKvTest.init();
         log.info("start1");

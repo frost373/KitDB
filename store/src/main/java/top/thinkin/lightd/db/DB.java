@@ -1,10 +1,10 @@
 package top.thinkin.lightd.db;
 
 import cn.hutool.core.util.ArrayUtil;
-import cn.hutool.core.util.ZipUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.rocksdb.*;
 import top.thinkin.lightd.base.BinLog;
+import top.thinkin.lightd.base.CloseLock;
 import top.thinkin.lightd.base.KeySegmentLockManager;
 import top.thinkin.lightd.base.VersionSequence;
 import top.thinkin.lightd.data.KeyEnum;
@@ -13,19 +13,24 @@ import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.BytesUtil;
 import top.thinkin.lightd.kit.FileZipUtils;
+import top.thinkin.lightd.kit.ZipUtil;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.zip.ZipOutputStream;
 
 @Slf4j
 public class DB extends DBAbs {
     static final byte[] DB_VERSION = "V0.0.2".getBytes();
 
+    public static String BACK_FILE_SUFFIX = ".kit";
 
     protected static Charset charset = Charset.forName("UTF-8");
 
@@ -34,6 +39,7 @@ public class DB extends DBAbs {
     private RMap map;
     private RSet set;
     private RList list;
+
 
     private RKv rKv;
     private final static byte[] DEL_HEAD = "D".getBytes();
@@ -53,12 +59,40 @@ public class DB extends DBAbs {
         super();
     }
 
-    public void close() {
-        if (stp != null) {
-            stp.shutdown();
+    public synchronized void close() throws InterruptedException, KitDBException {
+        try (CloseLock ignored = closeCheck()) {
+            open = false;
+            if (stp != null) {
+                stp.shutdown();
+                stp.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
+            }
+            if (rocksDB != null) {
+                rocksDB.close();
+                this.readOptions.close();
+                this.writeOptions.close();
+                this.options.close();
+                for (final ColumnFamilyOptions cfOptions : this.cfOptionsList) {
+                    cfOptions.close();
+                }
+                this.metaHandle.close();
+                this.defHandle.close();
+            }
         }
-        if (rocksDB != null) {
-            rocksDB.close();
+    }
+
+
+    public synchronized void stop() throws InterruptedException, KitDBException {
+        try (CloseLock ignored = closeCheck()) {
+            open = false;
+            if (stp != null) {
+                stp.shutdown();
+                stp.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
+            }
+            if (rocksDB != null) {
+                rocksDB.close();
+                this.metaHandle.close();
+                this.defHandle.close();
+            }
         }
     }
 
@@ -74,7 +108,7 @@ public class DB extends DBAbs {
     public synchronized void clear() {
         try (RocksIterator iterator = this.rocksDB.newIterator()) {
             iterator.seek(DEL_HEAD);
-            while (iterator.isValid()) {
+            while (iterator.isValid() && open) {
                 byte[] key_bs = iterator.key();
                 if (DEL_HEAD[0] != key_bs[0]) {
                     break;
@@ -133,7 +167,9 @@ public class DB extends DBAbs {
                 TimerStore.rangeDel(this,
                         KeyEnum.COLLECT_TIMER.getKey(), 0, end, 500, dataList -> {
                             List<TimerStore.TData> outTimeKeys = dataList;
+                            DAssert.isTrue(open, ErrorType.DB_CLOSE, "db is closed");
                             for (TimerStore.TData outTimeKey : outTimeKeys) {
+                                DAssert.isTrue(open, ErrorType.DB_CLOSE, "db is closed");
                                 byte[] value = outTimeKey.getValue();
                                 RBase.TimerCollection timerCollection = RBase.getTimerCollection(value);
                                 if (RList.HEAD_B[0] == timerCollection.meta_b[0]) {
@@ -176,13 +212,14 @@ public class DB extends DBAbs {
         try {
             int end = (int) (System.currentTimeMillis() / 1000);
             for (int i = 0; i < 10; i++) {
-
+                DAssert.isTrue(open, ErrorType.DB_CLOSE, "db is closed");
                 List<TimerStore.TData> outTimeKeys = TimerStore.rangeDel(this,
                         KeyEnum.KV_TIMER.getKey(), 0, end, 2000);
                 if (outTimeKeys.size() == 0) {
                     return;
                 }
                 for (TimerStore.TData outTimeKey : outTimeKeys) {
+                    DAssert.isTrue(open, ErrorType.DB_CLOSE, "db is closed");
                     byte[] key_bs = outTimeKey.getValue();
                     if (RKv.HEAD_B[0] == key_bs[0]) {
                         this.rKv.delCheckTTL(
@@ -206,24 +243,31 @@ public class DB extends DBAbs {
     }
 
 
-    public synchronized String backupDB(String path) throws RocksDBException {
+    public synchronized String backupDB(String path, String backName) throws RocksDBException, IOException {
         Random r = new Random();
-        String tempPath = path + "/tempsp" + r.nextInt(999);
+        String sourceDir = File.separator + "tempsp" + r.nextInt(999);
+        String tempPath = path + sourceDir;
         final File tempFile = new File(tempPath);
         FileZipUtils.delFile(tempFile);
         try (final Checkpoint checkpoint = Checkpoint.create(this.rocksDB)) {
             checkpoint.createCheckpoint(tempPath);
         }
-        long time = System.currentTimeMillis();
-        String backPath = path + "/" + time + r.nextInt(999) + ".kbu";
-        FileZipUtils.zipFiles(tempPath, backPath);
+        String fileName = backName + BACK_FILE_SUFFIX;
+        String backPath = path + File.separator + fileName;
+
+        try (final FileOutputStream fOut = new FileOutputStream(backPath);
+             final ZipOutputStream zOut = new ZipOutputStream(fOut)) {
+            ZipUtil.compressDirectoryToZipFile(tempPath, "", zOut);
+            fOut.getFD().sync();
+        }
+
         FileZipUtils.delFile(tempFile);
         return backPath;
     }
 
 
-    public static void releaseBackup(String path, String targetpath) {
-        ZipUtil.unzip(path, targetpath);
+    public static void releaseBackup(String path, String targetpath) throws IOException {
+        ZipUtil.unzipFile(path, targetpath);
     }
 
     public synchronized static DB build(String dir) throws KitDBException {
@@ -236,10 +280,9 @@ public class DB extends DBAbs {
         try {
             db = new DB();
             DBOptions options = getDbOptions();
-
+            db.options = options;
             final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
-
-            db.rocksDB = RocksDB.open(options, dir, getColumnFamilyDescriptor(), cfHandles);
+            db.rocksDB = RocksDB.open(options, dir, db.getColumnFamilyDescriptor(), cfHandles);
             setDB(autoclear, db, cfHandles, false);
         } catch (RocksDBException e) {
             throw new KitDBException(ErrorType.STROE_ERROR, e);
@@ -254,8 +297,9 @@ public class DB extends DBAbs {
         try {
             db = new DB();
             DBOptions options = getDbOptions();
+            db.options = options;
             final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
-            db.rocksDB = RocksDB.openReadOnly(options, dir, getColumnFamilyDescriptor(), cfHandles);
+            db.rocksDB = RocksDB.openReadOnly(options, dir, db.getColumnFamilyDescriptor(), cfHandles);
             setDB(autoclear, db, cfHandles, true);
         } catch (RocksDBException e) {
             throw new KitDBException(ErrorType.STROE_ERROR, e);
@@ -269,10 +313,11 @@ public class DB extends DBAbs {
         try {
             db = new DB();
             DBOptions options = getDbOptions();
+            db.options = options;
             final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
 
             TransactionDBOptions transactionDBOptions = new TransactionDBOptions();
-            TransactionDB rocksDB = TransactionDB.open(options, transactionDBOptions, dir, getColumnFamilyDescriptor(), cfHandles);
+            TransactionDB rocksDB = TransactionDB.open(options, transactionDBOptions, dir, db.getColumnFamilyDescriptor(), cfHandles);
             db.openTransaction = true;
 
             db.rocksDB = rocksDB;
@@ -289,6 +334,31 @@ public class DB extends DBAbs {
         options.setCreateMissingColumnFamilies(true);
         return options;
     }
+
+    public synchronized void open(String dir, boolean autoclear, boolean readOnly) throws KitDBException {
+        DAssert.isTrue(!open, ErrorType.DB_CLOSE, "db is closed");
+        try {
+            final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
+            this.rocksDB = RocksDB.open(options, dir, this.getColumnFamilyDescriptor(), cfHandles);
+            this.metaHandle = cfHandles.get(0);
+            this.defHandle = cfHandles.get(1);
+            stp = new ScheduledThreadPoolExecutor(4);
+            if (!readOnly) {
+                if (autoclear) {
+                    this.stp.scheduleWithFixedDelay(this::clear, 2, 2, TimeUnit.SECONDS);
+                    this.stp.scheduleWithFixedDelay(this::clearKV, 1, 1, TimeUnit.SECONDS);
+                }
+                this.stp.scheduleWithFixedDelay(this::checkTTL, 1, 1, TimeUnit.SECONDS);
+                this.stp.scheduleWithFixedDelay(this::compaction, 30, 30, TimeUnit.SECONDS);
+            }
+            this.keySegmentLockManager.start(stp);
+            open = true;
+        } catch (RocksDBException e) {
+            throw new KitDBException(ErrorType.STROE_ERROR, e);
+        }
+    }
+
+
 
     private static void setDB(boolean autoclear, DB db, List<ColumnFamilyHandle> cfHandles, boolean readOnly) throws RocksDBException, KitDBException {
         db.metaHandle = cfHandles.get(0);
@@ -331,6 +401,8 @@ public class DB extends DBAbs {
         db.set = new RSet(db);
         db.list = new RList(db);
         db.map = new RMap(db);
+
+        db.open = true;
     }
 
 
