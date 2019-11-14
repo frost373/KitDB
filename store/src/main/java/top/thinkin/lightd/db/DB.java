@@ -40,6 +40,7 @@ public class DB extends DBAbs {
     private RSet set;
     private RList list;
 
+    private String dir;
 
     private RKv rKv;
     private final static byte[] DEL_HEAD = "D".getBytes();
@@ -279,6 +280,7 @@ public class DB extends DBAbs {
         DB db;
         try {
             db = new DB();
+            db.dir = dir;
             DBOptions options = getDbOptions();
             db.options = options;
             final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
@@ -296,6 +298,7 @@ public class DB extends DBAbs {
         DB db;
         try {
             db = new DB();
+            db.dir = dir;
             DBOptions options = getDbOptions();
             db.options = options;
             final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
@@ -312,6 +315,7 @@ public class DB extends DBAbs {
         DB db;
         try {
             db = new DB();
+            db.dir = dir;
             DBOptions options = getDbOptions();
             db.options = options;
             final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
@@ -356,6 +360,12 @@ public class DB extends DBAbs {
         } catch (RocksDBException e) {
             throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
+        this.dir = dir;
+    }
+
+
+    public synchronized void open(boolean autoclear, boolean readOnly) throws KitDBException {
+        open(this.dir, autoclear, readOnly);
     }
 
 
@@ -415,7 +425,11 @@ public class DB extends DBAbs {
     }
 
 
-    public KeySegmentLockManager getKeySegmentLockManager() {
+    KeySegmentLockManager getKeySegmentLockManager() {
         return keySegmentLockManager;
+    }
+
+    public String getDir() {
+        return dir;
     }
 }

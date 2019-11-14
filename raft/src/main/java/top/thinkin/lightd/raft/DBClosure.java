@@ -22,7 +22,6 @@ public class DBClosure implements Closure {
             code = status.getCode();
             synchronized (this) {
                 this.notifyAll();
-                System.out.println("notifyAll");
             }
         } else {
             code = 0;

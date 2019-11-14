@@ -32,9 +32,7 @@ public class RKvTest {
             db.stop();
             db.open("D:\\temp\\dbx", true, false);
             //db = DB.build("D:\\temp\\db", true);
-
         }
-        log.info("outTimeKeysL:{}", 1111111);
     }
 
     @Test

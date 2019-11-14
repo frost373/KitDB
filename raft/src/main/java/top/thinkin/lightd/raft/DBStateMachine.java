@@ -107,21 +107,21 @@ public class DBStateMachine extends StateMachineAdapter {
 
 
         if (db != null) {
-            db.close();
-            db.functionCommit = null;
+            try {
+                db.stop();
+            } catch (Exception e) {
+                LOG.error("onSnapshotLoad error", e);
+                return false;
+            }
         }
 
-        String dir = "D:\\temp\\" + dbName;
-        Util.delZSPic(dir);
-
+        Util.delZSPic(db.getDir());
 
         try {
-            DB.releaseBackup(path + File.separator + spname + DB.BACK_FILE_SUFFIX, dir);
-            db = DB.build(dir, false);
-            db.functionCommit = logs -> dbRequestProcessor.call(logs);
+            DB.releaseBackup(path + File.separator + spname + DB.BACK_FILE_SUFFIX, db.getDir());
+            db.open(false, false);
             return true;
         } catch (Exception e) {
-
             LOG.error("onSnapshotLoad error", e);
             return false;
         }
@@ -197,28 +197,15 @@ public class DBStateMachine extends StateMachineAdapter {
                             default:
                                 throw new KitDBException(ErrorType.NULL, "DBCommandChunkType non-existent!");
                         }
-
-
                     }
 
-                    // 非事物模式
-                    // leader:
-                    // 事物模式
-                    //leader:事物 提交 回滚
-
-                    //只记录不提交
-                    //一次性提交
-
-                    //db.commit(logs);
-
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    LOG.error("STORE ERROR", e);
+                    closure.run(new Status(-1, e.getMessage()));
                 }
                 if (closure != null) {
                     closure.run(Status.OK());
-                    /*synchronized (closure) {
-                        closure.notify();
-                    }*/
+
                 }
 
             } finally {

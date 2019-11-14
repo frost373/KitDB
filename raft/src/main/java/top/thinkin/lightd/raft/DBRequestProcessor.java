@@ -40,7 +40,6 @@ public class DBRequestProcessor implements DB.FunctionCommit {
         if (closure.getCode() != 0) {
             throw new KitDBException(ErrorType.STROE_ERROR, closure.getMsg());
         }
-        System.out.println("finish");
     }
 
 

@@ -1,10 +1,8 @@
 package top.thinkin.lightd.raft;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 
 @Data
-@AllArgsConstructor
 public class GroupConfig {
     private String group;
     private String initNodes;

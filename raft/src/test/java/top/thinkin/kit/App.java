@@ -1,15 +1,17 @@
-package top.thinkin.lightd.raft;
+package top.thinkin.kit;
 
 import com.alipay.sofa.jraft.RouteTable;
-import com.alipay.sofa.jraft.conf.Configuration;
 import com.alipay.sofa.jraft.entity.PeerId;
-import com.alipay.sofa.jraft.option.NodeOptions;
 import fi.iki.elonen.NanoHTTPD;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import top.thinkin.lightd.db.DB;
 import top.thinkin.lightd.db.ZSet;
 import top.thinkin.lightd.exception.KitDBException;
+import top.thinkin.lightd.raft.DBRequestProcessor;
+import top.thinkin.lightd.raft.GroupConfig;
+import top.thinkin.lightd.raft.KitRaft;
+import top.thinkin.lightd.raft.NodeConfig;
 
 import java.io.IOException;
 import java.util.Map;
@@ -45,27 +47,21 @@ public class App extends NanoHTTPD {
         String dnName = args[4];
         String portStr = args[5];
 
-        NodeOptions nodeOptions = new NodeOptions();
-        // 为了测试, 调整 snapshot 间隔等参数
-        nodeOptions.setElectionTimeoutMs(5000);
-        nodeOptions.setDisableCli(false);
-        nodeOptions.setSnapshotIntervalSecs(60 * 5);
         // 解析参数
 
-        PeerId serverId = new PeerId();
-        if (!serverId.parse(serverIdStr)) {
-            throw new IllegalArgumentException("Fail to parse serverId:" + serverIdStr);
-        }
-        Configuration initConf = new Configuration();
-        if (!initConf.parse(initConfStr)) {
-            throw new IllegalArgumentException("Fail to parse initConf:" + initConfStr);
-        }
         // 设置初始集群配置
-        nodeOptions.setInitialConf(initConf);
         DB db = DB.build("D:\\temp\\" + dnName, false);
 
+        GroupConfig groupConfig = new GroupConfig();
+        groupConfig.setGroup("test");
+        groupConfig.setInitNodes(initConfStr);
 
-        KitRaft counterServer = new KitRaft(dataPath, groupId, serverId, nodeOptions, db, dnName);
+
+        NodeConfig nodeConfig = new NodeConfig();
+        nodeConfig.setNode(serverIdStr);
+        nodeConfig.setRaftDir(dataPath);
+
+        KitRaft counterServer = new KitRaft(groupConfig, nodeConfig, db);
 
         try {
             App app = new App(Integer.parseInt(portStr));
@@ -75,9 +71,6 @@ public class App extends NanoHTTPD {
         }
 
         rt = RouteTable.getInstance();
-
-
-
     }
 
     /*@Override
