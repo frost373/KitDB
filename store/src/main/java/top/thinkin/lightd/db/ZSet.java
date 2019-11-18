@@ -1,6 +1,6 @@
 package top.thinkin.lightd.db;
 
-import cn.hutool.core.util.ArrayUtil;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -563,7 +563,7 @@ public class ZSet extends RCollection {
 
 
     protected void deleteTTL(int time, byte[] key_b, byte[] meta_b) throws KitDBException {
-        String key = new String(ArrayUtil.sub(key_b, 1, key_b.length + 1), charset);
+        String key = new String(ArrayKits.sub(key_b, 1, key_b.length + 1), charset);
         LockEntity lockEntity = lock.lock(key);
         try (CloseLock ignored = checkClose()) {
             MetaV metaV = getMetaP(key_b);
@@ -681,9 +681,9 @@ public class ZSet extends RCollection {
 
         public static MetaD build(byte[] bytes) {
             MetaD metaD = new MetaD();
-            metaD.setSize(ArrayUtil.sub(bytes, 1, 5));
-            metaD.setTimestamp(ArrayUtil.sub(bytes, 5, 9));
-            metaD.setVersion(ArrayUtil.sub(bytes, 9, 13));
+            metaD.setSize(ArrayKits.sub(bytes, 1, 5));
+            metaD.setTimestamp(ArrayKits.sub(bytes, 5, 9));
+            metaD.setVersion(ArrayKits.sub(bytes, 9, 13));
             return metaD;
         }
 
@@ -753,11 +753,11 @@ public class ZSet extends RCollection {
 
         public static SDataD build(byte[] bytes) {
             SDataD sDataD = new SDataD();
-            sDataD.setMapKeySize(ArrayUtil.sub(bytes, 1, 5));
+            sDataD.setMapKeySize(ArrayKits.sub(bytes, 1, 5));
             int position = ArrayKits.bytesToInt(sDataD.getMapKeySize(), 0);
-            sDataD.setMapKey(ArrayUtil.sub(bytes, 5, position = 5 + position));
-            sDataD.setVersion(ArrayUtil.sub(bytes, position, position = position + 4));
-            sDataD.setValue(ArrayUtil.sub(bytes, position, bytes.length));
+            sDataD.setMapKey(ArrayKits.sub(bytes, 5, position = 5 + position));
+            sDataD.setVersion(ArrayKits.sub(bytes, position, position = position + 4));
+            sDataD.setValue(ArrayKits.sub(bytes, position, bytes.length));
             return sDataD;
         }
 
@@ -823,12 +823,12 @@ public class ZSet extends RCollection {
 
         public static ZDataD build(byte[] bytes) {
             ZDataD zData = new ZDataD();
-            zData.setMapKeySize(ArrayUtil.sub(bytes, 1, 5));
+            zData.setMapKeySize(ArrayKits.sub(bytes, 1, 5));
             int position = ArrayKits.bytesToInt(zData.getMapKeySize(), 0);
-            zData.setMapKey(ArrayUtil.sub(bytes, 5, position = 5 + position));
-            zData.setVersion(ArrayUtil.sub(bytes, position, position = position + 4));
-            zData.setScore(ArrayUtil.sub(bytes, position, position = position + 8));
-            zData.setValue(ArrayUtil.sub(bytes, position, bytes.length));
+            zData.setMapKey(ArrayKits.sub(bytes, 5, position = 5 + position));
+            zData.setVersion(ArrayKits.sub(bytes, position, position = position + 4));
+            zData.setScore(ArrayKits.sub(bytes, position, position = position + 8));
+            zData.setValue(ArrayKits.sub(bytes, position, bytes.length));
             return zData;
         }
 

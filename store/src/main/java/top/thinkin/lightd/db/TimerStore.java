@@ -1,6 +1,6 @@
 package top.thinkin.lightd.db;
 
-import cn.hutool.core.util.ArrayUtil;
+
 import lombok.Data;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
@@ -46,8 +46,8 @@ public class TimerStore {
                 byte[] key_bs = iterator.key();
                 if (!BytesUtil.checkHead(getHead(head), key_bs)) break;
                 TData tData = new TData();
-                tData.setTime(ArrayKits.bytesToInt(ArrayUtil.sub(key_bs, 3, 7), 0));
-                tData.setValue(ArrayUtil.sub(key_bs, 7, key_bs.length));
+                tData.setTime(ArrayKits.bytesToInt(ArrayKits.sub(key_bs, 3, 7), 0));
+                tData.setValue(ArrayKits.sub(key_bs, 7, key_bs.length));
                 index = tData.getTime();
                 if (index > end) {
                     break;
@@ -90,8 +90,8 @@ public class TimerStore {
                 byte[] key_bs = iterator.key();
                 if (!BytesUtil.checkHead(getHead(head), key_bs)) break;
                 TData tData = new TData();
-                tData.setTime(ArrayKits.bytesToInt(ArrayUtil.sub(key_bs, 3, 7), 0));
-                tData.setValue(ArrayUtil.sub(key_bs, 7, key_bs.length));
+                tData.setTime(ArrayKits.bytesToInt(ArrayKits.sub(key_bs, 3, 7), 0));
+                tData.setValue(ArrayKits.sub(key_bs, 7, key_bs.length));
                 index = tData.getTime();
                 if (index > end) {
                     break;

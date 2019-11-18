@@ -1,6 +1,6 @@
 package top.thinkin.lightd.db;
 
-import cn.hutool.core.util.ArrayUtil;
+
 import lombok.extern.slf4j.Slf4j;
 import org.rocksdb.RocksIterator;
 import top.thinkin.lightd.base.CloseLock;
@@ -104,11 +104,11 @@ public abstract class RBase {
     protected abstract TxLock getTxLock(String key);
 
     protected static TimerCollection getTimerCollection(byte[] value) {
-        byte[] key_b_size_b = ArrayUtil.sub(value, 0, 4);
+        byte[] key_b_size_b = ArrayKits.sub(value, 0, 4);
         int size = ArrayKits.bytesToInt(key_b_size_b, 0);
         TimerCollection timerCollection = new TimerCollection();
-        timerCollection.key_b = ArrayUtil.sub(value, 4, 4 + size);
-        timerCollection.meta_b = ArrayUtil.sub(value, 4 + size, value.length);
+        timerCollection.key_b = ArrayKits.sub(value, 4, 4 + size);
+        timerCollection.meta_b = ArrayKits.sub(value, 4 + size, value.length);
         return timerCollection;
     }
 

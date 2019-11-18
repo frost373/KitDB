@@ -1,6 +1,5 @@
 package top.thinkin.lightd.db;
 
-import cn.hutool.core.util.ArrayUtil;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -539,7 +538,7 @@ public class RList extends RCollection {
 
 
     protected void deleteTTL(int time, byte[] key_b, byte[] meta_b) throws KitDBException {
-        String key = new String(ArrayUtil.sub(key_b, 1, key_b.length + 1), charset);
+        String key = new String(ArrayKits.sub(key_b, 1, key_b.length + 1), charset);
         LockEntity lockEntity = lock.lock(key);
         try (CloseLock ignored = checkClose()) {
             MetaV metaV = getMetaP(key_b);
@@ -705,11 +704,11 @@ public class RList extends RCollection {
     public static class MetaVD extends MetaDAbs {
         public static MetaVD build(byte[] bytes) {
             MetaVD metaVD = new MetaVD();
-            metaVD.setSize(ArrayUtil.sub(bytes, 1, 5));
-            metaVD.setLeft(ArrayUtil.sub(bytes, 5, 13));
-            metaVD.setRight(ArrayUtil.sub(bytes, 13, 21));
-            metaVD.setTimestamp(ArrayUtil.sub(bytes, 21, 25));
-            metaVD.setVersion(ArrayUtil.sub(bytes, 25, 29));
+            metaVD.setSize(ArrayKits.sub(bytes, 1, 5));
+            metaVD.setLeft(ArrayKits.sub(bytes, 5, 13));
+            metaVD.setRight(ArrayKits.sub(bytes, 13, 21));
+            metaVD.setTimestamp(ArrayKits.sub(bytes, 21, 25));
+            metaVD.setVersion(ArrayKits.sub(bytes, 25, 29));
             return metaVD;
         }
 
@@ -797,11 +796,11 @@ public class RList extends RCollection {
 
         public static ValueKD build(byte[] bytes) {
             ValueKD valueKD = new ValueKD();
-            valueKD.setK_size(ArrayUtil.sub(bytes, 1, 5));
+            valueKD.setK_size(ArrayKits.sub(bytes, 1, 5));
             int position = ArrayKits.bytesToInt(valueKD.getK_size(), 0);
-            valueKD.setKey(ArrayUtil.sub(bytes, 5, position = 5 + position));
-            valueKD.setVersion(ArrayUtil.sub(bytes, position, position = position + 4));
-            valueKD.setIndex(ArrayUtil.sub(bytes, position, position + 8));
+            valueKD.setKey(ArrayKits.sub(bytes, 5, position = 5 + position));
+            valueKD.setVersion(ArrayKits.sub(bytes, position, position = position + 4));
+            valueKD.setIndex(ArrayKits.sub(bytes, position, position + 8));
             return valueKD;
         }
 

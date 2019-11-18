@@ -1,6 +1,6 @@
 package top.thinkin.lightd.base;
 
-import cn.hutool.core.util.ArrayUtil;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.rocksdb.*;
@@ -74,7 +74,7 @@ public class BinLog {
             for (int i = 0; iterator.isValid() && i < limit; i++) {
                 byte[] key = iterator.key();
                 if (!BytesUtil.checkHead(Long_Key, key)) break;
-                long index = ArrayKits.bytesToLong(ArrayUtil.sub(key, Long_Key.length, key.length - 1));
+                long index = ArrayKits.bytesToLong(ArrayKits.sub(key, Long_Key.length, key.length - 1));
                 Entry entry = new Entry(index, iterator.value());
                 entries.add(entry);
             }
@@ -99,8 +99,8 @@ public class BinLog {
                 if (BytesUtil.checkHead(Long_Key, start_b)) {
                     iterator.seekToLast();
                     byte[] end_b = iterator.key();
-                    long start = ArrayKits.bytesToLong(ArrayUtil.sub(start_b, Long_Key.length, start_b.length));
-                    long end = ArrayKits.bytesToLong(ArrayUtil.sub(end_b, Long_Key.length, end_b.length));
+                    long start = ArrayKits.bytesToLong(ArrayKits.sub(start_b, Long_Key.length, start_b.length));
+                    long end = ArrayKits.bytesToLong(ArrayKits.sub(end_b, Long_Key.length, end_b.length));
                     oldestIndex = start;
                     index.set(end);
                 }

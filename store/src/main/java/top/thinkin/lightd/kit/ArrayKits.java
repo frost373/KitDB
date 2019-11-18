@@ -2,10 +2,7 @@ package top.thinkin.lightd.kit;
 
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class ArrayKits {
     public static byte[] newArray(Class<?> componentType, int newSize) {
@@ -70,6 +67,67 @@ public class ArrayKits {
         return value;
     }
 
+    /**
+     * 获取子数组
+     *
+     * @param array 数组
+     * @param start 开始位置（包括）
+     * @param end   结束位置（不包括）
+     * @return 新的数组
+     * @see Arrays#copyOfRange(Object[], int, int)
+     * @since 4.5.2
+     */
+    public static byte[] sub(byte[] array, int start, int end) {
+        int length = length(array);
+        if (start < 0) {
+            start += length;
+        }
+        if (end < 0) {
+            end += length;
+        }
+        if (start == length) {
+            return new byte[0];
+        }
+        if (start > end) {
+            int tmp = start;
+            start = end;
+            end = tmp;
+        }
+        if (end > length) {
+            if (start >= length) {
+                return new byte[0];
+            }
+            end = length;
+        }
+        return Arrays.copyOfRange(array, start, end);
+    }
+
+
+    /**
+     * 获取数组长度<br>
+     * 如果参数为{@code null}，返回0
+     *
+     * <pre>
+     * ArrayUtil.length(null)            = 0
+     * ArrayUtil.length([])              = 0
+     * ArrayUtil.length([null])          = 1
+     * ArrayUtil.length([true, false])   = 2
+     * ArrayUtil.length([1, 2, 3])       = 3
+     * ArrayUtil.length(["a", "b", "c"]) = 3
+     * </pre>
+     *
+     * @param array 数组对象
+     * @return 数组长度
+     * @throws IllegalArgumentException 如果参数不为数组，抛出此异常
+     * @see Array#getLength(Object)
+     * @since 3.0.8
+     */
+    public static int length(Object array) throws IllegalArgumentException {
+        if (null == array) {
+            return 0;
+        }
+        return Array.getLength(array);
+    }
 
     public static boolean noRepeateFinal(List<byte[]> bytess) {
         List<byte[]> temps = new ArrayList<>(bytess.size());

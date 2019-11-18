@@ -1,7 +1,8 @@
 package top.thinkin.lightd.db;
 
-import cn.hutool.core.util.ArrayUtil;
+
 import org.rocksdb.RocksIterator;
+import top.thinkin.lightd.kit.ArrayKits;
 import top.thinkin.lightd.kit.BytesUtil;
 
 public class KeyIterator implements AutoCloseable {
@@ -34,7 +35,7 @@ public class KeyIterator implements AutoCloseable {
             return null;
         }
         iterator.next();
-        return new String(ArrayUtil.sub(cKey, 1, cKey.length), RBase.charset);
+        return new String(ArrayKits.sub(cKey, 1, cKey.length), RBase.charset);
     }
 
     public byte[] getSeek() {

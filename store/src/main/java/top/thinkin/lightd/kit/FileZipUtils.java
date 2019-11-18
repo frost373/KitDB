@@ -1,6 +1,6 @@
 package top.thinkin.lightd.kit;
 
-import cn.hutool.core.util.StrUtil;
+
 
 import java.io.*;
 import java.util.zip.ZipEntry;
@@ -44,7 +44,7 @@ public class FileZipUtils {
         String parentFileNameTemp = null;
         for (File fileTemp :
                 files) {
-            parentFileNameTemp = StrUtil.isEmpty(parentFileName) ? fileTemp.getName() : parentFileName + "/" + fileTemp.getName();
+            parentFileNameTemp = StringKits.isEmpty(parentFileName) ? fileTemp.getName() : parentFileName + "/" + fileTemp.getName();
             if (fileTemp.isDirectory()) {
                 directory(zipOutputStream, fileTemp, parentFileNameTemp);
             } else {

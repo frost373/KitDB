@@ -1,6 +1,6 @@
 package top.thinkin.lightd.db;
 
-import cn.hutool.core.util.ArrayUtil;
+
 import lombok.extern.slf4j.Slf4j;
 import org.rocksdb.*;
 import top.thinkin.lightd.base.BinLog;
@@ -11,6 +11,7 @@ import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.exception.KitDBException;
+import top.thinkin.lightd.kit.ArrayKits;
 import top.thinkin.lightd.kit.BytesUtil;
 import top.thinkin.lightd.kit.FileZipUtils;
 import top.thinkin.lightd.kit.ZipUtil;
@@ -116,7 +117,7 @@ public class DB extends DBAbs {
                 }
                 byte[] value = iterator.value();
                 iterator.next();
-                byte[] rel_key_bs = ArrayUtil.sub(key_bs, 1, key_bs.length - 4);
+                byte[] rel_key_bs = ArrayKits.sub(key_bs, 1, key_bs.length - 4);
                 if (RList.HEAD_B[0] == rel_key_bs[0]) {
                     RList.MetaV metaV = RList.MetaVD.build(value).convertMeta();
                     this.list.deleteByClear(rel_key_bs, metaV);
@@ -224,7 +225,7 @@ public class DB extends DBAbs {
                     byte[] key_bs = outTimeKey.getValue();
                     if (RKv.HEAD_B[0] == key_bs[0]) {
                         this.rKv.delCheckTTL(
-                                new String(ArrayUtil.sub(key_bs, 1, key_bs.length + 1), charset),
+                                new String(ArrayKits.sub(key_bs, 1, key_bs.length + 1), charset),
                                 outTimeKey.getTime());
                     }
                 }

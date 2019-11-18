@@ -1,7 +1,7 @@
 
 package top.thinkin.lightd.db;
 
-import cn.hutool.core.util.ArrayUtil;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -406,7 +406,7 @@ public class RKv extends RBase {
                     byte[] key = iterator.key();
                     if (!BytesUtil.checkHead(head, key)) break;
                     if (index >= start) {
-                        list.add(new String(ArrayUtil.sub(key, 1, key.length), charset));
+                        list.add(new String(ArrayKits.sub(key, 1, key.length), charset));
                         count++;
                     }
                     index++;

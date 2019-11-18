@@ -1,6 +1,6 @@
 package top.thinkin.lightd.db;
 
-import cn.hutool.core.util.ArrayUtil;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -333,7 +333,7 @@ public class RMap extends RCollection {
 
 
     protected void deleteTTL(int time, byte[] key_b, byte[] meta_b) throws KitDBException {
-        String key = new String(ArrayUtil.sub(key_b, 1, key_b.length + 1), charset);
+        String key = new String(ArrayKits.sub(key_b, 1, key_b.length + 1), charset);
         LockEntity lockEntity = lock.lock(key);
         try (CloseLock ignored = checkClose()) {
             Meta meta = getMetaP(key_b);
@@ -545,9 +545,9 @@ public class RMap extends RCollection {
 
         public static MetaD build(byte[] bytes) {
             MetaD metaD = new MetaD();
-            metaD.setSize(ArrayUtil.sub(bytes, 1, 5));
-            metaD.setTimestamp(ArrayUtil.sub(bytes, 5, 9));
-            metaD.setVersion(ArrayUtil.sub(bytes, 9, 13));
+            metaD.setSize(ArrayKits.sub(bytes, 1, 5));
+            metaD.setTimestamp(ArrayKits.sub(bytes, 5, 9));
+            metaD.setVersion(ArrayKits.sub(bytes, 9, 13));
             return metaD;
         }
 
@@ -601,11 +601,11 @@ public class RMap extends RCollection {
 
         public static KeyD build(byte[] bytes) {
             KeyD keyD = new KeyD();
-            keyD.setMapKeySize(ArrayUtil.sub(bytes, 1, 5));
+            keyD.setMapKeySize(ArrayKits.sub(bytes, 1, 5));
             int position = ArrayKits.bytesToInt(keyD.getMapKeySize(), 0);
-            keyD.setMapKey(ArrayUtil.sub(bytes, 5, position = 5 + position));
-            keyD.setVersion(ArrayUtil.sub(bytes, position, position = position + 4));
-            keyD.setKey(ArrayUtil.sub(bytes, position, bytes.length));
+            keyD.setMapKey(ArrayKits.sub(bytes, 5, position = 5 + position));
+            keyD.setVersion(ArrayKits.sub(bytes, position, position = position + 4));
+            keyD.setKey(ArrayKits.sub(bytes, position, bytes.length));
             return keyD;
         }
 
