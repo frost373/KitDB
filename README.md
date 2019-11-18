@@ -18,6 +18,12 @@ KitDB完全基于磁盘存储，并提供最高百万级别的查询性能和数
 - ACID事物
 - 多节点一致性支持（官方插件使用Raft协议支持强一致性，也可自行使用其他协议或方式）
 
+### KitDB和Redis的性能对比
+
+![image](https://raw.githubusercontent.com/wiki/frost373/KitDB/pic/readme/test_with_redis.png)
+
+> 注意：KitDB的测试为本地操作，和Redis对比无意义，只为说明KitDB的性能级别
+
 
 ## Requirements
 编译要求：JDK 8+和Maven 3.2.5+
