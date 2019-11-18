@@ -3,9 +3,9 @@
 
 ## Overview
 
-KitDB是一个内嵌式持久型的 高速NoSQL存储 lib，以jar 包方式嵌入到应用中。
-KitDB 提供了类似Redis 的数据结构。如KV、List、Map、ZSET等。也提供了TTL（生存时间）、备份、ACID事物，多节点强一致性等功能。
-KitDB完全基于磁盘存储，并提供最高百万级别的查询性能和数十万的写入性能
+KitDB是一个内嵌式持久型的 高速NoSQL存储 lib，以jar 包方式嵌入到应用中。   
+KitDB 提供了类似Redis 的数据结构。如KV、List、Map、ZSET等。也提供了TTL（生存时间）、备份、ACID事物，多节点强一致性等功能。   
+KitDB完全基于磁盘存储，并提供最高百万级别的查询性能和数十万的写入性能。   
 
 ## Features
 
