@@ -18,7 +18,7 @@ KitDB完全基于磁盘存储，并提供最高百万级别的查询性能和数
 - ACID事物
 - 多节点一致性支持（官方插件使用Raft协议支持强一致性，也可自行使用其他协议或方式）
 
-### KitDB和Redis的性能对比
+#### KitDB和Redis的性能对比
 
 
 <img src="https://raw.githubusercontent.com/wiki/frost373/KitDB/pic/readme/test_with_redis.png" width="70%">
