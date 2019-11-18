@@ -20,7 +20,8 @@ KitDB完全基于磁盘存储，并提供最高百万级别的查询性能和数
 
 ### KitDB和Redis的性能对比
 
-![image](https://raw.githubusercontent.com/wiki/frost373/KitDB/pic/readme/test_with_redis.png)
+
+<img src="https://raw.githubusercontent.com/wiki/frost373/KitDB/pic/readme/test_with_redis.png" width="70%">
 
 > 注意：KitDB的测试为本地操作，和Redis对比无意义，只为说明KitDB的性能级别
 
