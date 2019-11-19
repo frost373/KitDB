@@ -295,7 +295,7 @@ public class DB extends DBAbs {
     }
 
 
-    public synchronized static DB readOnly(String dir, boolean autoclear) throws KitDBException {
+    public synchronized static DB readOnly(String dir) throws KitDBException {
         DB db;
         try {
             db = new DB();
@@ -304,7 +304,7 @@ public class DB extends DBAbs {
             db.options = options;
             final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
             db.rocksDB = RocksDB.openReadOnly(options, dir, db.getColumnFamilyDescriptor(), cfHandles);
-            setDB(autoclear, db, cfHandles, true);
+            setDB(false, db, cfHandles, true);
         } catch (RocksDBException e) {
             throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
@@ -404,8 +404,7 @@ public class DB extends DBAbs {
         Options optionsBinLog = new Options();
         optionsBinLog.setCreateIfMissing(true);
 
-        db.binLogDB = null; //RocksDB.open(optionsBinLog, "D:\\temp\\logs2");
-        //db.binLog = new BinLog(db.binLogDB);
+        db.binLogDB = null;
         db.keySegmentLockManager = new KeySegmentLockManager(db.stp);
         db.rKv = new RKv(db);
         db.zSet = new ZSet(db);
