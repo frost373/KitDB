@@ -9,6 +9,7 @@ import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.BytesUtil;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -364,6 +365,11 @@ public abstract class DBAbs {
         return this.rocksDB().newIterator(findColumnFamilyHandle(columnFamily));
     }
 
+    private static int computeCapacityHint(final int estimatedNumberOfItems) {
+        // Default load factor for HashMap is 0.75, so N * 1.5 will be at the load
+        // limit. We add +1 for a buffer.
+        return (int) Math.ceil(estimatedNumberOfItems * 1.5 + 1.0);
+    }
 
     protected Map<byte[], byte[]> multiGet(List<byte[]> keys, SstColumnFamily columnFamily) throws KitDBException {
 
@@ -374,9 +380,18 @@ public abstract class DBAbs {
             }
             if (this.IS_STATR_TX.get()) {
                 Transaction transaction = TRANSACTION_ENTITY.get().getTransaction();
-                byte[][] bytes = keys.toArray(new byte[keys.size()][]);
-                transaction.multiGet(readOptions, columnFamilyHandles, bytes);
-                return this.rocksDB().multiGet(readOptions, columnFamilyHandles, keys);
+                byte[][] keys_bytes = keys.toArray(new byte[keys.size()][]);
+                byte[][] values = transaction.multiGet(readOptions, columnFamilyHandles, keys_bytes);
+
+                final Map<byte[], byte[]> keyValueMap
+                        = new HashMap<>(computeCapacityHint(values.length));
+                for (int i = 0; i < values.length; i++) {
+                    if (values[i] == null) {
+                        continue;
+                    }
+                    keyValueMap.put(keys.get(i), values[i]);
+                }
+                return keyValueMap;
             }
             return this.rocksDB().multiGet(columnFamilyHandles, keys);
         } catch (RocksDBException e) {

@@ -107,12 +107,11 @@ public class TableConfig {
 
         // Seems like the rocksDB jni for Windows doesn't come linked with any of the
         // compression type
-        if (!Platform.isWindows()) {
-            opts.setCompressionType(CompressionType.LZ4_COMPRESSION) //
-                    .setCompactionStyle(CompactionStyle.LEVEL) //
-                    .optimizeLevelStyleCompaction();
-        }
-
+        //if (!Platform.isWindows()) {
+        opts.setCompressionType(CompressionType.LZ4_COMPRESSION) //
+                .setCompactionStyle(CompactionStyle.LEVEL) //
+                .optimizeLevelStyleCompaction();
+        //}
         return opts;
     }
 }

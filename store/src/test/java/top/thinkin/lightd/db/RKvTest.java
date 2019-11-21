@@ -4,7 +4,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import top.thinkin.lightd.benchmark.JoinFuture;
 import top.thinkin.lightd.exception.KitDBException;
@@ -27,7 +26,6 @@ public class RKvTest {
     @Before
     public void init() throws KitDBException, InterruptedException, RocksDBException {
         if (db == null) {
-            RocksDB.loadLibrary();
             db = DB.build("D:\\temp\\dbx", false);
             db.stop();
             db.open("D:\\temp\\dbx", true, false);
