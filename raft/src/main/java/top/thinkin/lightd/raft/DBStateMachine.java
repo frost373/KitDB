@@ -153,7 +153,11 @@ public class DBStateMachine extends StateMachineAdapter {
 
                 try {
                     DBCommandChunkType dbCommandChunkType = chunk.getType();
-                    LOG.debug("onApply {} {}", dbCommandChunkType.name(), chunk.getCommands().size());
+                    if (chunk.getCommands() != null) {
+                        LOG.debug("onApply {} {}", dbCommandChunkType.name(), chunk.getCommands().size());
+                    } else {
+                        LOG.debug("onApply {} {}", dbCommandChunkType.name());
+                    }
                     if (!isLeader) {
                         switch (dbCommandChunkType) {
                             case NOM_COMMIT:
@@ -184,6 +188,7 @@ public class DBStateMachine extends StateMachineAdapter {
                                 db.simpleCommit(chunk.getCommands());
                                 break;
                             case TX_LOGS:
+                                db.commit(chunk.getCommands(), chunk.getEntity());
                                 break;
                             case TX_COMMIT:
                                 db.commitTX(chunk.getEntity());
@@ -202,6 +207,7 @@ public class DBStateMachine extends StateMachineAdapter {
                 } catch (Exception e) {
                     LOG.error("STORE ERROR", e);
                     closure.run(new Status(-1, e.getMessage()));
+                    return;
                 }
                 if (closure != null) {
                     closure.run(Status.OK());

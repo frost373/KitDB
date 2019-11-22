@@ -22,7 +22,7 @@ public class SegmentStrLock implements KeyLock {
         ReentrantLock lock = buckets.get(h);
         lock.lock();
 
-        LockEntity lockEntity = new LockEntity(key);
+        LockEntity lockEntity = new LockEntity(key, this);
         return lockEntity;
     }
 

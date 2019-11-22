@@ -8,12 +8,18 @@ import com.alipay.sofa.jraft.entity.PeerId;
 import com.alipay.sofa.jraft.option.NodeOptions;
 import com.alipay.sofa.jraft.rpc.RaftRpcServerFactory;
 import org.apache.commons.io.FileUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import top.thinkin.lightd.db.DB;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class KitRaft {
+    private static final Logger LOG = LoggerFactory.getLogger(KitRaft.class);
+
     private RaftGroupService raftGroupService;
 
     private Node node;
@@ -67,29 +73,51 @@ public class KitRaft {
     }
 
 
-    public void addNode(String node) {
-
+    public void addNode(String nodeConf) {
+        PeerId peer = new PeerId();
+        peer.parse(nodeConf);
+        node.addPeer(peer, s -> LOG.error("addNode error", s.getErrorMsg()));
     }
 
-    public void removeNode(String node) {
-
+    public void removeNode(String nodeConf) {
+        PeerId peer = new PeerId();
+        peer.parse(nodeConf);
+        node.removePeer(peer, s -> LOG.error("removeNode error", s.getErrorMsg()));
     }
 
-    public void transferLeader() {
-
+    public void transferLeader(String nodeConf) {
+        PeerId serverId = new PeerId();
+        if (!serverId.parse(nodeConf)) {
+            throw new IllegalArgumentException("Fail to parse Conf:" + nodeConf);
+        }
+        node.transferLeadershipTo(serverId);
     }
 
-    public void getLeader() {
-
+    public String getLeader() {
+        PeerId peerId = node.getLeaderId();
+        if (peerId == null) {
+            return null;
+        }
+        return node.getLeaderId().toString();
     }
 
 
-    public void getNodes() {
-
+    public List<String> getNodes() {
+        List<String> nodes = new ArrayList<>();
+        List<PeerId> peerIds = node.listPeers();
+        for (PeerId peerId : peerIds) {
+            nodes.add(peerId.toString());
+        }
+        return nodes;
     }
 
-    public void getAlivePeers() {
-
+    public List<String> getAliveNodes() {
+        List<String> nodes = new ArrayList<>();
+        List<PeerId> peerIds = node.listAlivePeers();
+        for (PeerId peerId : peerIds) {
+            nodes.add(peerId.toString());
+        }
+        return nodes;
     }
 
 
@@ -97,16 +125,12 @@ public class KitRaft {
         return this.dbsm;
     }
 
-    public Node getNode() {
+    protected Node getNode() {
         return this.node;
     }
 
-    public RaftGroupService RaftGroupService() {
+    protected RaftGroupService RaftGroupService() {
         return this.raftGroupService;
     }
 
-
-    public static void main(String[] args) {
-
-    }
 }

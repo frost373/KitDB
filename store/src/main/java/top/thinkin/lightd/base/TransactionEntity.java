@@ -3,11 +3,17 @@ package top.thinkin.lightd.base;
 import lombok.extern.log4j.Log4j2;
 import org.rocksdb.Transaction;
 
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+
 @Log4j2
-public class TransactionEntity {
+public class TransactionEntity implements Serializable {
     private int count = 0;
 
-    private Transaction transaction;
+    private transient Transaction transaction;
+
+    private List<LockEntity> locks = new ArrayList<>();
 
     public int addCount() {
         return count++;
@@ -19,9 +25,18 @@ public class TransactionEntity {
 
     public void reset() {
         count = 0;
+
+        for (LockEntity lock : locks) {
+            lock.unlockSelf();
+        }
+
+        locks.clear();
         transaction = null;
     }
 
+    public void addLock(LockEntity lockEntity) {
+        locks.add(lockEntity);
+    }
 
     public int getCount() {
         return count;

@@ -51,7 +51,7 @@ public class KeyDoubletLock implements KeyLock {
         try {
             reentrantLock = map.get(key);
             if (reentrantLock == null) {
-                reentrantLock = new LockEntity(key);
+                reentrantLock = new LockEntity(key, this);
                 map.put(key, reentrantLock);
             }
             reentrantLock.addSize();

@@ -47,7 +47,7 @@ public class RSet extends RCollection {
     public List<byte[]> pop(String key, int num) throws KitDBException {
         checkTxStart();
         try (CloseLock ignored = checkClose()) {
-            LockEntity lockEntity = lock.lock(key);
+            LockEntity lockEntity = lock(key);
             try {
                 List<byte[]> values = new ArrayList<>();
                 byte[] key_b = getKey(key);
@@ -80,7 +80,7 @@ public class RSet extends RCollection {
                     return values;
                 }
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
         } catch (KitDBException e) {
@@ -99,7 +99,7 @@ public class RSet extends RCollection {
         checkTxStart();
         try (CloseLock ignored = checkClose()) {
             DAssert.notEmpty(values, ErrorType.EMPTY, "values is empty");
-            LockEntity lockEntity = lock.lock(key);
+            LockEntity lockEntity = lock(key);
             try {
                 byte[] key_b = getKey(key);
                 MetaV metaV = getMeta(key_b);
@@ -122,7 +122,7 @@ public class RSet extends RCollection {
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
                 commit();
             } catch (Exception e) {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();
@@ -158,7 +158,7 @@ public class RSet extends RCollection {
             DAssert.isTrue(ArrayKits.noRepeate(values), ErrorType.REPEATED_KEY, "Repeated memebers");
             byte[] key_b = getKey(key);
 
-            LockEntity lockEntity = lock.lock(key);
+            LockEntity lockEntity = lock(key);
             try {
                 start();
                 byte[] k_v = getDB(key_b, SstColumnFamily.META);
@@ -181,7 +181,7 @@ public class RSet extends RCollection {
                 }
                 commit();
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();
@@ -215,7 +215,7 @@ public class RSet extends RCollection {
 
     protected void deleteTTL(int time, byte[] key_b, byte[] meta_b) throws KitDBException {
         String key = new String(ArrayKits.sub(key_b, 1, key_b.length + 1), charset);
-        LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock(key);
         try (CloseLock ignored = checkClose()) {
             MetaV metaV = getMetaP(key_b);
             if (metaV != null && time != metaV.timestamp) {
@@ -223,7 +223,7 @@ public class RSet extends RCollection {
             }
             deleteTTL(key_b, MetaD.build(meta_b).convertMetaV(), metaV.version);
         } finally {
-            lock.unlock(lockEntity);
+            unlock(lockEntity);
         }
     }
 
@@ -231,7 +231,7 @@ public class RSet extends RCollection {
     @Override
     public void delete(String key) throws KitDBException {
         checkTxRange();
-        LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock(key);
         try (CloseLock ignored = checkClose()) {
             byte[] key_b = getKey(key);
             try {
@@ -245,7 +245,7 @@ public class RSet extends RCollection {
                 delete(key_b, metaV.convertMetaBytes());
                 commit();
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();
@@ -264,7 +264,7 @@ public class RSet extends RCollection {
 
     public void deleteFast(String key) throws KitDBException {
         checkTxStart();
-        LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock(key);
         try (CloseLock ignored = checkClose()) {
             byte[] key_b = getKey(key);
             byte[] k_v = getDB(key_b, SstColumnFamily.META);
@@ -276,7 +276,7 @@ public class RSet extends RCollection {
             try {
                 deleteFast(key_b, meta);
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
             }
             checkTxCommit();
         } catch (KitDBException e) {
@@ -320,7 +320,7 @@ public class RSet extends RCollection {
     @Override
     public void delTtl(String key) throws KitDBException {
         checkTxStart();
-        LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock(key);
         try (CloseLock ignored = checkClose()) {
             try {
                 byte[] key_b = getKey(key);
@@ -336,7 +336,7 @@ public class RSet extends RCollection {
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
                 commit();
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();
@@ -349,7 +349,7 @@ public class RSet extends RCollection {
     @Override
     public void ttl(String key, int ttl) throws KitDBException {
         checkTxStart();
-        LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock(key);
         try (CloseLock ignored = checkClose()) {
             try {
                 byte[] key_b = getKey(key);
@@ -367,7 +367,7 @@ public class RSet extends RCollection {
                         metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
                 commit();
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();

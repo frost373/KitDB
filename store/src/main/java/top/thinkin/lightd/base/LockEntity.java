@@ -8,8 +8,11 @@ public class LockEntity {
     private final String key;
     private volatile int lockSize = 0;
 
-    public LockEntity(String key) {
+    private KeyLock keyLock;
+
+    public LockEntity(String key, KeyLock keyLock) {
         this.key = key;
+        this.keyLock = keyLock;
     }
 
     public void lock() {
@@ -28,6 +31,9 @@ public class LockEntity {
         return time;
     }
 
+    public void unlockSelf() {
+        keyLock.unlock(this);
+    }
 
     public String getKey() {
         return key;
@@ -43,5 +49,13 @@ public class LockEntity {
 
     public synchronized int getLockSize() {
         return lockSize;
+    }
+
+    public KeyLock getKeyLock() {
+        return keyLock;
+    }
+
+    public void setKeyLock(KeyLock keyLock) {
+        this.keyLock = keyLock;
     }
 }

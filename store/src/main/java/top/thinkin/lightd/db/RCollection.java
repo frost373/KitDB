@@ -2,7 +2,6 @@ package top.thinkin.lightd.db;
 
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
-import top.thinkin.lightd.base.KeyDoubletLock;
 import top.thinkin.lightd.base.MetaAbs;
 import top.thinkin.lightd.base.MetaDAbs;
 import top.thinkin.lightd.base.SstColumnFamily;
@@ -10,8 +9,6 @@ import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.ArrayKits;
 
 public abstract class RCollection extends RBase {
-    protected final KeyDoubletLock lock;
-
 
     public RCollection(DB db, boolean isLog, int lockSize) {
         super(isLog);

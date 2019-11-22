@@ -26,11 +26,10 @@ public class RKv extends RBase {
     public final static byte[] HEAD_TTL = KeyEnum.KV_TTL.getBytes();
 
     public final static byte[] HEAD_B = HEAD.getBytes();
-    private SegmentStrLock lock = new SegmentStrLock(128);
-
 
     protected RKv(DB db) {
         this.db = db;
+        lock = new SegmentStrLock(128);
     }
 
     public void set(String key, byte[] value) throws KitDBException {

@@ -9,7 +9,6 @@ import top.thinkin.lightd.benchmark.JoinFuture;
 import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.ArrayKits;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -33,26 +32,7 @@ public class RKvTest {
         }
     }
 
-    @Test
-    public void writeSnapshot() throws RocksDBException, KitDBException, IOException {
-        String head = "writeSnapshot0";
-        RKv kv = db.getrKv();
 
-       /* for (int i = 0; i < 100*10000; i++) {
-            kv.set(head + i, ("hello world" + i).getBytes());
-        }*/
-        db.backupDB("D:/temp/sp", "hello");
-
-        //db.writeSnapshot("D:/temp/sp");
-        //DB.releaseSnapshot("D:\\temp\\sp\\156957632384686.kitp","D:\\temp\\sp\\sp1");
-        /*DB db2 = DB.build("D:\\temp\\sp\\sp1", true);
-        RKv kv2 = db2.getrKv();*/
-
-       /*for (int i = 0; i < 100*10000; i++) {
-            byte[] bytes = kv.get(head + i);
-            Assert.assertArrayEquals(bytes, ("hello world" + i).getBytes());
-        }*/
-    }
 
     /**
      * 多线程下的单插入

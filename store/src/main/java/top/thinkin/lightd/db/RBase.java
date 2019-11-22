@@ -3,9 +3,7 @@ package top.thinkin.lightd.db;
 
 import lombok.extern.slf4j.Slf4j;
 import org.rocksdb.RocksIterator;
-import top.thinkin.lightd.base.CloseLock;
-import top.thinkin.lightd.base.SstColumnFamily;
-import top.thinkin.lightd.base.TxLock;
+import top.thinkin.lightd.base.*;
 import top.thinkin.lightd.data.KeyEnum;
 import top.thinkin.lightd.exception.DAssert;
 import top.thinkin.lightd.exception.ErrorType;
@@ -28,7 +26,8 @@ public abstract class RBase {
 
     protected int DEF_TX_TIME_OUT = 5000;
 
-    protected volatile boolean open = false;
+
+    protected KeyLock lock;
 
     public RBase(boolean isLog) {
         this.isLog = isLog;
@@ -78,9 +77,24 @@ public abstract class RBase {
             return;
         }
         DAssert.isTrue(!this.db.IS_STATR_TX.get(), ErrorType.TX_ERROR,
-                "This operation can't execute  in a transaction");
+                "This operation can't execute  in a transaction KitDB");
         db.checkKey();
     }
+
+
+    protected LockEntity lock(String key) {
+        LockEntity lockEntity = lock.lock(key);
+        db.addLockEntity(lockEntity);
+        return lockEntity;
+    }
+
+    protected void unlock(LockEntity lockEntity) {
+        if (db.IS_STATR_TX.get()) {
+            return;
+        }
+        lock.unlock(lockEntity);
+    }
+
 
     protected void checkTxStart() throws KitDBException {
 

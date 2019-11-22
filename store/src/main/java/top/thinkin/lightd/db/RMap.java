@@ -66,7 +66,7 @@ public class RMap extends RCollection {
         checkTxStart();
         try (CloseLock ignored = checkClose()) {
             byte[] key_b = getKey(key);
-            LockEntity lockEntity = lock.lock(key);
+            LockEntity lockEntity = lock(key);
             try {
                 start();
                 byte[] k_v = getDB(key_b, SstColumnFamily.META);
@@ -103,7 +103,7 @@ public class RMap extends RCollection {
 
                 commit();
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();
@@ -142,7 +142,7 @@ public class RMap extends RCollection {
                 bytess[i] = entries[i].value;
             }
             DAssert.isTrue(ArrayKits.noRepeate(bytess), ErrorType.REPEATED_KEY, "Repeated keys");
-            LockEntity lockEntity = lock.lock(key);
+            LockEntity lockEntity = lock(key);
             try {
                 start();
                 byte[] k_v = getDB(key_b, SstColumnFamily.META);
@@ -167,7 +167,7 @@ public class RMap extends RCollection {
                 }
                 commit();
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();
@@ -245,7 +245,7 @@ public class RMap extends RCollection {
         try (CloseLock ignored = checkClose()) {
             DAssert.notEmpty(keys, ErrorType.EMPTY, "keys is empty");
             byte[] key_b = getKey(key);
-            LockEntity lockEntity = lock.lock(key);
+            LockEntity lockEntity = lock(key);
             try {
                 Meta metaV = getMeta(key_b);
                 if (metaV == null) {
@@ -266,7 +266,7 @@ public class RMap extends RCollection {
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
                 commit();
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();
@@ -300,7 +300,7 @@ public class RMap extends RCollection {
     public void delete(String key) throws KitDBException {
         checkTxRange();
         try (CloseLock ignored = checkClose()) {
-            LockEntity lockEntity = lock.lock(key);
+            LockEntity lockEntity = lock(key);
             try {
                 byte[] key_b = getKey(key);
                 Meta meta = getMeta(key_b);
@@ -314,7 +314,7 @@ public class RMap extends RCollection {
                 delete(key_b, meta);
                 commit();
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();
@@ -334,7 +334,7 @@ public class RMap extends RCollection {
 
     protected void deleteTTL(int time, byte[] key_b, byte[] meta_b) throws KitDBException {
         String key = new String(ArrayKits.sub(key_b, 1, key_b.length + 1), charset);
-        LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock(key);
         try (CloseLock ignored = checkClose()) {
             Meta meta = getMetaP(key_b);
             if (meta == null || time != meta.timestamp) {
@@ -343,14 +343,14 @@ public class RMap extends RCollection {
             log.debug("version :{}", meta.version);
             deleteTTL(key_b, MetaD.build(meta_b).convertMeta(), meta.version);
         } finally {
-            lock.unlock(lockEntity);
+            unlock(lockEntity);
         }
     }
 
     public void deleteFast(String key) throws KitDBException {
         checkTxStart();
         try (CloseLock ignored = checkClose()) {
-            LockEntity lockEntity = lock.lock(key);
+            LockEntity lockEntity = lock(key);
             try {
                 byte[] key_b = getKey(key);
                 Meta metaV = getMeta(key_b);
@@ -360,7 +360,7 @@ public class RMap extends RCollection {
                 }
                 deleteFast(key_b, metaV);
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
             }
             checkTxCommit();
         } catch (KitDBException e) {
@@ -423,7 +423,7 @@ public class RMap extends RCollection {
         try (CloseLock ignored = checkClose()) {
 
             byte[] key_b = getKey(key);
-            LockEntity lockEntity = lock.lock(key);
+            LockEntity lockEntity = lock(key);
             try {
                 Meta metaV = getMeta(key_b);
                 if (metaV == null) {
@@ -438,7 +438,7 @@ public class RMap extends RCollection {
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
                 commit();
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();
@@ -453,7 +453,7 @@ public class RMap extends RCollection {
         checkTxStart();
         try (CloseLock ignored = checkClose()) {
             byte[] key_b = getKey(key);
-            LockEntity lockEntity = lock.lock(key);
+            LockEntity lockEntity = lock(key);
             try {
                 Meta metaV = getMeta(key_b);
                 if (metaV == null) {
@@ -468,7 +468,7 @@ public class RMap extends RCollection {
                         metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
                 commit();
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();

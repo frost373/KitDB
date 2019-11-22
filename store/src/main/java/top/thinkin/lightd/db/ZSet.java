@@ -77,7 +77,7 @@ public class ZSet extends RCollection {
         checkTxStart();
         try (CloseLock ignored = checkClose()) {
             DAssert.notEmpty(entrys, ErrorType.EMPTY, "entrys is empty");
-            LockEntity lockEntity = lock.lock(key);
+            LockEntity lockEntity = lock(key);
 
             byte[] key_b = getKey(key);
 
@@ -108,7 +108,7 @@ public class ZSet extends RCollection {
                 }
                 commit();
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();
@@ -187,7 +187,7 @@ public class ZSet extends RCollection {
         checkTxStart();
         List<Entry> entries = new ArrayList<>();
         byte[] key_b = getKey(key);
-        LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock(key);
         try (CloseLock ignored = checkClose()) {
 
             try (final RocksIterator iterator = newIterator(SstColumnFamily.DEFAULT)) {
@@ -228,7 +228,7 @@ public class ZSet extends RCollection {
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
                 commit();
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();
@@ -272,7 +272,7 @@ public class ZSet extends RCollection {
     private synchronized void incrby(String key, int increment, byte[]... vs) throws KitDBException {
         DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
         checkTxStart();
-        LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock(key);
         try (CloseLock ignored = checkClose()) {
             byte[] key_b = getKey(key);
             try {
@@ -296,7 +296,7 @@ public class ZSet extends RCollection {
                 }
                 commit();
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();
@@ -315,7 +315,7 @@ public class ZSet extends RCollection {
     public synchronized void remove(String key, byte[]... vs) throws KitDBException {
         DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
         checkTxStart();
-        LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock(key);
         try (CloseLock ignored = checkClose()) {
             byte[] key_b = getKey(key);
             start();
@@ -341,7 +341,7 @@ public class ZSet extends RCollection {
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
                 commit();
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();
@@ -459,7 +459,7 @@ public class ZSet extends RCollection {
         checkTxRange();
         try (CloseLock ignored = checkClose()) {
             byte[] key_b = getKey(key);
-            LockEntity lockEntity = lock.lock(key);
+            LockEntity lockEntity = lock(key);
             try {
                 start();
                 MetaV metaV = getMeta(key_b);
@@ -471,7 +471,7 @@ public class ZSet extends RCollection {
                 delete(key_b, metaV.convertMetaBytes());
                 commit();
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();
@@ -493,7 +493,7 @@ public class ZSet extends RCollection {
         checkTxStart();
         try (CloseLock ignored = checkClose()) {
             byte[] key_b = getKey(key);
-            LockEntity lockEntity = lock.lock(key);
+            LockEntity lockEntity = lock(key);
 
             try {
                 byte[] k_v = getDB(key_b, SstColumnFamily.META);
@@ -504,7 +504,7 @@ public class ZSet extends RCollection {
                 MetaV meta = MetaD.build(k_v).convertMetaV();
                 deleteFast(key_b, meta);
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
             }
             checkTxCommit();
 
@@ -536,7 +536,7 @@ public class ZSet extends RCollection {
     public synchronized void delTtl(String key) throws KitDBException {
         checkTxStart();
         try (CloseLock ignored = checkClose()) {
-            LockEntity lockEntity = lock.lock(key);
+            LockEntity lockEntity = lock(key);
             byte[] key_b = getKey(key);
             try {
                 MetaV metaV = getMetaP(key_b);
@@ -551,7 +551,7 @@ public class ZSet extends RCollection {
                 putDB(key_b, metaV.convertMetaBytes().toBytes(), SstColumnFamily.META);
                 commit();
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();
@@ -564,7 +564,7 @@ public class ZSet extends RCollection {
 
     protected void deleteTTL(int time, byte[] key_b, byte[] meta_b) throws KitDBException {
         String key = new String(ArrayKits.sub(key_b, 1, key_b.length + 1), charset);
-        LockEntity lockEntity = lock.lock(key);
+        LockEntity lockEntity = lock(key);
         try (CloseLock ignored = checkClose()) {
             MetaV metaV = getMetaP(key_b);
             if (metaV != null && time != metaV.timestamp) {
@@ -572,7 +572,7 @@ public class ZSet extends RCollection {
             }
             deleteTTL(key_b, MetaD.build(meta_b).convertMetaV(), metaV.version);
         } finally {
-            lock.unlock(lockEntity);
+            unlock(lockEntity);
         }
     }
 
@@ -580,7 +580,7 @@ public class ZSet extends RCollection {
     public void ttl(String key, int ttl) throws KitDBException {
         checkTxStart();
         try (CloseLock ignored = checkClose()) {
-            LockEntity lockEntity = lock.lock(key);
+            LockEntity lockEntity = lock(key);
 
             byte[] key_b = getKey(key);
             try {
@@ -597,7 +597,7 @@ public class ZSet extends RCollection {
                 setTimerCollection(KeyEnum.COLLECT_TIMER,
                         metaV.getTimestamp(), key_b, metaV.convertMetaBytes().toBytesHead());
             } finally {
-                lock.unlock(lockEntity);
+                unlock(lockEntity);
                 release();
             }
             checkTxCommit();

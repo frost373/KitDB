@@ -1,7 +1,6 @@
 package top.thinkin.kit;
 
 import com.alipay.sofa.jraft.RouteTable;
-import com.alipay.sofa.jraft.entity.PeerId;
 import fi.iki.elonen.NanoHTTPD;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,38 +72,6 @@ public class App extends NanoHTTPD {
         rt = RouteTable.getInstance();
     }
 
-    /*@Override
-    public Response serve(IHTTPSession session) {
-        String msg = "<html><body><h1>Hello server</h1>\n";
-
-        if ("/w/".equals(session.getUri())) {
-            Map<String, String> parms = session.getParms();
-            String k = parms.get("k");
-            String v = parms.get("v");
-            RKv rkv = this.db.getrKv();
-            try {
-                rkv.set(k, v.getBytes());
-            } catch (KitDBException e) {
-                e.printStackTrace();
-            }
-            return newFixedLengthResponse("</body></html>\n");
-        } else if ("/r/".equals(session.getUri())) {
-            RKv rkv = this.db.getrKv();
-            Map<String, String> parms = session.getParms();
-            String k = parms.get("k");
-            ;
-            try {
-                return newFixedLengthResponse("</body>" + new String(rkv.get(k)) + "</html>\n");
-            } catch (KitDBException e) {
-                e.printStackTrace();
-            }
-        }
-
-        return newFixedLengthResponse("</body></html>\n");
-
-    }*/
-
-
     public Response serve(IHTTPSession session) {
         String msg = "<html><body><h1>Hello server</h1>\n";
 
@@ -132,7 +99,7 @@ public class App extends NanoHTTPD {
             }
         } else if ("/getLeader".equals(session.getUri())) {
             try {
-                return newFixedLengthResponse(kitRaft.getNode().getLeaderId().getEndpoint().toString());
+                return newFixedLengthResponse(kitRaft.getLeader());
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -140,11 +107,7 @@ public class App extends NanoHTTPD {
             Map<String, String> parms = session.getParms();
             String node = parms.get("node");
 
-            PeerId peer = new PeerId();
-            peer.parse(node);
-            kitRaft.getNode().addPeer(peer, s -> {
-                LOG.error("addPeer error", s.getErrorMsg());
-            });
+            kitRaft.addNode(node);
         }
         return newFixedLengthResponse("</body></html>\n");
 

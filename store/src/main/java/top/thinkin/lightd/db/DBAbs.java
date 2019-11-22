@@ -12,10 +12,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 @Slf4j
@@ -46,9 +44,6 @@ public abstract class DBAbs {
     protected ThreadLocal<TransactionEntity> TRANSACTION_ENTITY = new ThreadLocal<>();
 
     public final ThreadLocal<Boolean> IS_STATR_TX = ThreadLocal.withInitial(() -> false);
-
-    protected final ReentrantLock TX_LOCK = new ReentrantLock(true);
-
 
     protected final ReadWriteLock CLOSE_LOCK = new ReentrantReadWriteLock(true);
 
@@ -98,7 +93,6 @@ public abstract class DBAbs {
                     functionCommit.call(dbCommandChunk);
                 } finally {
                     IS_STATR_TX.set(false);
-                    TX_LOCK.unlock();
                     entity.reset();
                 }
             }
@@ -128,7 +122,6 @@ public abstract class DBAbs {
                     //rollbackTX(entity);
                 } finally {
                     IS_STATR_TX.set(false);
-                    TX_LOCK.unlock();
                     entity.reset();
                 }
             }
@@ -155,28 +148,26 @@ public abstract class DBAbs {
     public void startTran(int waitTime) throws KitDBException {
         DAssert.isTrue(this.openTransaction, ErrorType.NOT_TX_DB, "this db is not a Transaction DB");
         if (!this.IS_STATR_TX.get()) {
-            try {
-                if (TX_LOCK.tryLock(waitTime, TimeUnit.MILLISECONDS)) {
-                    TransactionEntity transactionEntity = new TransactionEntity();
-                    TransactionDB rocksDB = (TransactionDB) this.rocksDB();
-                    Transaction transaction = rocksDB.beginTransaction(this.writeOptions);
-                    transactionEntity.setTransaction(transaction);
-                    TRANSACTION_ENTITY.set(transactionEntity);
-                    IS_STATR_TX.set(true);
-                } else {
-                    DAssert.isTrue(false, ErrorType.TX_GET_TIMEOUT, "Waiting to get Transaction timed out");
-                }
-            } catch (InterruptedException e) {
-                throw new KitDBException(ErrorType.TX_GET_TIMEOUT, e);
-            }
+            TransactionEntity transactionEntity = new TransactionEntity();
+            TransactionDB rocksDB = (TransactionDB) this.rocksDB();
+            Transaction transaction = rocksDB.beginTransaction(this.writeOptions);
+            transactionEntity.setTransaction(transaction);
+            TRANSACTION_ENTITY.set(transactionEntity);
+            IS_STATR_TX.set(true);
         } else {
             TRANSACTION_ENTITY.get().addCount();
         }
     }
 
+    protected void addLockEntity(LockEntity lockEntity) {
+        if (this.IS_STATR_TX.get()) {
+            TransactionEntity transactionEntity = TRANSACTION_ENTITY.get();
+            transactionEntity.addLock(lockEntity);
+        }
+    }
+
     public void checkKey() throws KitDBException {
         DAssert.isTrue(this.openTransaction, ErrorType.NOT_TX_DB, "this db is not a Transaction DB");
-        DAssert.isTrue(!TX_LOCK.isLocked(), ErrorType.TX_ERROR, "a Transaction is being executed");
     }
 
 
@@ -190,6 +181,18 @@ public abstract class DBAbs {
                 }
             } else {
                 simpleCommit(logs);
+            }
+        } catch (RocksDBException e) {
+            throw new KitDBException(ErrorType.STROE_ERROR, e);
+        }
+    }
+
+
+    public void commit(List<DBCommand> logs, TransactionEntity transactionEntity) throws KitDBException {
+        try {
+            try (final WriteBatch batch = new WriteBatch()) {
+                setLogs(logs, batch);
+                transactionEntity.getTransaction().rebuildFromWriteBatch(batch);
             }
         } catch (RocksDBException e) {
             throw new KitDBException(ErrorType.STROE_ERROR, e);
@@ -222,7 +225,9 @@ public abstract class DBAbs {
             DBCommandChunk dbCommandChunk = new DBCommandChunk();
 
             if (this.IS_STATR_TX.get()) {
+                TransactionEntity entity = TRANSACTION_ENTITY.get();
                 dbCommandChunk.setType(DBCommandChunkType.TX_LOGS);
+                dbCommandChunk.setEntity(entity);
             } else {
                 dbCommandChunk.setType(DBCommandChunkType.NOM_COMMIT);
             }

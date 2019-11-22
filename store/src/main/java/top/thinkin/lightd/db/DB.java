@@ -140,8 +140,7 @@ public class DB extends DBAbs {
 
             }
         } catch (final Exception e) {
-            // TODO
-            e.printStackTrace();
+            log.error("clear error", e);
         }
     }
 
@@ -344,7 +343,12 @@ public class DB extends DBAbs {
         DAssert.isTrue(!open, ErrorType.DB_CLOSE, "db is closed");
         try {
             final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
-            this.rocksDB = RocksDB.open(options, dir, this.getColumnFamilyDescriptor(), cfHandles);
+            if (openTransaction) {
+                TransactionDBOptions transactionDBOptions = new TransactionDBOptions();
+                this.rocksDB = TransactionDB.open(options, transactionDBOptions, dir, this.getColumnFamilyDescriptor(), cfHandles);
+            } else {
+                this.rocksDB = RocksDB.open(options, dir, this.getColumnFamilyDescriptor(), cfHandles);
+            }
             this.metaHandle = cfHandles.get(0);
             this.defHandle = cfHandles.get(1);
             stp = new ScheduledThreadPoolExecutor(4);
