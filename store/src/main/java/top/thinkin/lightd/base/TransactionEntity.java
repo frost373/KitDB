@@ -13,7 +13,7 @@ public class TransactionEntity implements Serializable {
 
     private transient Transaction transaction;
 
-    private List<LockEntity> locks = new ArrayList<>();
+    private transient List<LockEntity> locks = new ArrayList<>();
 
     public int addCount() {
         return count++;

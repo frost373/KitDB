@@ -147,7 +147,7 @@ public class DBStateMachine extends StateMachineAdapter {
                                 .deserialize(data.array(), DBCommandChunk.class.getName());
                         chunk = request;
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        LOG.error("Get Serialize ERROR", e);
                     }
                 }
 

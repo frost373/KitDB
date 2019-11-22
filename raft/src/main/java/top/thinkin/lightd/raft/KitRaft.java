@@ -102,6 +102,11 @@ public class KitRaft {
     }
 
 
+    public boolean isLeader() {
+        return dbsm.isLeader();
+    }
+
+
     public List<String> getNodes() {
         List<String> nodes = new ArrayList<>();
         List<PeerId> peerIds = node.listPeers();
