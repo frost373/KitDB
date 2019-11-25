@@ -145,7 +145,7 @@ public abstract class DBAbs {
     }
 
 
-    public void startTran(int waitTime) throws KitDBException {
+    public void startTran() throws KitDBException {
         DAssert.isTrue(this.openTransaction, ErrorType.NOT_TX_DB, "this db is not a Transaction DB");
         if (!this.IS_STATR_TX.get()) {
             TransactionEntity transactionEntity = new TransactionEntity();
