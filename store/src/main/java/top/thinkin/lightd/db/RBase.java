@@ -99,7 +99,7 @@ public abstract class RBase {
     protected void checkTxStart() throws KitDBException {
 
         if (db.openTransaction) {
-            db.startTran(DEF_TX_TIME_OUT);
+            db.startTran();
         }
     }
 

@@ -120,6 +120,9 @@ public abstract class DBAbs {
                     DBCommandChunk dbCommandChunk = new DBCommandChunk(DBCommandChunkType.TX_ROLLBACK, entity);
                     functionCommit.call(dbCommandChunk);
                     //rollbackTX(entity);
+                } catch (RocksDBException e) {
+                    rollbackTX(entity);
+                    throw e;
                 } finally {
                     IS_STATR_TX.set(false);
                     entity.reset();

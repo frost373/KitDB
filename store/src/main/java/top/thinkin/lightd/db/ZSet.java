@@ -40,22 +40,22 @@ public class ZSet extends RCollection {
         return ArrayKits.addAll(HEAD_B, key.getBytes(charset));
     }
 
-    public synchronized void add(String key, byte[] v, long score) throws KitDBException {
+    public void add(String key, byte[] v, long score) throws KitDBException {
         addMayTTL(key, -1, new Entry(score, v));
     }
 
-    public synchronized void add(String key, List<Entry> entryList) throws KitDBException {
+    public void add(String key, List<Entry> entryList) throws KitDBException {
         Entry[] entries = new Entry[entryList.size()];
         entryList.toArray(entries);
         addMayTTL(key, -1, entries);
     }
 
-    public synchronized void addMayTTL(String key, int ttl, byte[] v, long score) throws KitDBException {
+    public void addMayTTL(String key, int ttl, byte[] v, long score) throws KitDBException {
         addMayTTL(key, ttl, new Entry(score, v));
     }
 
 
-    private synchronized void addMayTTL(final String key, int ttl, List<Entry> entryList) throws KitDBException {
+    private void addMayTTL(final String key, int ttl, List<Entry> entryList) throws KitDBException {
         Entry[] entries = new Entry[entryList.size()];
         entryList.toArray(entries);
         addMayTTL(key, ttl, entries);
@@ -73,7 +73,7 @@ public class ZSet extends RCollection {
         }
     }
 
-    private synchronized void addMayTTL(final String key, int ttl, Entry... entrys) throws KitDBException {
+    private void addMayTTL(final String key, int ttl, Entry... entrys) throws KitDBException {
         checkTxStart();
         try (CloseLock ignored = checkClose()) {
             DAssert.notEmpty(entrys, ErrorType.EMPTY, "entrys is empty");
@@ -183,7 +183,7 @@ public class ZSet extends RCollection {
      * @return
      * @throws Exception
      */
-    public synchronized List<Entry> rangeDel(String key, long start, long end, int limit) throws KitDBException {
+    public List<Entry> rangeDel(String key, long start, long end, int limit) throws KitDBException {
         checkTxStart();
         List<Entry> entries = new ArrayList<>();
         byte[] key_b = getKey(key);
@@ -269,7 +269,7 @@ public class ZSet extends RCollection {
      * @param vs
      * @throws Exception
      */
-    private synchronized void incrby(String key, int increment, byte[]... vs) throws KitDBException {
+    private void incrby(String key, int increment, byte[]... vs) throws KitDBException {
         DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
         checkTxStart();
         LockEntity lockEntity = lock(key);
@@ -312,7 +312,7 @@ public class ZSet extends RCollection {
      * @param vs
      * @throws Exception
      */
-    public synchronized void remove(String key, byte[]... vs) throws KitDBException {
+    public void remove(String key, byte[]... vs) throws KitDBException {
         DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
         checkTxStart();
         LockEntity lockEntity = lock(key);
@@ -434,7 +434,7 @@ public class ZSet extends RCollection {
         return metaV;
     }
 
-    protected synchronized void deleteByClear(byte[] key_b, MetaD meta) throws KitDBException {
+    protected void deleteByClear(byte[] key_b, MetaD meta) throws KitDBException {
         try (CloseLock ignored = checkClose()) {
             start();
             delete(key_b, meta);
@@ -455,7 +455,7 @@ public class ZSet extends RCollection {
 
 
     @Override
-    public synchronized void delete(String key) throws KitDBException {
+    public void delete(String key) throws KitDBException {
         checkTxRange();
         try (CloseLock ignored = checkClose()) {
             byte[] key_b = getKey(key);
@@ -489,7 +489,7 @@ public class ZSet extends RCollection {
     }
 
 
-    public synchronized void deleteFast(String key) throws KitDBException {
+    public void deleteFast(String key) throws KitDBException {
         checkTxStart();
         try (CloseLock ignored = checkClose()) {
             byte[] key_b = getKey(key);
@@ -533,7 +533,7 @@ public class ZSet extends RCollection {
     }
 
     @Override
-    public synchronized void delTtl(String key) throws KitDBException {
+    public void delTtl(String key) throws KitDBException {
         checkTxStart();
         try (CloseLock ignored = checkClose()) {
             LockEntity lockEntity = lock(key);

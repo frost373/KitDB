@@ -416,7 +416,7 @@ public class RListTest {
                         for (int j = 0; j < num; j++) {
 
                             try {
-                                db.startTran(5000);
+                                db.startTran();
                                 list.add(head + "A", ("hello" + j).getBytes());
                                 db.commitTX();
                             } catch (Exception e) {

@@ -6,10 +6,16 @@ import org.rocksdb.Transaction;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Log4j2
 public class TransactionEntity implements Serializable {
     private int count = 0;
+    private String uuid;
+
+    public TransactionEntity() {
+        uuid = UUID.randomUUID().toString();
+    }
 
     private transient Transaction transaction;
 
@@ -52,4 +58,7 @@ public class TransactionEntity implements Serializable {
     }
 
 
+    public String getUuid() {
+        return uuid;
+    }
 }

@@ -21,6 +21,7 @@ import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 
@@ -39,7 +40,10 @@ public class DBStateMachine extends StateMachineAdapter {
 
     private String dbName;
 
-    private List<DBCommandChunk> logbatch = new ArrayList<>();
+
+    private ConcurrentHashMap<String, List<DBCommandChunk>> logbatchs = new ConcurrentHashMap<>();
+
+    // private List<DBCommandChunk> logbatch = new ArrayList<>();
 
     private final AtomicLong leaderTerm = new AtomicLong(-1L);
 
@@ -166,16 +170,27 @@ public class DBStateMachine extends StateMachineAdapter {
                                 break;
                             case TX_LOGS:
                                 //事物写入-写入缓冲区
-                                logbatch.add(chunk);
+
+                                List<DBCommandChunk> logbatch_logs = logbatchs.get(chunk.getEntity().getUuid());
+                                if (logbatch_logs == null) {
+                                    logbatch_logs = new ArrayList<>();
+                                    logbatchs.put(chunk.getEntity().getUuid(), logbatch_logs);
+                                }
+                                logbatch_logs.add(chunk);
                                 break;
                             case TX_COMMIT:
                                 //事物提交-直接写入
-                                for (DBCommandChunk dbCommandChunk : logbatch) {
-                                    db.simpleCommit(dbCommandChunk.getCommands());
+                                List<DBCommandChunk> logbatch_commit = logbatchs.get(chunk.getEntity().getUuid());
+                                if (logbatch_commit != null) {
+                                    for (DBCommandChunk dbCommandChunk : logbatch_commit) {
+                                        db.simpleCommit(dbCommandChunk.getCommands());
+                                    }
                                 }
+                                logbatchs.remove(chunk.getEntity().getUuid());
                                 break;
                             case TX_ROLLBACK:
                                 //db.rollbackTX(chunk.getEntity());
+                                logbatchs.remove(chunk.getEntity().getUuid());
                                 break;
                             case SIMPLE_COMMIT:
                                 //普通提交-直接写入
