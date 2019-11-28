@@ -1,6 +1,6 @@
 # KitDB
 ![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)
-[![Maven Central](https://img.shields.io/maven-central/v/top.thinkin.kitdb/kitdb)](https://search.maven.org/search?q=g:com.alipay.sofa%20AND%20sofa-jraft)
+[![Maven Central](https://img.shields.io/maven-central/v/top.thinkin.kitdb/kitdb)](https://search.maven.org/search?q=top.thinkin.kitdb)
 
 ## Overview
 
