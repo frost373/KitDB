@@ -2,7 +2,7 @@
 ![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)
 [![Maven Central](https://img.shields.io/maven-central/v/top.thinkin.kitdb/kitdb)](https://search.maven.org/search?q=top.thinkin.kitdb)
 
-更多内从参见：http://kitdb.top/
+更多内容参见：http://kitdb.top/
 
 ## Overview
 
