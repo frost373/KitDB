@@ -39,8 +39,4 @@ http://kitdb.top/
 store模块为KitDB本体，raft模块为官方Raft协议插件
 
 
-## Notice
-目前版本为最终预览版，主要开发工作已完成，正在完善文档和最后测试
-
-
 
