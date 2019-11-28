@@ -59,7 +59,7 @@ public abstract class RCollection extends RBase {
 
     /**
      * 删除，数据会被同步清除
-     *
+     * @param key
      * @throws Exception
      */
     abstract void delete(String key) throws Exception;
@@ -68,20 +68,14 @@ public abstract class RCollection extends RBase {
 
     /**
      * 获取过期时间戳(秒)
-     * @return
-     * @throws Exception
      */
     abstract int getTtl(String key) throws Exception;
     /**
      * 删除过期时间
-     * @return
-     * @throws Exception
      */
     abstract void delTtl(String key) throws Exception;
     /**
      * 设置新的过期时间戳(秒)
-     * @return
-     * @throws Exception
      */
     abstract void ttl(String key, int ttl) throws Exception;
 

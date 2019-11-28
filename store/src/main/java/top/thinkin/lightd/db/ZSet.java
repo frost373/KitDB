@@ -139,10 +139,6 @@ public class ZSet extends RCollection {
     /**
      * 返回指定区间分数的成员
      *
-     * @param start
-     * @param end
-     * @return
-     * @throws Exception
      */
     public List<Entry> range(String key, long start, long end, int limit) throws KitDBException {
         try (CloseLock ignored = checkClose()) {

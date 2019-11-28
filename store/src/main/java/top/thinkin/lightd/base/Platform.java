@@ -9,9 +9,7 @@ public class Platform {
 
     private static final boolean IS_WINDOWS = isWindows0();
 
-    /**
-     * Return {@code true} if the JVM is running on Windows
-     */
+
     public static boolean isWindows() {
         return IS_WINDOWS;
     }
