@@ -11,20 +11,8 @@
 
     <artifactId>store</artifactId>
     <version>0.1.2-SNAPSHOT</version>
+    <name>${project.groupId}:${project.artifactId}</name>
 
-    <!-- deploy path -->
-    <distributionManagement>
-        <repository>
-            <id>releases</id>
-            <name>Internal Releases</name>
-            <url>http://devserv.game.yy.com:52605/nexus/content/repositories/releases/</url>
-        </repository>
-        <snapshotRepository>
-            <id>snapshots</id>
-            <name>Internal snapshots</name>
-            <url>http://devserv.game.yy.com:52605/nexus/content/repositories/snapshots/</url>
-        </snapshotRepository>
-    </distributionManagement>
 
     <build>
         <plugins>

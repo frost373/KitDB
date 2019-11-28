@@ -11,6 +11,7 @@
 
     <artifactId>raft</artifactId>
     <version>0.1.2-SNAPSHOT</version>
+    <name>${project.groupId}:${project.artifactId}</name>
 
     <dependencies>
         <dependency>

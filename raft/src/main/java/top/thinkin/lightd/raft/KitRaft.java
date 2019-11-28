@@ -6,6 +6,7 @@ import com.alipay.sofa.jraft.RaftGroupService;
 import com.alipay.sofa.jraft.conf.Configuration;
 import com.alipay.sofa.jraft.entity.PeerId;
 import com.alipay.sofa.jraft.option.NodeOptions;
+import com.alipay.sofa.jraft.option.RaftOptions;
 import com.alipay.sofa.jraft.rpc.RaftRpcServerFactory;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
@@ -32,9 +33,21 @@ public class KitRaft {
         return dbsm.getDb();
     }
 
+
+    public KitRaft() {
+
+    }
+
+
     public KitRaft(GroupConfig groupConfig, NodeConfig nodeConfig, DB db) throws IOException {
 
         NodeOptions nodeOptions = new NodeOptions();
+
+        RaftOptions raftOptions = new RaftOptions();
+        raftOptions.setDisruptorBufferSize(16 * 16384);
+        raftOptions.setApplyBatch(128);
+        raftOptions.setSync(false);
+        nodeOptions.setRaftOptions(raftOptions);
 
         nodeOptions.setElectionTimeoutMs(groupConfig.getElectionTimeoutMs());
         nodeOptions.setDisableCli(true);
@@ -99,6 +112,15 @@ public class KitRaft {
             return null;
         }
         return node.getLeaderId().toString();
+    }
+
+
+    public String getLeaderIP() {
+        PeerId peerId = node.getLeaderId();
+        if (peerId == null) {
+            return null;
+        }
+        return node.getLeaderId().getIp();
     }
 
 

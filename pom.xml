@@ -10,19 +10,53 @@
     <version>0.1.1-SNAPSHOT</version>
 
 
+    <name>${project.groupId}:${project.artifactId}</name>
+    <url>http://kitdb.top</url>
+
+
+    <description>KitDB是一个内嵌式持久型的 高速NoSQL存储 lib，以jar 包方式嵌入到应用中</description>
+
+    <licenses>
+        <license>
+            <name>The Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+
+    <issueManagement>
+        <system>Github Issue</system>
+        <url>https://github.com/frost373/KitDB/issues</url>
+    </issueManagement>
+
+    <developers>
+        <developer>
+            <name>dongbin</name>
+            <email>frost373@qq.com</email>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git@github.com:frost373/KitDB.git</connection>
+        <developerConnection>scm:git:git@github.com:frost373/KitDB.git</developerConnection>
+        <url>git@github.com:frost373/KitDB.git</url>
+    </scm>
+
+
     <!-- deploy path -->
     <distributionManagement>
-        <repository>
-            <id>releases</id>
-            <name>Internal Releases</name>
-            <url>http://devserv.game.yy.com:52605/nexus/content/repositories/releases/</url>
-        </repository>
         <snapshotRepository>
-            <id>snapshots</id>
-            <name>Internal snapshots</name>
-            <url>http://devserv.game.yy.com:52605/nexus/content/repositories/snapshots/</url>
+            <id>oss</id>
+            <name>oss</name>
+            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
         </snapshotRepository>
+        <repository>
+            <id>oss</id>
+            <name>oss</name>
+            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+        </repository>
     </distributionManagement>
+
 
     <modules>
         <module>store</module>
@@ -30,7 +64,8 @@
     </modules>
 
     <properties>
-
+        <project.build.sourceEncoding>utf-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>utf-8</project.reporting.outputEncoding>
         <junit.version>4.12</junit.version>
     </properties>
     <profiles>
@@ -45,6 +80,28 @@
                 <maven.compiler.target>1.8</maven.compiler.target>
                 <maven.compiler.compilerVersion>1.8</maven.compiler.compilerVersion>
             </properties>
+        </profile>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <!-- Gpg Signature -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>1.6</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 
