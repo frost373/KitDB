@@ -2,6 +2,8 @@
 ![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)
 [![Maven Central](https://img.shields.io/maven-central/v/top.thinkin.kitdb/kitdb)](https://search.maven.org/search?q=top.thinkin.kitdb)
 
+更多内从参见：http://kitdb.top/
+
 ## Overview
 
 KitDB是一个内嵌式持久型的 高速NoSQL存储 lib，以jar 包方式嵌入到应用中。   
@@ -31,7 +33,7 @@ KitDB完全基于磁盘存储，并提供最高百万级别的查询性能和十
 编译要求：JDK 8+和Maven 3.2.5+
 
 ## Documents
-
+http://kitdb.top/
 
 ## Explain
 store模块为KitDB本体，raft模块为官方Raft协议插件
