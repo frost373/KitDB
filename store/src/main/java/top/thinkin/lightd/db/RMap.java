@@ -113,6 +113,9 @@ public class RMap extends RCollection {
         }
     }
 
+    public void put(String key, Map<String, byte[]> map) throws KitDBException {
+        putMayTTL(key, -1, map);
+    }
 
     public void putMayTTL(String key, int ttl, Map<String, byte[]> map) throws KitDBException {
         DAssert.notEmpty(map, ErrorType.EMPTY, "entries is empty");

@@ -291,6 +291,8 @@ public class RListTest {
 
                 while (iterator.hasNext()) {
                     RList.Entry er = iterator.next();
+                    Long index = er.getIndex();
+                    byte[] value = er.getValue();
                 }
             }
             long endTime = System.currentTimeMillis();

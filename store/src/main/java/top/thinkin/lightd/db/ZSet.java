@@ -262,11 +262,11 @@ public class ZSet extends RCollection {
      * 对指定成员的分数加上增量 increment
      *
      * @param increment
-     * @param vs
+     * @param members
      * @throws Exception
      */
-    private void incrby(String key, int increment, byte[]... vs) throws KitDBException {
-        DAssert.notEmpty(vs, ErrorType.EMPTY, "vs is empty");
+    private void incrby(String key, int increment, byte[]... members) throws KitDBException {
+        DAssert.notEmpty(members, ErrorType.EMPTY, "vs is empty");
         checkTxStart();
         LockEntity lockEntity = lock(key);
         try (CloseLock ignored = checkClose()) {
@@ -278,7 +278,7 @@ public class ZSet extends RCollection {
                     checkTxCommit();
                     return;
                 }
-                for (byte[] v : vs) {
+                for (byte[] v : members) {
                     SData sData = new SData(key_b.length, key_b, metaV.getVersion(), v);
                     SDataD sDataD = sData.convertBytes();
                     byte[] scoreD = getDB(sDataD.toBytes(), SstColumnFamily.DEFAULT);
