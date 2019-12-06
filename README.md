@@ -10,6 +10,17 @@ KitDB是一个内嵌式持久型的 高速NoSQL存储 lib，以jar 包方式嵌�
 KitDB 提供了类似Redis 的数据结构。如KV、List、Map、ZSET等。也提供了TTL（生存时间）、备份、ACID事物，多节点强一致性等功能。   
 KitDB完全基于磁盘存储，并提供最高百万级别的查询性能和十万的写入性能。   
 
+## GIT IT
+```xml
+ <dependency>
+        <groupId>top.thinkin.kitdb</groupId>
+        <artifactId>raft</artifactId>
+        <version>VERSION</version>
+  </dependency>
+```
+VERSION是Maven Central的最新版本号。您还可以在此图像上找到当前版本：
+[![Maven Central](https://img.shields.io/maven-central/v/top.thinkin.kitdb/kitdb)](https://search.maven.org/search?q=top.thinkin.kitdb)
+
 ## Features
 
 - 完全基于磁盘，不受内存限制
@@ -37,10 +48,6 @@ http://kitdb.top/
 
 ## Explain
 store模块为KitDB本体，raft模块为官方Raft协议插件
-
-
-## Notice
-目前版本为最终预览版，主要开发工作已完成，正在完善文档和最后测试
 
 
 
