@@ -7,7 +7,7 @@
     <groupId>top.thinkin.kitdb</groupId>
     <artifactId>kitdb</artifactId>
     <packaging>pom</packaging>
-    <version>0.1.2</version>
+    <version>0.2.3</version>
 
 
     <name>${project.groupId}:${project.artifactId}</name>

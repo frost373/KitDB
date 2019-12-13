@@ -379,7 +379,7 @@ public class RKv extends RBase {
 
 
     public void delPrefix(String key_) throws KitDBException {
-
+        checkTxRange();
         byte[] keyb_ = getKey(key_);
         try (CloseLock ignored = checkClose()) {
             start();
