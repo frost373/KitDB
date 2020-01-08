@@ -61,23 +61,25 @@ public class DB extends DBAbs {
         super();
     }
 
-    public synchronized void close() throws InterruptedException, KitDBException {
+    public void close() throws InterruptedException, KitDBException {
         try (CloseLock ignored = closeCheck()) {
             open = false;
             if (stp != null) {
                 stp.shutdown();
                 stp.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
             }
-            if (rocksDB != null) {
-                rocksDB.close();
-                this.readOptions.close();
-                this.writeOptions.close();
-                this.options.close();
-                for (final ColumnFamilyOptions cfOptions : this.cfOptionsList) {
-                    cfOptions.close();
+            synchronized (this) {
+                if (rocksDB != null) {
+                    rocksDB.close();
+                    this.readOptions.close();
+                    this.writeOptions.close();
+                    this.options.close();
+                    for (final ColumnFamilyOptions cfOptions : this.cfOptionsList) {
+                        cfOptions.close();
+                    }
+                    this.metaHandle.close();
+                    this.defHandle.close();
                 }
-                this.metaHandle.close();
-                this.defHandle.close();
             }
         }
     }
