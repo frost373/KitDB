@@ -14,7 +14,7 @@ KitDB完全基于磁盘存储，并提供最高百万级别的查询性能和十
 ```xml
  <dependency>
         <groupId>top.thinkin.kitdb</groupId>
-        <artifactId>raft</artifactId>
+        <artifactId>store</artifactId>
         <version>VERSION</version>
   </dependency>
 ```
