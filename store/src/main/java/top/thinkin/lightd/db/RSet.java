@@ -197,7 +197,7 @@ public class RSet extends RCollection {
      * @param values
      * @throws KitDBException
      */
-    public synchronized void add(String key, byte[]... values) throws KitDBException {
+    public void add(String key, byte[]... values) throws KitDBException {
 
         addMayTTL(key, -1, values);
     }
