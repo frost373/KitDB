@@ -19,7 +19,7 @@ KitDB完全基于磁盘存储，并提供最高百万级别的查询性能和十
   </dependency>
 ```
 VERSION是Maven Central的最新版本号。您还可以在此图像上找到当前版本：
-[![Maven Central](https://img.shields.io/maven-central/v/top.thinkin.kitdb/kitdb)](https://search.maven.org/search?q=top.thinkin.kitdb)
+[![Maven Central](http://47.98.188.158/pic/maven.svg)](https://search.maven.org/search?q=top.thinkin.kitdb)
 
 ## Features
 
