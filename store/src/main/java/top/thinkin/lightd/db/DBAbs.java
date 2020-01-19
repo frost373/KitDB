@@ -8,10 +8,7 @@ import top.thinkin.lightd.exception.ErrorType;
 import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.BytesUtil;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -32,7 +29,11 @@ public abstract class DBAbs {
 
     protected DBOptions options;
 
+    protected boolean isBinLog;
 
+    protected RocksDB binLogDB;
+
+    protected BinLog binLog;
 
     protected ReadOptions readOptions = new ReadOptions();
 
@@ -90,6 +91,7 @@ public abstract class DBAbs {
             } else {
                 try {
                     DBCommandChunk dbCommandChunk = new DBCommandChunk(DBCommandChunkType.TX_COMMIT, entity);
+
                     functionCommit.call(dbCommandChunk);
                 } finally {
                     IS_STATR_TX.set(false);
@@ -264,13 +266,8 @@ public abstract class DBAbs {
         List<DBCommand> logs = new ArrayList<>(1);
         logs.add(DBCommand.update(key, value, columnFamily));
         DBCommandChunk dbCommandChunk = new DBCommandChunk(DBCommandChunkType.SIMPLE_COMMIT, logs);
-
         try {
-            try {
-                simpleCommit(logs);
-            } finally {
-                logs.clear();
-            }
+            functionCommit.call(dbCommandChunk);
         } catch (Exception e) {
             throw new KitDBException(ErrorType.STROE_ERROR, e);
         }
@@ -439,6 +436,23 @@ public abstract class DBAbs {
     public interface FunctionCommit {
         void call(DBCommandChunk dbCommandChunk) throws KitDBException, RocksDBException;
     }
+
+
+    public interface FunctionSerialize {
+        byte[] serialize(DBCommandChunk dbCommandChunk);
+    }
+
+
+    private void setBinLog(DBCommandChunk dbCommandChunk) throws RocksDBException {
+        if (isBinLog) {
+            binLog.addLog(Collections.singletonList(serialize.serialize(dbCommandChunk)));
+        }
+    }
+
+    volatile public FunctionSerialize serialize = (dbCommandChunk) -> {
+
+        return null;
+    };
 
     volatile public FunctionCommit functionCommit = (dbCommandChunk) -> {
         DBCommandChunkType dbCommandChunkType = dbCommandChunk.getType();

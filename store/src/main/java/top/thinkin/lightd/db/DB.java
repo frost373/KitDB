@@ -50,9 +50,7 @@ public class DB extends DBAbs {
     private RKv rKv;
     private final static byte[] DEL_HEAD = "D".getBytes();
 
-    private RocksDB binLogDB;
 
-    private BinLog binLog;
 
     ScheduledThreadPoolExecutor stp = new ScheduledThreadPoolExecutor(4);
 

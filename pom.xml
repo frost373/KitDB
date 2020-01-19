@@ -61,6 +61,7 @@
     <modules>
         <module>store</module>
         <module>raft</module>
+        <module>replication</module>
     </modules>
 
     <properties>

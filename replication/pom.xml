@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>kitdb</artifactId>
+        <groupId>top.thinkin.kitdb</groupId>
+        <version>0.2.4</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>kitdb-replication</artifactId>
+    <dependencies>
+        <dependency>
+            <groupId>org.smartboot.socket</groupId>
+            <artifactId>aio-core</artifactId>
+            <version>1.4.7</version>
+        </dependency>
+
+        <dependency>
+            <groupId>top.thinkin.kitdb</groupId>
+            <artifactId>store</artifactId>
+            <version>0.2.4</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.esotericsoftware</groupId>
+            <artifactId>kryo-shaded</artifactId>
+            <version>4.0.2</version>
+        </dependency>
+
+
+    </dependencies>
+</project>
