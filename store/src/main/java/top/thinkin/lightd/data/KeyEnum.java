@@ -8,7 +8,7 @@ public enum KeyEnum {
     SET("S"), SET_V("p"),
     SEQ("U"),
     ZSET("Z"), ZSET_S("z"), ZSET_V("a"),
-
+    INDEX("i"),
     COLLECT_TIMER("XCT"), KV_TIMER("XKT");
 
     private final String key;
