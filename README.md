@@ -1,6 +1,6 @@
 # KitDB
 ![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)
-[![Maven Central](http://47.98.188.158/pic/maven.svg)](https://search.maven.org/search?q=top.thinkin.kitdb)
+[![Maven Central](http://kitdb.top/pic/maven.svg)](https://search.maven.org/search?q=top.thinkin.kitdb)
 
 更多内容参见：http://kitdb.top/
 
