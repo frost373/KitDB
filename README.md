@@ -46,8 +46,28 @@ VERSION是Maven Central的最新版本号。您还可以在此图像上找到当
 ## Documents
 http://kitdb.top/
 
+
+
 ## Explain
 store模块为KitDB本体，raft模块为官方Raft协议插件
+
+
+## 操作系统兼容问题
+对常用进行开发和运行环境的**操作系统**进行测试，操作系统使用**官方镜像重新安装，排除干扰**。开发环境IDE使用IntelliJ IDEA Community。
+   
+操作系统 |系统位数|环境| Java虚拟机 | Java虚拟机版本 | 结果
+---|---|---|---|---|---
+Windows 10|64 | 开发| OpenJDK 64-Bit Server VM | 13.0.2+8| 通过
+Windows 7 |64| 开发 | OpenJDK 64-Bit Server VM| 11.0.5+10-b520.388|  通过
+Windows Server 2008 R2  |64| 运行| OpenJDK 64-Bit Server VM | 13.0.2+8|  通过
+Ubuntu 18.04 |64| 运行 | OpenJDK 64-Bit Server VM| 11.0.6+10-post-Ubuntu-1ubuntu118.04.1 |  通过
+Ubuntu 16.04 |64| 运行 | OpenJDK 64-Bit Server VM| 9-internal+0-2016-04-14-195246.buildd.src | 通过
+CentOS 8.0   |64| 运行 | OpenJDK 64-Bit Server VM| 11.0.5+10-LTS|  通过
+
+
+有少量朋友反应在开发环境无法使用KitDB，这可能是由于所用Windows缺少某些运行包引起的。可以尝试安装如下环境
+
+
 
 
 
