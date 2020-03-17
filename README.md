@@ -65,7 +65,7 @@ Ubuntu 16.04 |64| 运行 | OpenJDK 64-Bit Server VM| 9-internal+0-2016-04-14-195
 CentOS 8.0   |64| 运行 | OpenJDK 64-Bit Server VM| 11.0.5+10-LTS|  通过
 
 
-有少量朋友反应在开发环境无法使用KitDB，这可能是由于所用Windows缺少某些运行包引起的。可以尝试安装如下环境
+有少量朋友反应在开发环境无法使用KitDB，这可能是由于所用Windows缺少某些运行包引起的。可以尝试安装如下环境 [去微软官网下载13.9 MB](https://www.microsoft.com/zh-CN/download/details.aspx?id=48145)
 
 
 
