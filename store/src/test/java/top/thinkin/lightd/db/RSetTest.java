@@ -123,7 +123,6 @@ public class RSetTest extends BaseTest {
             for (int i = 0; i < num; i++) {
                 set.add(head, ("hello world" + i).getBytes());
                 stringSet.add(("hello world" + i));
-
             }
             List<String> stringList = new ArrayList<>();
             try (RIterator<RSet> iterator = set.iterator(head)) {
@@ -223,8 +222,8 @@ public class RSetTest extends BaseTest {
 
 
     @Test
-    public void getTtl() throws KitDBException {
-        String head = "deleteFast0";
+    public void getTtl() throws KitDBException, InterruptedException {
+        String head = "getTtl";
         RSet set = db.getSet();
         int num = 10000;
         try {
@@ -238,7 +237,7 @@ public class RSetTest extends BaseTest {
 
             Assert.assertTrue(set.getTtl(head) > 9);
             Assert.assertTrue(set.getTtl(head) != 0);
-
+            Thread.sleep(10000);
         } finally {
 
         }

@@ -271,14 +271,14 @@ public class RListTest extends BaseTest {
                 }
             }
             long endTime = System.currentTimeMillis();
-            System.out.println("程序运行时间：" + (endTime - startTime) + "ms");
+            //System.out.println("程序运行时间：" + (endTime - startTime) + "ms");
 
             long startTime2 = System.currentTimeMillis();
             for (int i = 0; i < num; i++) {
                 list.get(head, i);
             }
             long endTime2 = System.currentTimeMillis();
-            System.out.println("程序运行时间：" + (endTime2 - startTime2) + "ms");
+            //System.out.println("程序运行时间：" + (endTime2 - startTime2) + "ms");
 
             Thread.sleep(2000);
             /*try (RIterator<RList> iterator = list.iterator(head)) {

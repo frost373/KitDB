@@ -343,7 +343,6 @@ public class RMap extends RCollection {
             if (meta == null || time != meta.timestamp) {
                 return;
             }
-            log.debug("version :{}", meta.version);
             deleteTTL(key_b, MetaD.build(meta_b).convertMeta(), meta.version);
         } finally {
             unlock(lockEntity);

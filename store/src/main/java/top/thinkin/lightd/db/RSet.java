@@ -218,10 +218,11 @@ public class RSet extends RCollection {
         LockEntity lockEntity = lock(key);
         try (CloseLock ignored = checkClose()) {
             MetaV metaV = getMetaP(key_b);
-            if (metaV != null && time != metaV.timestamp) {
+            if (metaV == null || time != metaV.timestamp) {
                 return;
             }
-            deleteTTL(key_b, MetaD.build(meta_b).convertMetaV(), metaV.version);
+            MetaV metaV1 = MetaD.build(meta_b).convertMetaV();
+            deleteTTL(key_b, metaV1, metaV.version);
         } finally {
             unlock(lockEntity);
         }
