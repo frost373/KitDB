@@ -1,43 +1,17 @@
 package top.thinkin.lightd.db;
 
 import lombok.extern.slf4j.Slf4j;
-import org.junit.AfterClass;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
-import org.rocksdb.RocksDBException;
 import top.thinkin.lightd.benchmark.FList;
 import top.thinkin.lightd.benchmark.JoinFuture;
 import top.thinkin.lightd.exception.KitDBException;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 @Slf4j
-public class ZSetTest {
-    static int availProcessors = Runtime.getRuntime().availableProcessors();
-    static ExecutorService executorService = Executors.newFixedThreadPool(availProcessors * 8);
-    static DB db;
-
-    @Before
-    public void init() throws RocksDBException {
-        if (db == null) {
-            try {
-                db = DB.build("D:\\temp\\db");
-            } catch (Exception e) {
-                log.error("error", e);
-                e.printStackTrace();
-            }
-        }
-    }
-
-
-    @AfterClass
-    public static void after() throws InterruptedException {
-        Thread.sleep(5000);
-    }
+public class ZSetTest extends BaseTest {
 
     @Test
     public void addR() throws KitDBException {
@@ -51,8 +25,6 @@ public class ZSetTest {
         } finally {
             set.delete(head);
         }
-
-
     }
 
     @Test

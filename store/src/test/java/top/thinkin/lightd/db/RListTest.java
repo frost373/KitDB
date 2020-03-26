@@ -2,43 +2,18 @@ package top.thinkin.lightd.db;
 
 import cn.hutool.core.collection.CollUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.AfterClass;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
-import org.rocksdb.RocksDBException;
+import top.thinkin.lightd.base.TestUtil;
 import top.thinkin.lightd.benchmark.JoinFuture;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 @Slf4j
-public class RListTest {
-    static int availProcessors = Runtime.getRuntime().availableProcessors();
-    static ExecutorService executorService = Executors.newFixedThreadPool(availProcessors * 8);
-    static DB db;
-
-    @Before
-    public void init() throws RocksDBException {
-        if (db == null) {
-            try {
-                db = DB.build("D:\\temp\\db", true);
-            } catch (Exception e) {
-                log.error("error", e);
-                e.printStackTrace();
-            }
-        }
-    }
-
-
-    @AfterClass
-    public static void after() throws InterruptedException {
-        Thread.sleep(5000);
-    }
+public class RListTest extends BaseTest {
 
 
     @Test

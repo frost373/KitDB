@@ -1,4 +1,4 @@
-package top.thinkin.lightd.db;
+package top.thinkin.lightd.base;
 
 import java.util.Random;
 

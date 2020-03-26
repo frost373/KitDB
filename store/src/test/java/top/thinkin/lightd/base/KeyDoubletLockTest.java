@@ -2,8 +2,6 @@ package top.thinkin.lightd.base;
 
 import lombok.extern.log4j.Log4j2;
 import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
 import top.thinkin.lightd.benchmark.JoinFuture;
 
 import java.util.Random;
@@ -27,14 +25,14 @@ public class KeyDoubletLockTest {
 
     final AtomicLong atomicLong = new AtomicLong(0);
 
-    @Before
+    //@Before
     public void init() {
         ScheduledThreadPoolExecutor stp = new ScheduledThreadPoolExecutor(4);
         this.keySegmentLockManager = new KeySegmentLockManager(stp);
     }
 
 
-    @Test
+    //@Test
     public void lock3() {
         KeyDoubletLock keyDoubletLock = keySegmentLockManager.createLock(500);
         JoinFuture<String> joinFuture = JoinFuture.build(executorService, String.class);

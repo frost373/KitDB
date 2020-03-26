@@ -1,8 +1,8 @@
-package top.thinkin.lightd.db;
+package top.thinkin.lightd.benchmark;
 
 import lombok.extern.log4j.Log4j2;
 import org.rocksdb.RocksDBException;
-import top.thinkin.lightd.benchmark.JoinFuture;
+import top.thinkin.lightd.db.RKvTest;
 import top.thinkin.lightd.exception.KitDBException;
 
 import java.util.concurrent.ExecutorService;
