@@ -18,7 +18,7 @@ KitDB完全基于磁盘存储，并提供最高百万级别的查询性能和十
         <version>VERSION</version>
   </dependency>
 ```
-VERSION是Maven Central的最新版本号。您还可以在此图像上找到当前版本：
+VERSION是Maven Central的最新版本号。您点击此图像上找到当前版本：
 [![Maven Central](http://thinkin.top/pic/maven.svg)](https://search.maven.org/search?q=top.thinkin.kitdb)
 
 ## Features
