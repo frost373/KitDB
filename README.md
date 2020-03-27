@@ -1,5 +1,6 @@
 # KitDB
 ![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)
+![build](https://img.shields.io/badge/build-passing-brightgreen)
 [![Maven Central](http://thinkin.top/pic/maven.svg)](https://search.maven.org/search?q=top.thinkin.kitdb)
 
 更多内容参见：http://kitdb.top/
