@@ -1,7 +1,7 @@
 # KitDB
 ![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)
 ![build](https://img.shields.io/badge/build-passing-brightgreen)
-[![Maven Central](http://thinkin.top/pic/maven.svg)](https://search.maven.org/search?q=top.thinkin.kitdb)   
+[![Maven Central](http://thinkin.top/pic/maven.svg?v=26)](https://search.maven.org/search?q=top.thinkin.kitdb)   
 ![jdk](https://img.shields.io/badge/JDK-1.8%2B-yellow)
 ![OS](https://img.shields.io/badge/OS-Linux%7CWindows%7CMac-orange)
 
