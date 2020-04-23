@@ -6,7 +6,7 @@
 ![OS](https://img.shields.io/badge/OS-Linux%7CWindows%7CMac-orange)
 
 
-更多内容参见：http://kitdb.top/
+更多内容参见：http://thinkin.top/
 
 ## Overview
 
