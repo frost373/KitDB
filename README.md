@@ -1,7 +1,7 @@
 # KitDB
 ![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)
 ![build](https://img.shields.io/badge/build-passing-brightgreen)
-[![Maven Central](http://thinkin.top/pic/maven.svg)](https://search.maven.org/search?q=top.thinkin.kitdb)   
+[![Maven Central](http://thinkin.top/pic/maven.svg?v=26)](https://search.maven.org/search?q=top.thinkin.kitdb)   
 ![jdk](https://img.shields.io/badge/JDK-1.8%2B-yellow)
 ![OS](https://img.shields.io/badge/OS-Linux%7CWindows%7CMac-orange)
 
@@ -23,7 +23,7 @@ KitDB完全基于磁盘存储，并提供最高百万级别的查询性能和十
   </dependency>
 ```
 VERSION是Maven Central的最新版本号。您可以点击此图像找到当前版本：
-[![Maven Central](http://thinkin.top/pic/maven.svg)](https://search.maven.org/search?q=top.thinkin.kitdb)
+[![Maven Central](http://thinkin.top/pic/maven.svg?v=26)](https://search.maven.org/search?q=top.thinkin.kitdb)
 
 ## Features
 
