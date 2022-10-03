@@ -59,7 +59,10 @@ public class ZipUtil {
             ZipEntry zipEntry = zis.getNextEntry();
             while (zipEntry != null) {
                 final String fileName = zipEntry.getName();
-                final File entryFile = new File(outputDir + File.separator + fileName);
+                final File entryFile = new File(outputDir, fileName);
+                if (!entryFile.toPath().normalize().startsWith(outputDir)) {
+                    throw new IOException("Bad zip entry");
+                }
                 forceMkdir(entryFile.getParentFile());
                 try (final FileOutputStream fos = new FileOutputStream(entryFile)) {
                     copy(zis, fos);
