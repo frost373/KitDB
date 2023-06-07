@@ -11,15 +11,17 @@ public enum ErrorType {
     REPEATED_KEY(2, "REPEATED_KEY"),//重复的KEY
     EMPTY(3, "EMPTY"), NULL(4, "NULL"), PARAM_ERROR(10, "PARAM_ERROR"),
     STORE_VERSION(5, "STORE_VERSION"), NOT_EXIST(6, "NOT_EXIST"),
-    NOT_TX_DB(7, "NOT_TX_DB"), TX_NOT_START(7, "TX_NOT_START"), TX_ERROR(8, "TX_ERROR"), TX_GET_TIMEOUT(9, "TX_GET_TIMEOUT"), DB_CLOSE(10, "DB_CLOSE");
+    NOT_TX_DB(7, "NOT_TX_DB"), TX_NOT_START(7, "TX_NOT_START"), TX_ERROR(8, "TX_ERROR"), TX_GET_TIMEOUT(9, "TX_GET_TIMEOUT"), DB_CLOSE(10, "DB_CLOSE"), CLOSE(11, "CLOSE");
 
     private final String type;
     static final Set<String> ALL;
+
     static {
-        ErrorType[] errorTypes =   ErrorType.values();
-        ALL = Arrays.stream(errorTypes).map(e->e.type).collect(Collectors.toSet());
+        ErrorType[] errorTypes = ErrorType.values();
+        ALL = Arrays.stream(errorTypes).map(e -> e.type).collect(Collectors.toSet());
     }
-    ErrorType(int key, String type ) {
+
+    ErrorType(int key, String type) {
         this.type = type;
     }
 

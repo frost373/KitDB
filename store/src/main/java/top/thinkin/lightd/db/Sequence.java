@@ -2,6 +2,9 @@ package top.thinkin.lightd.db;
 
 import org.rocksdb.RocksDBException;
 import top.thinkin.lightd.data.KeyEnum;
+import top.thinkin.lightd.exception.DAssert;
+import top.thinkin.lightd.exception.ErrorType;
+import top.thinkin.lightd.exception.KitDBException;
 import top.thinkin.lightd.kit.ArrayKits;
 
 public class Sequence {
@@ -9,28 +12,45 @@ public class Sequence {
     private final static byte[] HEAD_B = HEAD.getBytes();
     private final byte[] key_b;
     private DB db;
-    private Long version;
+    private Long seq;
 
-    public synchronized long incr(Long increment) throws RocksDBException {
-        if (version == null) {
+    private volatile boolean isOpen = true;
+
+    public synchronized long incr(Long increment) throws RocksDBException, KitDBException {
+        DAssert.isTrue(isOpen, ErrorType.CLOSE, "sequence is closed");
+        if (seq == null) {
             byte[] value = db.rocksDB().get(key_b);
             if (value == null) {
-                version = 0L;
+                seq = 0L;
             } else {
-                version = ArrayKits.bytesToLong(value);
+                seq = ArrayKits.bytesToLong(value);
             }
         }
-        version = version + increment;
-        db.rocksDB().put(key_b, ArrayKits.longToBytes(version));
-        return version;
+        seq = seq + increment;
+        db.rocksDB().put(key_b, ArrayKits.longToBytes(seq));
+        return seq;
     }
 
-    public Long get() {
-        return version;
+    public Long get() throws KitDBException {
+        DAssert.isTrue(isOpen, ErrorType.CLOSE, "sequence is closed");
+        return seq;
     }
 
-    public Sequence(DB db, byte[] key) {
+    protected Sequence(DB db, byte[] key) {
         this.db = db;
         this.key_b = ArrayKits.addAll(HEAD_B, key);
+    }
+
+    protected void close() throws KitDBException {
+        DAssert.isTrue(isOpen, ErrorType.CLOSE, "sequence is closed");
+        isOpen = false;
+        db.removeSequence(new String(key_b, db.charset));
+    }
+
+    protected void destroy() throws KitDBException, RocksDBException {
+        DAssert.isTrue(isOpen, ErrorType.CLOSE, "sequence is closed");
+        isOpen = false;
+        db.rocksDB().delete(key_b);
+        db.removeSequence(new String(key_b, db.charset));
     }
 }

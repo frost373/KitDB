@@ -22,7 +22,9 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipOutputStream;
@@ -40,6 +42,8 @@ public class DB extends DBAbs {
     private RMap map;
     private RSet set;
     private RList list;
+
+    private Map<String, Sequence> sequenceMap = new ConcurrentHashMap<>();
 
     private String dir;
 
@@ -61,23 +65,25 @@ public class DB extends DBAbs {
         super();
     }
 
-    public synchronized void close() throws InterruptedException, KitDBException {
+    public void close() throws InterruptedException, KitDBException {
         try (CloseLock ignored = closeCheck()) {
             open = false;
             if (stp != null) {
                 stp.shutdown();
                 stp.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
             }
-            if (rocksDB != null) {
-                rocksDB.close();
-                this.readOptions.close();
-                this.writeOptions.close();
-                this.options.close();
-                for (final ColumnFamilyOptions cfOptions : this.cfOptionsList) {
-                    cfOptions.close();
+            synchronized (this) {
+                if (rocksDB != null) {
+                    rocksDB.close();
+                    this.readOptions.close();
+                    this.writeOptions.close();
+                    this.options.close();
+                    for (final ColumnFamilyOptions cfOptions : this.cfOptionsList) {
+                        cfOptions.close();
+                    }
+                    this.metaHandle.close();
+                    this.defHandle.close();
                 }
-                this.metaHandle.close();
-                this.defHandle.close();
             }
         }
     }
@@ -428,6 +434,23 @@ public class DB extends DBAbs {
         return binLog;
     }
 
+    public Sequence getSequence(String key) throws KitDBException {
+        DAssert.notEmpty(key, ErrorType.EMPTY, "key is Empty");
+        synchronized (sequenceMap) {
+            Sequence sequence = sequenceMap.get(key);
+            if (sequence == null) {
+                sequence = new Sequence(this, key.getBytes(charset));
+            }
+            return sequence;
+        }
+    }
+
+    public void removeSequence(String key) throws KitDBException {
+        DAssert.notEmpty(key, ErrorType.EMPTY, "key is Empty");
+        synchronized (sequenceMap) {
+            Sequence sequence = sequenceMap.remove(key);
+        }
+    }
 
     KeySegmentLockManager getKeySegmentLockManager() {
         return keySegmentLockManager;

@@ -44,8 +44,6 @@ public class KitRaft {
         NodeOptions nodeOptions = new NodeOptions();
 
         RaftOptions raftOptions = new RaftOptions();
-        raftOptions.setDisruptorBufferSize(16 * 16384);
-        raftOptions.setApplyBatch(128);
         raftOptions.setSync(false);
         nodeOptions.setRaftOptions(raftOptions);
 
